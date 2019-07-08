@@ -1,4 +1,5 @@
-# template-rust
+<!--- FIXME: Pick an emoji! --->
+# 🌻 template-rust
 
 <!--- FIXME: Update crate and repo names here! --->
 [![Build Status](https://travis-ci.com/EmbarkStudios/tame-oauth.svg?branch=master)](https://travis-ci.com/EmbarkStudios/tame-oauth)

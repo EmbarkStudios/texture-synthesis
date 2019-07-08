@@ -1,8 +1,12 @@
-# template
+# template-rust
 
+<!--- FIXME: Update crate and repo names here! --->
+[![Build Status](https://travis-ci.com/EmbarkStudios/tame-oauth.svg?branch=master)](https://travis-ci.com/EmbarkStudios/tame-oauth)
+[![Crates.io](https://img.shields.io/crates/v/tame-oauth.svg)](https://crates.io/crates/tame-oauth)
+[![Docs](https://docs.rs/tame-oauth/badge.svg)](https://docs.rs/tame-oauth)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-v1.4%20adopted-ff69b4.svg)](code-of-conduct.md)
 
-Template for creating new repositories
+Template for creating new Rust repositories
 
 ## License
 

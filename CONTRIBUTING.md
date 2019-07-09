@@ -52,7 +52,7 @@ You can read about our standards and recommendations for working with Rust [here
 
 ## Licensing
 
-Unless otherwise specified, all Embark open source projects are licensed under a dual MIT/Apache-2.0 license, allowing licensees to chose either at their option. You can read more in each project's respective README.
+Unless otherwise specified, all Embark open source projects are licensed under a dual MIT OR Apache-2.0 license, allowing licensees to chose either at their option. You can read more in each project's respective README.
 
 ## Code of Conduct
 

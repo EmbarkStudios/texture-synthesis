@@ -30,7 +30,13 @@ Issues will be closed and tagged as `wontfix` if we decide that we do not wish t
 
 ## Contribution Workflow
 
-If you want to make changes or add functionality to one of our projects, you can .......
+### Open Issues
+
+If you're ready to contribute, start by looking at our open issues tagged as [`help wanted`](../../issues?q=is%3Aopen+is%3Aissue+label%3A"help+wanted") or [`good first issue`](../../issues?q=is%3Aopen+is%3Aissue+label%3A"good+first+issue").
+
+You can comment on the issue to let others know you're interested in working on it or to ask questions.
+
+### Making Changes
 
 1. Fork the repository.
 

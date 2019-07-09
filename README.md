@@ -10,6 +10,12 @@
 
 Template for creating new Rust repositories
 
+## Contributing
+
+We welcome community contributions to this project.
+
+Please read our [Contributor Guide](CONTRIBUTING.md) for more information on how to get started.
+
 ## License
 
 Licensed under either of

@@ -4,7 +4,7 @@ Welcome! We're glad you're interested in contributing to our projects.
 
 We welcome contributions from people of all backgrounds who are interested in making great software with us.
 
-[TODO more background]
+At Embark, we aspire to empower everyone to create interactive experiences. To do this, we're exploring and pushing the boundaries of the latest technology, and sharing our learnings with the open source community. You can read more about our open source work at http://embark.rs.
 
 If you have ideas for collaboration, email us at opensource@embark-studios.com.
 
@@ -50,7 +50,7 @@ You can comment on the issue to let others know you're interested in working on 
 
 ## Code Guidelines
 
-You can read about our standards and recommendations for working with Rust [here](development-guidelines.md).
+You can read about our standards and recommendations for working with Rust [here](https://github.com/EmbarkStudios/rust-ecosystem/blob/master/guidelines.md).
 
 ## Licensing
 

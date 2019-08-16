@@ -46,6 +46,10 @@ You can comment on the issue to let others know you're interested in working on 
 
 5. A maintainer will review your pull request and may ask you to make changes.
 
+## Code Guidelines
+
+You can read about our standards and recommendations for working with Rust [here](https://github.com/EmbarkStudios/rust-ecosystem/blob/master/guidelines.md).
+
 ## Licensing
 
 Unless otherwise specified, all Embark open source projects are licensed under a dual MIT OR Apache-2.0 license, allowing licensees to chose either at their option. You can read more in each project's respective README.

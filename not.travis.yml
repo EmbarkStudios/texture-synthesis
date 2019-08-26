@@ -1,0 +1,179 @@
+# _chanting_ rust, Rust, RUst, RUSt, RUST
+language: rust
+
+stages:
+- test
+# Deploy stage on runs on a valid semver tag, regardless of branch
+- name: deploy
+  if: tag =~ /^\d+\.\d+\.\d+.*$/
+
+env:
+  global:
+  # We always want full stack traces in the event of a panic
+  - RUST_BACKTRACE=1
+
+# See http://www.garbers.co.za/2017/11/01/code-folding-and-timing-in-travis-ci/
+# this just allows us to give _somewhat_ better views of the build steps
+before_script:
+- export -f travis_nanoseconds
+- export -f travis_fold
+- export -f travis_time_start
+- export -f travis_time_finish
+
+matrix:
+  # We allow failures for the 'nightly' channel, but are ok with failures on 'beta'
+  allow_failures:
+  - env: NIGHTLY=1
+  fast_finish: true
+
+  include:
+  #  _      _       _   
+  # | |    (_)     | |  
+  # | |     _ _ __ | |_ 
+  # | |    | | '_ \| __|
+  # | |____| | | | | |_ 
+  # |______|_|_| |_|\__|
+
+  # 1. Ensure rustfmt does not produce diffs. We always use
+  # the default rustfmt settings.
+  # 2. Ensure there are no clippy warnings.
+  - name: "stable lint"
+    # We could use a lint stage here, but prefer to go wide
+    #
+    stage: test
+    rust: stable
+    os: linux
+    script: .ci/lint.sh
+
+  # We do the exact same checks on the beta channel, as both
+  # rustfmt and clippy can change their behavior between releases
+  # and introduce new diffs/lints compared to stable
+  - name: "beta lint"
+    stage: test
+    rust: beta
+    os: linux
+    script: .ci/lint.sh
+
+  #  _______        _   
+  # |__   __|      | |  
+  #    | | ___  ___| |_ 
+  #    | |/ _ \/ __| __|
+  #    | |  __/\__ \ |_ 
+  #    |_|\___||___/\__|
+
+  # Tests all platforms on stable
+  # and additionally running beta and nightly
+  # tests on Linux as Linux runs are generally
+  # faster in every aspect on Travis
+
+  - name: "stable test linux"
+    stage: test
+    rust: stable
+    os: linux
+    script: .ci/test.sh
+
+  - name: "beta test linux"
+    stage: test
+    rust: beta
+    os: linux
+    script: .ci/test.sh
+
+  - name: "nightly test linux"
+    stage: test
+    rust: nightly
+    script: .ci/test.sh
+    env:
+    # We set this environment variable to indicate it is ok if this job fails
+    - NIGHTLY=1
+
+  - name: "stable test osx"
+    rust: stable
+    os: osx
+    script: .ci/test.sh
+
+  - name: "stable test windows"
+    rust: stable
+    os: windows
+    script: .ci/test.sh
+
+  # Add more testing stages if you have them!
+
+  #  _____       _     _ _     _     
+  # |  __ \     | |   | (_)   | |    
+  # | |__) |   _| |__ | |_ ___| |__  
+  # |  ___/ | | | '_ \| | / __| '_ \ 
+  # | |   | |_| | |_) | | \__ \ | | |
+  # |_|    \__,_|_.__/|_|_|___/_| |_|
+
+  # Publish a release to crates.io. The only
+  # thing you need to do is to is change the repo
+  # below, and provide the output of the `travis encrypt <crates_io_token>`
+  # in the deploy.token.secure value. Note that you will
+  # need to encrypt the same key for different repos, you
+  # can't just copy the value from another repo.
+  - stage: deploy
+    rust: stable
+    os: linux
+    script: echo "deploying $TRAVIS_TAG to crates.io"
+    deploy:
+      provider: cargo
+      token:
+        secure: <SEKRET>
+      on:
+        repo: EmbarkStudios/$REPO_NAME
+        tags: true
+
+  # Keep these step if you want to publish tarballed releases to Github.
+  # Generally, this will only make sense for binary crates, so normally
+  # you will want to remove them. If you do, you can also remove the
+  # .ci/prep_deploy and .ci/checksum.ps1
+
+  - name: "publish x86_64-unknown-linux-musl"
+    stage: deploy
+    rust: stable
+    os: linux
+    env:
+    - DEPLOY=1
+    - TARGET=x86_64-unknown-linux-musl
+    script:
+    - .ci/install_musl.sh
+    - .ci/prep_deploy.sh
+
+  - name: "publish x86_64-pc-windows-msvc"
+    stage: deploy
+    os: windows
+    env:
+    - DEPLOY=1
+    - TARGET=x86_64-pc-windows-msvc
+    # Override Travis' rust version, we don't want the gnu default
+    # caused Travis running in bash, the normal Travis Rust install
+    # process will pick up this environment variable
+    - TRAVIS_RUST_VERSION=stable-x86_64-pc-windows-msvc
+    script:
+    - .ci/prep_deploy.sh
+
+  - name: "publish x86_64-apple-darwin"
+    stage: deploy
+    rust: stable
+    os: osx
+    env:
+    - DEPLOY=1
+    - TARGET=x86_64-apple-darwin
+    script:
+    - .ci/prep_deploy.sh
+
+# Just as with the crates.io publish step, you will need
+# to encrypt your API key with `travis encrypt <github_token>` and
+# place it in the deploy.api_key.secure value
+deploy:
+- provider: releases
+  api_key:
+    secure: <SEKRET>
+  file:
+  - $REPO_NAME-$TRAVIS_TAG-$TARGET.tar.gz
+  - $REPO_NAME-$TRAVIS_TAG-$TARGET.tar.gz.sha256
+  skip_cleanup: true
+  on:
+    condition: $DEPLOY = 1
+    repo: EmbarkStudios/$REPO_NAME
+    tags: true

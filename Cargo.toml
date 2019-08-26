@@ -13,7 +13,7 @@ license = "MIT OR Apache-2.0"
 readme = "README.md"
 documentation = "https://docs.rs/texture-synthesis"
 homepage = "https://github.com/EmbarkStudios/texture-synthesis"
-categories = ["multimedia"]
+categories = ["multimedia::images"]
 keywords = ["texture", "synthesis", "procedural"]
 
 # We don't want the example images in the publish crate

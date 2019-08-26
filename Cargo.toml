@@ -1,12 +1,27 @@
 [package]
 name = "texture-synthesis"
+description = ""
+repository = "https://github.com/EmbarkStudios/texture-synthesis"
 version = "0.1.0"
-authors = ["anastasia opara <anastasiaopara@gmail.com>, tomasz stachowiak <h3@h3.gd>"]
+authors = [
+    "Embark <opensource@embark-studios.com>",
+    "anastasia opara <anastasiaopara@gmail.com>",
+    "tomasz stachowiak <h3@h3.gd>",
+]
 edition = "2018"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+documentation = "https://docs.rs/texture-synthesis"
+homepage = "https://github.com/EmbarkStudios/texture-synthesis"
+categories = ["multimedia"]
+keywords = ["texture", "synthesis", "procedural"]
+
+# We don't want the example images in the publish crate
+exclude = ["/imgs"]
 
 [[bin]]
-name="texture-synthesis"
-path="src/cmd.rs"
+name = "texture-synthesis"
+path = "src/cmd.rs"
 
 [dependencies]
 image = "0.20.1"

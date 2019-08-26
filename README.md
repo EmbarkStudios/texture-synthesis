@@ -9,7 +9,7 @@
 
 A light API for Multiresolution Stochastic Texture Synthesis [1], a non-parametric example-based algorithm for image generation. 
 
-The repo also includes multiple code examples to get you started (along with test images), and you can find a compiled binary with a command line interface under release tab.
+The repo also includes multiple code examples to get you started (along with test images), and you can find a compiled binary with a command line interface under the release tab.
 
 ## Features and examples
 
@@ -38,8 +38,8 @@ fn main() {
 ```
 This code snippet can be found in `examples/01_single_example_synthesis.rs`
 
-To replicate this example with the commandline binary run: 
-`texture_synthesis_cmd.exe --examples imgs/1.jpg --save out/01.jpg`
+To replicate this example with the command line binary run: 
+`texture_synthesis.exe --examples imgs/1.jpg --save out/01.jpg`
 
 ### 2. Multi example generation
 
@@ -82,8 +82,8 @@ fn main() {
 ```
 This code snippet can be found in `examples/02_multi_example_synthesis.rs`
 
-To replicate this example with the commandline binary run: 
-`texture_synthesis_cmd.exe --examples imgs/multiexample/1.jpg,imgs/multiexample/2.jpg,imgs/multiexample/3.jpg,imgs/multiexample/4.jpg --rand-init 10 --in-size 300x300 --save out/02.jpg --debug-maps`
+To replicate this example with the command line binary run: 
+`texture_synthesis.exe --examples imgs/multiexample/1.jpg,imgs/multiexample/2.jpg,imgs/multiexample/3.jpg,imgs/multiexample/4.jpg --rand-init 10 --in-size 300x300 --save out/02.jpg --debug-maps`
 
 ### 3. Guided Synthesis
 
@@ -120,8 +120,8 @@ fn main() {
 ```
 This code snippet can be found in `examples/03_guided_synthesis.rs`
 
-To replicate this example with the commandline binary run:
-`texture_synthesis_cmd.exe --examples imgs/2.jpg --example-guide imgs/masks/2_example.jpg --target-guide imgs/masks/2_target.jpg --save out/03.jpg`
+To replicate this example with the command line binary run:
+`texture_synthesis.exe --examples imgs/2.jpg --example-guide imgs/masks/2_example.jpg --target-guide imgs/masks/2_target.jpg --save out/03.jpg`
 
 ### 4. Style Transfer
 
@@ -153,8 +153,8 @@ fn main() {
 ```
 This code snippet can be found in `examples/04_style_transfer.rs`
 
-To replicate this example with the commandline binary run:
-`texture_synthesis_cmd.exe --examples imgs/multiexample/4.jpg --target-guide imgs/tom.jpg --alpha 0.8 --save out/04.jpg`
+To replicate this example with the command line binary run:
+`texture_synthesis.exe --examples imgs/multiexample/4.jpg --target-guide imgs/tom.jpg --alpha 0.8 --save out/04.jpg`
 
 ### 5. Inpaint
 
@@ -192,8 +192,8 @@ fn main() {
 ```
 This code snippet can be found in `examples/05_inpaint.rs`
 
-To replicate this example with the commandline binary run:
-`texture_synthesis_cmd.exe --examples imgs/3.jpg --inpaint imgs/masks/3_inpaint.jpg --sample-masks imgs/masks/3_inpaint.jpg --in-size 400x400 --out-size 400x400 --save out/05.jpg`
+To replicate this example with the command line binary run:
+`texture_synthesis.exe --examples imgs/3.jpg --inpaint imgs/masks/3_inpaint.jpg --sample-masks imgs/masks/3_inpaint.jpg --in-size 400x400 --out-size 400x400 --save out/05.jpg`
 
 ### 6. Tiling texture
 
@@ -233,8 +233,8 @@ fn main() {
 ```
 This code snippet can be found in `examples/06_tiling_texture.rs`
 
-To replicate this example with the commandline binary run:
-`texture_synthesis_cmd.exe --examples imgs/1.jpg --inpaint imgs/masks/1_tile.jpg --sample-masks imgs/masks/1_tile.jpg --in-size 400x400 --out-size 400x400 --tiling --save out/06.jpg`
+To replicate this example with the command line binary run:
+`texture_synthesis.exe --examples imgs/1.jpg --inpaint imgs/masks/1_tile.jpg --sample-masks imgs/masks/1_tile.jpg --in-size 400x400 --out-size 400x400 --tiling --save out/06.jpg`
 
 ### 7. Combining texture synthesis 'verbs'
 
@@ -249,11 +249,11 @@ Or chaining multiple stages of generation together:
 ## Command line binary
 
 Instruction on how to use:
-* download the repo
+* download the binary from the release tab (alternatively, you can compile it yourself. the source is in `src\cmd.rs`)
 * open the terminal (on windows: search for `cmd`)
-* navigate to the folder containing the `texture_synthesis_cmd.exe` (for ex: cd C:\Downloads\texture-synthesis)
-* run `texture_synthesis_cmd.exe --help` (this will give you a list of all commands you can run)
-* refer to the examples section in this readme for examples on running the binary
+* navigate to the folder containing the `texture_synthesis.exe` (for ex: cd C:\Downloads\texture-synthesis)
+* run `texture_synthesis.exe --help` (this will give you a list of all commands you can run)
+* refer to the examples section in this readme for examples of running the binary
 
 ## Limitations
 * Struggles with complex semantics beyond pixel color (unless you guide it)

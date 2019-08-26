@@ -1,8 +1,6 @@
-extern crate texture_synthesis;
-
 fn main() {
     //create a new session
-    let mut texsynth = texture_synthesis::Session::default()
+    let mut texsynth = texture_synthesis::Session::new()
         //load a "corrupted" example with missing red information we would like to fill in
         .load_examples(&vec!["imgs/3.jpg"])
         //let the generator know which part we would like to fill in

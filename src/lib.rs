@@ -116,7 +116,7 @@ impl Parameters {
 /// Session follows a "builder pattern" for defining parameters, meaning you chain functions together.
 /// # Example
 /// ```no_run
-/// let mut tex_synth = texture_synthesis::Session::default()
+/// let mut tex_synth = texture_synthesis::Session::new()
 ///                 .seed(10)
 ///                 .tiling_mode(true)
 ///                 .load_examples(&vec![imgs/1.jpg]);
@@ -131,6 +131,11 @@ pub struct Session {
 }
 
 impl Session {
+    /// Creates a new session with default parameters.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     /// Loads example image(s) from which generator will synthesize a new image.
     ///
     /// See [example files](https://github.com/EmbarkStudios/texture-synthesis/tree/master/examples): `examples/01_single_example_synthesis.rs` and `examples/02_single_example_synthesis.rs`.
@@ -140,9 +145,9 @@ impl Session {
     /// use texture_synthesis::Session;
     ///
     /// //single example generation
-    /// let tex_synth = Session::default().load_examples(&vec!["imgs/1.jpg"]);
+    /// let tex_synth = Session::new().load_examples(&vec!["imgs/1.jpg"]);
     /// //multi example generation
-    /// let tex_synth = Session::default().load_examples(&vec!["imgs/1.jpg", "imgs/2.jpg"]);
+    /// let tex_synth = Session::new().load_examples(&vec!["imgs/1.jpg", "imgs/2.jpg"]);
     /// ```
     pub fn load_examples(mut self, paths: &[&str]) -> Self {
         self.img_paths.examples = Some(paths.to_vec().iter().map(|a| String::from(*a)).collect());
@@ -176,7 +181,7 @@ impl Session {
     ///
     /// # Example
     /// ```no_run
-    /// let tex_synth = texture_synthesis::Session::default()
+    /// let tex_synth = texture_synthesis::Session::new()
     ///                 .load_examples(&vec!["imgs/1.jpg", "imgs/2.jpg", "imgs/3.jpg"])
     ///                 .load_sampling_masks(&vec!["None", "masks/2.jpg", "None"]);
     /// ```
@@ -203,7 +208,7 @@ impl Session {
     ///
     /// # Example
     /// ```no_run
-    /// let tex_synth = texture_synthesis::Session::default()
+    /// let tex_synth = texture_synthesis::Session::new()
     ///                 .load_examples(&vec!["imgs/1.jpg", "imgs/2.jpg", "imgs/3.jpg"])
     ///                 .inpaint_example("masks/inpaint.jpg", 0) //this will inpaint "imgs/1.jpg" example
     ///                 .inpaint_example("masks/inpaint.jpg", 1) //this will inpaint "imgs/2.jpg" example

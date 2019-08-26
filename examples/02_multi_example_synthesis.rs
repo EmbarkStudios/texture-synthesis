@@ -1,8 +1,6 @@
-extern crate texture_synthesis;
-
 fn main() {
     //create a new session
-    let mut texsynth = texture_synthesis::Session::default()
+    let mut texsynth = texture_synthesis::Session::new()
         //load multiple example image
         .load_examples(&vec![
             "imgs/multiexample/1.jpg",

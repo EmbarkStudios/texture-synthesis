@@ -74,6 +74,7 @@ matrix:
     os: linux
     script: .ci/test.sh
 
+  # 
   # - name: "nightly test linux"
   #   stage: test
   #   rust: nightly

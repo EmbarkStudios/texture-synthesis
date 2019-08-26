@@ -263,7 +263,7 @@ Instruction on how to use:
 
 ## Links/references
 
-[1] [Opara & Stachowiak] ["More Like This, Please! Texture Synthesis and Remixing from a Single Example | Nordic Game 2019"](https://youtu.be/fMbK7PYQux4)
+[1] [Opara & Stachowiak] ["More Like This, Please! Texture Synthesis and Remixing from a Single Example"](https://youtu.be/fMbK7PYQux4)
 
 [2] [Harrison] Image Texture Tools
 

@@ -263,17 +263,17 @@ Instruction on how to use:
 
 ## Links/references
 
-[1] [Opara '19] ["More Like This, Please! Texture Synthesis and Remixing from a Single Example | Nordic Game 2019"](https://youtu.be/fMbK7PYQux4)
+[1] [Opara & Stachowiak] ["More Like This, Please! Texture Synthesis and Remixing from a Single Example | Nordic Game 2019"](https://youtu.be/fMbK7PYQux4)
 
-[2] [Harrison '05] Image Texture Tools
+[2] [Harrison] Image Texture Tools
 
-[3] [Ashikhmin ‘01] Synthesizing Natural Textures
+[3] [Ashikhmin] Synthesizing Natural Textures
 
-[4] [Efros & Leung ‘99] Texture Synthesis by Non-parametric Sampling
+[4] [Efros & Leung] Texture Synthesis by Non-parametric Sampling
 
-[5] [Wey & Levoy ‘00] Fast Texture Synthesis using Tree-structured Vector Quantization
+[5] [Wey & Levoy] Fast Texture Synthesis using Tree-structured Vector Quantization
 
-[6] [De Bonet ‘97] Multiresolution Sampling Procedure for Analysis and Synthesis of Texture Images
+[6] [De Bonet] Multiresolution Sampling Procedure for Analysis and Synthesis of Texture Images
 
 [7] All the test images in this repo are from [Unsplash](https://unsplash.com/)
 

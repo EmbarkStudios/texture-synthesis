@@ -1,7 +1,6 @@
 extern crate texture_synthesis;
 
 fn main() {
-
     //let's start layering some of the "verbs" of texture synthesis
     //if we just run tiling_mode(true) we will generate a completely new image from scratch (try it!)
     //but what if we want to tile an existing image?

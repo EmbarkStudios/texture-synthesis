@@ -1,0 +1,19 @@
+[package]
+name = "texture-synthesis"
+version = "0.1.0"
+authors = ["anastasia opara <anastasiaopara@gmail.com>, tomasz stachowiak <h3@h3.gd>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+image = "0.20.1"
+lodepng = "2.4.2"
+rand = "0.6.4"
+rand_pcg = "0.1.1"
+piston_window = "0.85.0"
+rstar = "0.2.0"
+crossbeam-utils = "0.6"
+num_cpus = "1.9.0"
+clap = "2.32.0"
+modulo = "0.1.2"

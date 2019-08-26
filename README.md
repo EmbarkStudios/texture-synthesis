@@ -2,9 +2,9 @@
 # 🌻 template-rust
 
 <!--- FIXME: Update crate and repo names here! --->
-[![Build Status](https://travis-ci.com/EmbarkStudios/tame-oauth.svg?branch=master)](https://travis-ci.com/EmbarkStudios/tame-oauth)
-[![Crates.io](https://img.shields.io/crates/v/tame-oauth.svg)](https://crates.io/crates/tame-oauth)
-[![Docs](https://docs.rs/tame-oauth/badge.svg)](https://docs.rs/tame-oauth)
+[![Build Status](https://travis-ci.com/EmbarkStudios/texture-synthesis.svg?branch=master)](https://travis-ci.com/EmbarkStudios/texture-synthesis)
+[![Crates.io](https://img.shields.io/crates/v/texture-synthesis.svg)](https://crates.io/crates/texture-synthesis)
+[![Docs](https://docs.rs/texture-synthesis/badge.svg)](https://docs.rs/texture-synthesis)
 [![Contributor Covenant](https://img.shields.io/badge/contributor%20covenant-v1.4%20adopted-ff69b4.svg)](CODE_OF_CONDUCT.md)
 [![Embark](https://img.shields.io/badge/embark-open%20source-blueviolet.svg)](http://embark.games)
 

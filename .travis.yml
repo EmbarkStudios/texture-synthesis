@@ -20,9 +20,6 @@ before_script:
 - export -f travis_time_finish
 
 matrix:
-  # We allow failures for the 'nightly' channel, but are ok with failures on 'beta'
-  allow_failures:
-  - env: NIGHTLY=1
   fast_finish: true
 
   include:
@@ -77,13 +74,10 @@ matrix:
     os: linux
     script: .ci/test.sh
 
-  - name: "nightly test linux"
-    stage: test
-    rust: nightly
-    script: .ci/test.sh
-    env:
-    # We set this environment variable to indicate it is ok if this job fails
-    - NIGHTLY=1
+  # - name: "nightly test linux"
+  #   stage: test
+  #   rust: nightly
+  #   script: .ci/test.sh
 
   - name: "stable test osx"
     rust: stable

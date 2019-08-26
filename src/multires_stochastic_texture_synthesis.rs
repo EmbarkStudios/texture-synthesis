@@ -156,7 +156,7 @@ pub struct Generator {
 impl Generator {
     pub fn new(size: (u32, u32)) -> Self {
         let s = (size.0 as usize) * (size.1 as usize);
-        let unresolved: Vec<CoordFlat> = (0..(s as u32)).map(|a| CoordFlat(a)).collect();
+        let unresolved: Vec<CoordFlat> = (0..(s as u32)).map(CoordFlat).collect();
         Self {
             color_map: image::RgbaImage::new(size.0, size.1),
             coord_map: vec![(Coord2D::from(0, 0), MapId(0)); s],
@@ -974,6 +974,7 @@ fn better_match(
     let mut score: f32 = 0.0; //minimize score
     let variance = 0.5;
 
+    #[allow(clippy::needless_range_loop)]
     for i in 0..my_pattern.0.len() {
         let dist_gaussian = (-0.5 * (distances[i] / variance)).exp() as f32;
 

@@ -2,11 +2,11 @@ extern crate texture_synthesis;
 
 fn main() {
     //create a new session
-    let mut texsynth = texture_synthesis::Session::new()
+    let mut texsynth = texture_synthesis::Session::default()
         //load a "corrupted" example with missing red information we would like to fill in
         .load_examples(&vec!["imgs/3.jpg"])
         //let the generator know which part we would like to fill in
-        //since we only have one example, we put 0 in the example_id 
+        //since we only have one example, we put 0 in the example_id
         //if we had more example, we could specify the index of which one to inpaint
         //then the rest of example would be additional information the generator could use to inpaint
         .inpaint_example("imgs/masks/3_inpaint.jpg", 0)

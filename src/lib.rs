@@ -115,14 +115,15 @@ impl Parameters {
 ///
 /// Session follows a "builder pattern" for defining parameters, meaning you chain functions together.
 /// # Example
-/// ```
-/// let tex_synth = Session::new()
+/// ```no_run
+/// let mut tex_synth = texture_synthesis::Session::default()
 ///                 .seed(10)
 ///                 .tiling_mode(true)
 ///                 .load_examples(&vec![imgs/1.jpg]);
 /// let generated_img = tex_synth.run().unwrap();
 /// tex_synth.save("my_generated_img.jpg").unwrap();
 /// ```
+#[derive(Default)]
 pub struct Session {
     img_paths: ImagePaths,
     params: Parameters,
@@ -130,25 +131,18 @@ pub struct Session {
 }
 
 impl Session {
-    /// Creates a new session with default parameters.
-    pub fn new() -> Self {
-        Session {
-            img_paths: ImagePaths::default(),
-            params: Parameters::default(),
-            generator: None,
-        }
-    }
-
     /// Loads example image(s) from which generator will synthesize a new image.
     ///
     /// See [example files](https://github.com/EmbarkStudios/texture-synthesis/tree/master/examples): `examples/01_single_example_synthesis.rs` and `examples/02_single_example_synthesis.rs`.
     ///
     /// # Example
-    /// ```
+    /// ```no_run
+    /// use texture_synthesis::Session;
+    ///
     /// //single example generation
-    /// let tex_synth = Session::new().load_examples(&vec!["imgs/1.jpg"]);
+    /// let tex_synth = Session::default().load_examples(&vec!["imgs/1.jpg"]);
     /// //multi example generation
-    /// let tex_synth = Session::new().load_examples(&vec!["imgs/1.jpg", "imgs/2.jpg"]);
+    /// let tex_synth = Session::default().load_examples(&vec!["imgs/1.jpg", "imgs/2.jpg"]);
     /// ```
     pub fn load_examples(mut self, paths: &[&str]) -> Self {
         self.img_paths.examples = Some(paths.to_vec().iter().map(|a| String::from(*a)).collect());
@@ -181,10 +175,10 @@ impl Session {
     /// See [example files](https://github.com/EmbarkStudios/texture-synthesis/tree/master/examples): `examples/05_inpaint.rs` and `examples/06_tiling_texture.rs`.
     ///
     /// # Example
-    /// ```
-    /// let tex_synth = Session::new()
+    /// ```no_run
+    /// let tex_synth = texture_synthesis::Session::default()
     ///                 .load_examples(&vec!["imgs/1.jpg", "imgs/2.jpg", "imgs/3.jpg"])
-    ///                 .load_sampling_masks(&vec["None", "masks/2.jpg", "None"]);
+    ///                 .load_sampling_masks(&vec!["None", "masks/2.jpg", "None"]);
     /// ```
     pub fn load_sampling_masks(mut self, paths: &[&str]) -> Self {
         self.img_paths.sampling_masks = Some(
@@ -208,11 +202,11 @@ impl Session {
     /// See [example file](https://github.com/EmbarkStudios/texture-synthesis/tree/master/examples): `examples/05_inpaint.rs`.
     ///
     /// # Example
-    /// ```
-    /// let tex_synth = Session::new()
+    /// ```no_run
+    /// let tex_synth = texture_synthesis::Session::default()
     ///                 .load_examples(&vec!["imgs/1.jpg", "imgs/2.jpg", "imgs/3.jpg"])
-    ///                 .inpaint_example("masks/inpaint.jpg", 0); //this will inpaint "imgs/1.jpg" example
-    ///                 .inpaint_example("masks/inpaint.jpg", 1); //this will inpaint "imgs/2.jpg" example
+    ///                 .inpaint_example("masks/inpaint.jpg", 0) //this will inpaint "imgs/1.jpg" example
+    ///                 .inpaint_example("masks/inpaint.jpg", 1) //this will inpaint "imgs/2.jpg" example
     ///                 .load_sampling_masks(&vec!["None", "masks/black.jpg", "None"]); //this will prevent any sampling from "imgs/2.jpg" example
     /// ```
     pub fn inpaint_example(mut self, inpaint_mask: &str, example_id: u32) -> Self {
@@ -371,10 +365,10 @@ impl Session {
         if let Some(ref generator) = self.generator {
             Ok(save_image(&String::from(path), &generator.color_map)?)
         } else {
-            return Err(Box::new(std::io::Error::new(
+            Err(Box::new(std::io::Error::new(
                 std::io::ErrorKind::Interrupted,
                 "Nothing to save. Make sure to run your session",
-            )));
+            )))
         }
     }
 
@@ -391,10 +385,10 @@ impl Session {
             id_maps[1].save(Path::new(&parent_path.join("map_id.png")))?;
             Ok(())
         } else {
-            return Err(Box::new(std::io::Error::new(
+            Err(Box::new(std::io::Error::new(
                 std::io::ErrorKind::Interrupted,
                 "Nothing to save. Make sure to run your session before saving",
-            )));
+            )))
         }
     }
 
@@ -411,11 +405,11 @@ impl Session {
 
     fn load_single_as_pyramid(
         &self,
-        path: &String,
+        path: &str,
         resize: &Option<(u32, u32)>,
     ) -> Result<ImagePyramid, Box<dyn Error>> {
         Ok(self
-            .load_multiple_as_pyramid(&[path.clone()], resize)?
+            .load_multiple_as_pyramid(&[path.to_owned()], resize)?
             .pop()
             .unwrap())
     }
@@ -438,12 +432,9 @@ impl Session {
         )
     }
 
-    fn load_and_preprocess_target_guide(
-        &self,
-        path: &String,
-    ) -> Result<ImagePyramid, Box<dyn Error>> {
+    fn load_and_preprocess_target_guide(&self, path: &str) -> Result<ImagePyramid, Box<dyn Error>> {
         Ok(ImagePyramid::new(
-            &load_images_as_guide_maps(&[path.clone()], &Some(self.params.output_size), 2.0)?
+            &load_images_as_guide_maps(&[path.to_owned()], &Some(self.params.output_size), 2.0)?
                 .pop()
                 .unwrap(),
             Some(self.params.backtrack_stages as u32),

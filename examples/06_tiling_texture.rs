@@ -1,14 +1,13 @@
 extern crate texture_synthesis;
 
 fn main() {
-
     //let's start layering some of the "verbs" of texture synthesis
     //if we just run tiling_mode(true) we will generate a completely new image from scratch (try it!)
     //but what if we want to tile an existing image?
     //we can use inpaint!
 
     //create a new session
-    let mut texsynth = texture_synthesis::Session::new()
+    let mut texsynth = texture_synthesis::Session::default()
         //load an image we want to tile
         .load_examples(&vec!["imgs/1.jpg"])
         //load a mask that specifies borders of the image we can modify to make it tiling

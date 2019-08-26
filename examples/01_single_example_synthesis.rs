@@ -2,7 +2,7 @@ extern crate texture_synthesis;
 
 fn main() {
     //create a new session
-    let mut texsynth = texture_synthesis::Session::new()
+    let mut texsynth = texture_synthesis::Session::default()
         //load a single example image
         .load_examples(&vec!["imgs/1.jpg"]);
     //generate an image

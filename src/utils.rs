@@ -2,7 +2,7 @@ use std::error::Error;
 use std::path::Path;
 
 pub fn load_image(
-    path: &String,
+    path: &str,
     resize: &Option<(u32, u32)>,
 ) -> Result<image::RgbaImage, Box<dyn Error>> {
     let img = image::open(path)?;
@@ -25,7 +25,7 @@ pub fn load_image_multiple(
         .collect::<Result<Vec<image::RgbaImage>, Box<dyn Error>>>()
 }
 
-pub fn save_image(path: &String, image: &image::RgbaImage) -> Result<(), Box<dyn Error>> {
+pub fn save_image(path: &str, image: &image::RgbaImage) -> Result<(), Box<dyn Error>> {
     let path = Path::new(&path);
     if let Some(parent_path) = path.parent() {
         std::fs::create_dir_all(&parent_path)?;
@@ -61,11 +61,10 @@ pub fn get_histogram(a: &[u8]) -> Vec<u32> {
     let mut hist = vec![0; 256]; //0-255 incl
 
     //populate the hist
-    for i in 0..a.len() {
+    for (i, pixel_value) in a.iter().enumerate() {
         //since RGBA image, we only care for 1st channel
         if i % 4 == 0 {
-            let pixel_value = a[i];
-            hist[pixel_value as usize] += 1; //increment histogram by 1
+            hist[*pixel_value as usize] += 1; //increment histogram by 1
         }
     }
 

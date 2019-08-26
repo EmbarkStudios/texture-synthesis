@@ -39,7 +39,7 @@ fn main() {
 This code snippet can be found in `examples/01_single_example_synthesis.rs`
 
 To replicate this example with the commandline binary run: 
-`texture_synthesis_cmd.exe --example imgs/1.jpg --save out/01.jpg --debug-maps None`
+`texture_synthesis_cmd.exe --examples imgs/1.jpg --save out/01.jpg`
 
 ### 2. Multi example generation
 
@@ -83,7 +83,7 @@ fn main() {
 This code snippet can be found in `examples/02_multi_example_synthesis.rs`
 
 To replicate this example with the commandline binary run: 
-`texture_synthesis_cmd.exe --example imgs/multiexample/1.jpg,imgs/multiexample/2.jpg,imgs/multiexample/3.jpg,imgs/multiexample/4.jpg --rand-init 10 --in-size 300x300 --save out/02.jpg`
+`texture_synthesis_cmd.exe --examples imgs/multiexample/1.jpg,imgs/multiexample/2.jpg,imgs/multiexample/3.jpg,imgs/multiexample/4.jpg --rand-init 10 --in-size 300x300 --save out/02.jpg --debug-maps`
 
 ### 3. Guided Synthesis
 
@@ -121,7 +121,7 @@ fn main() {
 This code snippet can be found in `examples/03_guided_synthesis.rs`
 
 To replicate this example with the commandline binary run:
-`texture_synthesis_cmd.exe --example imgs/2.jpg --example-guide imgs/masks/2_example.jpg --target-guide imgs/masks/2_target.jpg --save out/03.jpg --debug-maps None`
+`texture_synthesis_cmd.exe --examples imgs/2.jpg --example-guide imgs/masks/2_example.jpg --target-guide imgs/masks/2_target.jpg --save out/03.jpg`
 
 ### 4. Style Transfer
 
@@ -154,7 +154,7 @@ fn main() {
 This code snippet can be found in `examples/04_style_transfer.rs`
 
 To replicate this example with the commandline binary run:
-`texture_synthesis_cmd.exe --example imgs/multiexample/4.jpg --target-guide imgs/tom.jpg --alpha 0.8 --save out/04.jpg --debug-maps None`
+`texture_synthesis_cmd.exe --examples imgs/multiexample/4.jpg --target-guide imgs/tom.jpg --alpha 0.8 --save out/04.jpg`
 
 ### 5. Inpaint
 
@@ -193,7 +193,7 @@ fn main() {
 This code snippet can be found in `examples/05_inpaint.rs`
 
 To replicate this example with the commandline binary run:
-`texture_synthesis_cmd.exe --example imgs/3.jpg --inpaint imgs/masks/3_inpaint.jpg --in-size 400x400 --out-size 400x400 --save out/05.jpg --debug-maps None`
+`texture_synthesis_cmd.exe --examples imgs/3.jpg --inpaint imgs/masks/3_inpaint.jpg --sample-masks imgs/masks/3_inpaint.jpg --in-size 400x400 --out-size 400x400 --save out/05.jpg`
 
 ### 6. Tiling texture
 
@@ -234,7 +234,7 @@ fn main() {
 This code snippet can be found in `examples/06_tiling_texture.rs`
 
 To replicate this example with the commandline binary run:
-`texture_synthesis_cmd.exe --example imgs/1.jpg --inpaint imgs/masks/1_tile.jpg --in-size 400x400 --out-size 400x400 --tile true --save out/06.jpg --debug-maps None`
+`texture_synthesis_cmd.exe --examples imgs/1.jpg --inpaint imgs/masks/1_tile.jpg --sample-masks imgs/masks/1_tile.jpg --in-size 400x400 --out-size 400x400 --tiling --save out/06.jpg`
 
 ### 7. Combining texture synthesis 'verbs'
 

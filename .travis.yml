@@ -1,4 +1,3 @@
-# _chanting_ rust, Rust, RUst, RUSt, RUST
 language: rust
 
 stages:
@@ -118,9 +117,9 @@ matrix:
     deploy:
       provider: cargo
       token:
-        secure: <SEKRET>
+        secure: U99oK6NAfWPVVEsfpRs7KuThLcxS7joqiHm3wut1fdHnVvqm3OKpKFIfMdi4wcm+EfjWbY1zTHTsznGREjWTGVm5yiQf/Jn5k/W2Fw41ZYAwEWlGYB/1QkHhGyLOoW7dO82uhJ0rvQIRBlW3Dlaly5pZcuIpcDxSmxxZgnABj2QVbmOLF8rPVYMQ98KZKSJ3R697yfJhcvNiEwqbebdG09x3rjuGys7PIl15G+K/js2B1QEadI7vn+9wiRnU1Pl+GU/B4yqYB4itbE/NR7I6kDRXuzcHAyHSVHVuP4bSSzMZlhP1fb1BrXpvabK3gTFz/B2FOfgzc68D2UlDYjrB4vIUdPL7uwUjy36kfYsZI9ORpYHmnVZJkgxPpQJKDG/deT5F7/i/dkIhNzI8ndtwAwCbQVGdY6v0W/ItGTu0OvyuVI+LPMdRBOS1NNEc8VnNoBSgCmddkZhAKceIG4F5otSL+rXfXKS5+SeVXJOU+oGfTmhahI+iQyujDUePWzO/vNQBRFt2TnWpzOrGeBwWvhG6on4f2cpDCkuBApd4F132aLnlqQjWVWJwfvWQCsYHOL4Eeqf+ZuE2W8tes+ePtkdQIQVo9W3trHLPQksK7ZQi35+mh5+YVe6N44rD0MyY7gcOeQFnT3haJiCZys+ylR13o7GqSxJ8w3r/yMI1yyE=
       on:
-        repo: EmbarkStudios/$REPO_NAME
+        repo: EmbarkStudios/texture-synthesis
         tags: true
 
   # Keep these step if you want to publish tarballed releases to Github.
@@ -168,12 +167,12 @@ matrix:
 deploy:
 - provider: releases
   api_key:
-    secure: <SEKRET>
+    secure: Bl70Wlwi1dueZY159tMygxbPri7t5LHDUnuTzOvuf/gUFHls0e2LvVeWI0QTF+MEEP+bzdbzkGxnNWfzL4jQYOhDEqInPFEfebwMFQ3tLn0rFm2Pz0oaAcSg4viYY7vBnFcVoxh9VvN/Elc51xD0ovCpqfIwX2U4KwgQyCZ0zJRZ1PAbzZR9lm4tGmqu4Wv/dUNxwCIO/BLxPRPdc3idowf7HTESIGdaq/2v7Lqp0WUT4Thn8ueN7GdDRGIMGs4TXIlvi1cZ9Hp1nLjpvUMiNw4ydwCkOeIMMA8HnwO0zCkvxgqL79IBSHFOQf+uMYH8orW4En+BHA3iBzlJJCUzJ1Djrlkl8Bb+0NvwwPVrG0rhtfhjuoHA00xp9AgNfCGVua4NDPt5ECrTWKE34qD+qCS6owd3CxLvgL+anT7g54GndEmTfBuPfCEOsQ2Darf4jI8eJFtQh0bFjuKbVwiuGOT16d9I//q4Jlf6wliq0qRLkkxnyQRDY0g+gYRWWa5DES1/t7JFu9iNc2EbGDuzKp33x8T8+ovgdvO+dS+JzRFjp3PbPa7Ntl8WsuzNAyk14TcOzKIvKQAe5xLotDLrou/2mt8LvuA6LsiXHsfjdMCKuwKFlZ254/h/uTmp+uiNCTyAK+eICXObePhqEH5zO3BZoz43M9UrftynixyLkL4=
   file:
-  - $REPO_NAME-$TRAVIS_TAG-$TARGET.tar.gz
-  - $REPO_NAME-$TRAVIS_TAG-$TARGET.tar.gz.sha256
+  - texture-synthesis-$TRAVIS_TAG-$TARGET.tar.gz
+  - texture-synthesis-$TRAVIS_TAG-$TARGET.tar.gz.sha256
   skip_cleanup: true
   on:
     condition: $DEPLOY = 1
-    repo: EmbarkStudios/$REPO_NAME
+    repo: EmbarkStudios/texture-synthesis
     tags: true

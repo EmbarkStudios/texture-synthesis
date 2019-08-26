@@ -19,7 +19,7 @@ travis_fold end "cargo.build"
 
 travis_fold start "package.release"
     travis_time_start
-        name="$REPO_NAME"
+        name="texture-synthesis"
         release_name="$name-$TRAVIS_TAG-$TARGET"
         mkdir "$release_name"
 

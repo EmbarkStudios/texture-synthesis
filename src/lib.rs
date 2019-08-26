@@ -16,14 +16,14 @@
 //!
 //! # Usage
 //! Session follows a "builder pattern" for defining parameters, meaning you chain functions together.
-//! ```
+//! ```no_run
 //! //create a new session with default parameters
-//! let tex_synth = Session::new()
+//! let mut tex_synth = texture_synthesis::Session::new()
 //!                 //set parameters
 //!                 .seed(10)
 //!                 .nearest_neighbours(20)
 //!                 //load example image(s)
-//!                 .load_examples(&vec![imgs/1.jpg]);
+//!                 .load_examples(&vec!["imgs/1.jpg"]);
 //! //generate a new image
 //! let generated_img = tex_synth.run().unwrap();
 //! //save
@@ -119,7 +119,7 @@ impl Parameters {
 /// let mut tex_synth = texture_synthesis::Session::new()
 ///                 .seed(10)
 ///                 .tiling_mode(true)
-///                 .load_examples(&vec![imgs/1.jpg]);
+///                 .load_examples(&vec!["imgs/1.jpg"]);
 /// let generated_img = tex_synth.run().unwrap();
 /// tex_synth.save("my_generated_img.jpg").unwrap();
 /// ```

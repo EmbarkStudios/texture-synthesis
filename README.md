@@ -45,7 +45,7 @@ To replicate this example with the command line binary run:
 
 ![Imgur](https://i.imgur.com/rYaae2w.jpg)
 
-You can also provide multiple example images and the algorithm will "remix" them into a new image.
+We can also provide multiple example images and the algorithm will "remix" them into a new image.
 
 Below is how to do it with the texture-synthesis API:
 ```rust

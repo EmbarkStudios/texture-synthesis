@@ -92,11 +92,11 @@ impl Parameters {
 /// Texture synthesis session.
 /// Session follows a "builder pattern" for defining parameters, meaning you chain functions together. See example below.
 /// # Example
-/// ```
-/// let tex_synth = Session::new()
+/// ```no_run
+/// let mut tex_synth = texture_synthesis::Session::default()
 ///                 .seed(10)
 ///                 .tiling_mode(true)
-///                 .load_examples(&vec![imgs/10.jpg]);
+///                 .load_examples(&vec!["imgs/10.jpg"]);
 /// let generated_img = tex_synth.run().unwrap();
 /// tex_synth.save("my_generated_img.jpg").unwrap();
 /// ```
@@ -110,11 +110,13 @@ pub struct Session {
 impl Session {
     /// Loads example image(s) from which generator will synthesize a new image.
     /// # Example
-    /// ```
+    /// ```no_run
+    /// use texture_synthesis::Session;
+    ///
     /// //single example generation
-    /// let tex_synth = Session::new().load_examples(&vec!["imgs/1.jpg"]);
+    /// let tex_synth = Session::default().load_examples(&vec!["imgs/1.jpg"]);
     /// //multi example generation
-    /// let tex_synth = Session::new().load_examples(&vec!["imgs/1.jpg", "imgs/2.jpg"]);
+    /// let tex_synth = Session::default().load_examples(&vec!["imgs/1.jpg", "imgs/2.jpg"]);
     /// ```
     pub fn load_examples(mut self, paths: &[&str]) -> Self {
         self.img_paths.examples = Some(paths.to_vec().iter().map(|a| String::from(*a)).collect());
@@ -140,11 +142,12 @@ impl Session {
     /// Loads masks that specify which parts of example images are allowed to be sampled from.
     /// This way you can prevent generator from copying undesired elements of examples.
     /// You can also say "None" to NOT include a map for certain example(s).
+    ///
     /// # Example
-    /// ```
-    /// let tex_synth = Session::new()
+    /// ```no_run
+    /// let tex_synth = texture_synthesis::Session::default()
     ///                 .load_examples(&vec!["imgs/1.jpg", "imgs/2.jpg", "imgs/3.jpg"])
-    ///                 .load_sampling_masks(&vec["None", "masks/2.jpg", "None"]);
+    ///                 .load_sampling_masks(&vec!["None", "masks/2.jpg", "None"]);
     /// ```
     pub fn load_sampling_masks(mut self, paths: &[&str]) -> Self {
         self.img_paths.sampling_masks = Some(
@@ -164,12 +167,13 @@ impl Session {
     /// Specify the index of the example to inpaint with example_id.
     /// Note: right now, only possible to inpaint existing example map.
     /// To prevent sampling from the example, you can add a fully black sampling mask to it.
+    ///
     /// # Example
-    /// ```
-    /// let tex_synth = Session::new()
+    /// ```no_run
+    /// let tex_synth = texture_synthesis::Session::default()
     ///                 .load_examples(&vec!["imgs/1.jpg", "imgs/2.jpg", "imgs/3.jpg"])
-    ///                 .inpaint_example("masks/inpaint.jpg", 0); //this will inpaint "imgs/1.jpg" example
-    ///                 .inpaint_example("masks/inpaint.jpg", 1); //this will inpaint "imgs/2.jpg" example
+    ///                 .inpaint_example("masks/inpaint.jpg", 0) //this will inpaint "imgs/1.jpg" example
+    ///                 .inpaint_example("masks/inpaint.jpg", 1) //this will inpaint "imgs/2.jpg" example
     ///                 .load_sampling_masks(&vec!["None", "masks/black.jpg", "None"]); //this will prevent any sampling from "imgs/2.jpg" example
     /// ```
     pub fn inpaint_example(mut self, inpaint_mask: &str, example_id: u32) -> Self {
@@ -395,10 +399,7 @@ impl Session {
         )
     }
 
-    fn load_and_preprocess_target_guide(
-        &self,
-        path: &str,
-    ) -> Result<ImagePyramid, Box<dyn Error>> {
+    fn load_and_preprocess_target_guide(&self, path: &str) -> Result<ImagePyramid, Box<dyn Error>> {
         Ok(ImagePyramid::new(
             &load_images_as_guide_maps(&[path.to_owned()], &Some(self.params.output_size), 2.0)?
                 .pop()

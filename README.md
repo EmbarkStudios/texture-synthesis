@@ -250,7 +250,7 @@ Or chaining multiple stages of generation together:
 
 Instruction on how to use:
 * download the repo
-* open the command prompt (on windows: search for `cmd`)
+* open the terminal (on windows: search for `cmd`)
 * navigate to the folder containing the `texture_synthesis_cmd.exe` (for ex: cd C:\Downloads\texture-synthesis)
 * run `texture_synthesis_cmd.exe --help` (this will give you a list of all commands you can run)
 * refer to the examples section in this readme for examples on running the binary

@@ -100,6 +100,7 @@ impl Parameters {
 /// let generated_img = tex_synth.run().unwrap();
 /// tex_synth.save("my_generated_img.jpg").unwrap();
 /// ```
+#[derive(Default)]
 pub struct Session {
     img_paths: ImagePaths,
     params: Parameters,
@@ -107,15 +108,6 @@ pub struct Session {
 }
 
 impl Session {
-    /// Creates a new session with default parameters.
-    pub fn new() -> Self {
-        Session {
-            img_paths: ImagePaths::default(),
-            params: Parameters::default(),
-            generator: None,
-        }
-    }
-
     /// Loads example image(s) from which generator will synthesize a new image.
     /// # Example
     /// ```
@@ -336,10 +328,10 @@ impl Session {
         if let Some(ref generator) = self.generator {
             Ok(save_image(&String::from(path), &generator.color_map)?)
         } else {
-            return Err(Box::new(std::io::Error::new(
+            Err(Box::new(std::io::Error::new(
                 std::io::ErrorKind::Interrupted,
                 "Nothing to save. Make sure to run your session",
-            )));
+            )))
         }
     }
 
@@ -356,10 +348,10 @@ impl Session {
             id_maps[1].save(Path::new(&parent_path.join("map_id.png")))?;
             Ok(())
         } else {
-            return Err(Box::new(std::io::Error::new(
+            Err(Box::new(std::io::Error::new(
                 std::io::ErrorKind::Interrupted,
                 "Nothing to save. Make sure to run your session before saving",
-            )));
+            )))
         }
     }
 
@@ -376,11 +368,11 @@ impl Session {
 
     fn load_single_as_pyramid(
         &self,
-        path: &String,
+        path: &str,
         resize: &Option<(u32, u32)>,
     ) -> Result<ImagePyramid, Box<dyn Error>> {
         Ok(self
-            .load_multiple_as_pyramid(&[path.clone()], resize)?
+            .load_multiple_as_pyramid(&[path.to_owned()], resize)?
             .pop()
             .unwrap())
     }
@@ -405,10 +397,10 @@ impl Session {
 
     fn load_and_preprocess_target_guide(
         &self,
-        path: &String,
+        path: &str,
     ) -> Result<ImagePyramid, Box<dyn Error>> {
         Ok(ImagePyramid::new(
-            &load_images_as_guide_maps(&[path.clone()], &Some(self.params.output_size), 2.0)?
+            &load_images_as_guide_maps(&[path.to_owned()], &Some(self.params.output_size), 2.0)?
                 .pop()
                 .unwrap(),
             Some(self.params.backtrack_stages as u32),

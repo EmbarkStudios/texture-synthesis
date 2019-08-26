@@ -7,7 +7,7 @@ fn main() {
     //we can use inpaint!
 
     //create a new session
-    let mut texsynth = texture_synthesis::Session::new()
+    let mut texsynth = texture_synthesis::Session::default()
         //load an image we want to tile
         .load_examples(&vec!["imgs/1.jpg"])
         //load a mask that specifies borders of the image we can modify to make it tiling

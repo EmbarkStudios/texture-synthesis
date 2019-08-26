@@ -1,12 +1,34 @@
 //! `texture-synthesis` is a light API for Multiresolution Stochastic Texture Synthesis,
 //! a non-parametric example-based algorithm for image generation.
 //!  All the interactions with the algorithm happen through `Session`.
-//! `Sessions` implements API for loading/saving images and changing parameters.
+//! `Session` implements API for loading/saving images and changing parameters.
 //! During `Session.run()`, Session pre-processes all the data, checks for errors and calls `multires_stochastic_texture_synthesis.rs`
 //! to generate a new image.
-//! # Features and examples
+//! # Features
 //! 1. Single example generation
+//! 2. Multi example generation
+//! 3. Guided synthesis
+//! 4. Style transfer
+//! 5. Inpainting
+//! 6. Tiling textures
 //!
+//! Please, refer to the examples folder in the [repository](https://github.com/EmbarkStudios/texture-synthesis) for the features usage examples.
+//!
+//! # Usage
+//! Session follows a "builder pattern" for defining parameters, meaning you chain functions together.
+//! ```
+//! //create a new session with default parameters
+//! let tex_synth = Session::new()
+//!                 //set parameters
+//!                 .seed(10)
+//!                 .nearest_neighbours(20)
+//!                 //load example image(s)
+//!                 .load_examples(&vec![imgs/1.jpg]);
+//! //generate a new image
+//! let generated_img = tex_synth.run().unwrap();
+//! //save
+//! tex_synth.save("my_generated_img.jpg").unwrap();
+//! ```
 mod img_pyramid;
 use img_pyramid::*;
 mod utils;
@@ -90,13 +112,14 @@ impl Parameters {
 }
 
 /// Texture synthesis session.
-/// Session follows a "builder pattern" for defining parameters, meaning you chain functions together. See example below.
+///
+/// Session follows a "builder pattern" for defining parameters, meaning you chain functions together.
 /// # Example
 /// ```
 /// let tex_synth = Session::new()
 ///                 .seed(10)
 ///                 .tiling_mode(true)
-///                 .load_examples(&vec![imgs/10.jpg]);
+///                 .load_examples(&vec![imgs/1.jpg]);
 /// let generated_img = tex_synth.run().unwrap();
 /// tex_synth.save("my_generated_img.jpg").unwrap();
 /// ```
@@ -117,6 +140,9 @@ impl Session {
     }
 
     /// Loads example image(s) from which generator will synthesize a new image.
+    ///
+    /// See [example files](https://github.com/EmbarkStudios/texture-synthesis/tree/master/examples): `examples/01_single_example_synthesis.rs` and `examples/02_single_example_synthesis.rs`.
+    ///
     /// # Example
     /// ```
     /// //single example generation
@@ -131,7 +157,8 @@ impl Session {
 
     /// Loads guide maps that describe a 'FROM' transformation for examples.
     /// Make sure to also provide a target guide map to specify 'TO' transformation for the output image.
-    /// See example file in the repo `examples/03_guided_synthesis.rs`.
+    ///
+    /// See [example file](https://github.com/EmbarkStudios/texture-synthesis/tree/master/examples): `examples/03_guided_synthesis.rs`.
     pub fn load_example_guides(mut self, paths: &[&str]) -> Self {
         self.img_paths.example_guides =
             Some(paths.to_vec().iter().map(|a| String::from(*a)).collect());
@@ -140,6 +167,8 @@ impl Session {
 
     /// Loads a target guide map.
     /// If no example guide maps are provided, this will produce style transfer effect, where example is style and target guide is content.
+    ///
+    /// See [example files](https://github.com/EmbarkStudios/texture-synthesis/tree/master/examples): `examples/03_guided_synthesis.rs` and `examples/04_style_transfer.rs`.
     pub fn load_target_guide(mut self, path: &str) -> Self {
         self.img_paths.target_guide = Some(String::from(path));
         self
@@ -148,6 +177,9 @@ impl Session {
     /// Loads masks that specify which parts of example images are allowed to be sampled from.
     /// This way you can prevent generator from copying undesired elements of examples.
     /// You can also say "None" to NOT include a map for certain example(s).
+    ///
+    /// See [example files](https://github.com/EmbarkStudios/texture-synthesis/tree/master/examples): `examples/05_inpaint.rs` and `examples/06_tiling_texture.rs`.
+    ///
     /// # Example
     /// ```
     /// let tex_synth = Session::new()
@@ -172,6 +204,9 @@ impl Session {
     /// Specify the index of the example to inpaint with example_id.
     /// Note: right now, only possible to inpaint existing example map.
     /// To prevent sampling from the example, you can add a fully black sampling mask to it.
+    ///
+    /// See [example file](https://github.com/EmbarkStudios/texture-synthesis/tree/master/examples): `examples/05_inpaint.rs`.
+    ///
     /// # Example
     /// ```
     /// let tex_synth = Session::new()
@@ -344,7 +379,7 @@ impl Session {
     }
 
     /// Saves debug information such as copied patches ids, map ids (if you have multi example generation)
-    /// and uncertainty map indicating generated pixels generator was `uncertain` of.
+    /// and uncertainty map indicating generated pixels generator was "uncertain" of.
     pub fn save_debug(&self, folder_path: &str) -> Result<(), Box<dyn Error>> {
         if let Some(ref generator) = self.generator {
             let parent_path = Path::new(folder_path);

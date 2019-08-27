@@ -2,7 +2,7 @@ fn main() {
     //create a new session
     let mut texsynth = texture_synthesis::Session::new()
         //load a single example image
-        .load_examples(&vec!["../imgs/1.jpg"]);
+        .load_examples(&vec!["imgs/1.jpg"]);
     //generate an image
     texsynth.run(None).unwrap();
 

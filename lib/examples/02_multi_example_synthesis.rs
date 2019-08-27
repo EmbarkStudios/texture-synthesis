@@ -3,10 +3,10 @@ fn main() {
     let mut texsynth = texture_synthesis::Session::new()
         //load multiple example image
         .load_examples(&vec![
-            "../imgs/multiexample/1.jpg",
-            "../imgs/multiexample/2.jpg",
-            "../imgs/multiexample/3.jpg",
-            "../imgs/multiexample/4.jpg",
+            "imgs/multiexample/1.jpg",
+            "imgs/multiexample/2.jpg",
+            "imgs/multiexample/3.jpg",
+            "imgs/multiexample/4.jpg",
         ])
         //we can ensure all of them come with same size
         //that is however optional, the generator doesnt care whether all images are same sizes

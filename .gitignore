@@ -2,3 +2,4 @@
 cli/target
 **/*.rs.bk
 Cargo.lock
+/out

@@ -235,7 +235,10 @@ fn main() {
     }
 
     let preview = if !user_params.is_present("no-window") {
-        Some(create_progress_window(outsize, std::time::Duration::from_millis(100)))
+        Some(create_progress_window(
+            outsize,
+            std::time::Duration::from_millis(100),
+        ))
     } else {
         None
     };
@@ -251,7 +254,10 @@ fn main() {
     }
 }
 
-fn create_progress_window(size: (u32, u32), update_every: std::time::Duration) -> Box<dyn texture_synthesis::GeneratorProgress> {
+fn create_progress_window(
+    size: (u32, u32),
+    update_every: std::time::Duration,
+) -> Box<dyn texture_synthesis::GeneratorProgress> {
     use std::time::Duration;
 
     pub struct ProgressWindow {

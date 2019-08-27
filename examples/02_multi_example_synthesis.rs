@@ -17,7 +17,7 @@ fn main() {
         .seed(211);
 
     //generate an image
-    texsynth.run().unwrap();
+    texsynth.run(None).unwrap();
 
     //save the image to the disk
     texsynth.save("out/02.jpg").unwrap();

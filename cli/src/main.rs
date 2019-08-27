@@ -1,4 +1,3 @@
-extern crate texture_synthesis;
 use clap::{App, Arg};
 use rand::Rng;
 use std::path::Path;
@@ -86,7 +85,7 @@ fn main() {
                 .takes_value(true)
                 .help("Controls the number of backtracking stages. Backtracking prevents 'garbage' generation. Default: 5")
         ).arg(
-            Arg::with_name("No window")
+            Arg::with_name("no-window")
                 .long("no-window")
                 .help("Disable showing progress with window")
         ).arg(
@@ -212,10 +211,6 @@ fn main() {
         );
     }
 
-    if user_params.is_present("No window") {
-        tex_synth = tex_synth.show_progress(false);
-    }
-
     if user_params.is_present("Random Init") {
         tex_synth = tex_synth.random_init(
             user_params
@@ -239,7 +234,13 @@ fn main() {
         tex_synth = tex_synth.resize_input(resize.0, resize.1);
     }
 
-    tex_synth.run().unwrap();
+    let preview = if !user_params.is_present("no-window") {
+        Some(create_progress_window(outsize, std::time::Duration::from_millis(100)))
+    } else {
+        None
+    };
+
+    tex_synth.run(preview).unwrap();
     tex_synth.save(&save_path).unwrap();
 
     if user_params.is_present("Debug Maps") {
@@ -248,4 +249,74 @@ fn main() {
             .expect("couldnt make a path for debug imgs");
         tex_synth.save_debug(parent_path.to_str().unwrap()).unwrap();
     }
+}
+
+fn create_progress_window(size: (u32, u32), update_every: std::time::Duration) -> Box<dyn texture_synthesis::GeneratorProgress> {
+    use std::time::Duration;
+
+    pub struct ProgressWindow {
+        window: piston_window::PistonWindow,
+        update_freq: Duration,
+        last_update: std::time::Instant,
+    }
+
+    impl ProgressWindow {
+        fn new(size: (u32, u32), update_every: Duration) -> Self {
+            let mut my_return = Self {
+                window: piston_window::WindowSettings::new("Texture Synthesis", [size.0, size.1])
+                    .exit_on_esc(true)
+                    .build()
+                    .unwrap(),
+                update_freq: update_every,
+                last_update: std::time::Instant::now(),
+            };
+            use piston_window::*;
+            my_return.window.set_bench_mode(true); //disallow sleeping
+            my_return
+        }
+    }
+
+    impl texture_synthesis::GeneratorProgress for ProgressWindow {
+        fn update(&mut self, in_image: &texture_synthesis::image::RgbaImage) {
+            let now = std::time::Instant::now();
+
+            if now - self.last_update < self.update_freq {
+                return;
+            }
+
+            self.last_update = now;
+
+            //image to texture
+            let texture: piston_window::G2dTexture = piston_window::Texture::from_image(
+                &mut self.window.factory,
+                &in_image,
+                &piston_window::TextureSettings::new(),
+            )
+            .unwrap();
+
+            if let Some(event) = self.window.next() {
+                self.window.draw_2d(&event, |context, graphics| {
+                    piston_window::clear([1.0; 4], graphics);
+                    piston_window::image(
+                        &texture,
+                        [
+                            [
+                                context.transform[0][0],
+                                context.transform[0][1],
+                                context.transform[0][2],
+                            ],
+                            [
+                                context.transform[1][0],
+                                context.transform[1][1],
+                                context.transform[1][2],
+                            ],
+                        ],
+                        graphics,
+                    );
+                });
+            }
+        }
+    }
+
+    Box::new(ProgressWindow::new(size, update_every))
 }

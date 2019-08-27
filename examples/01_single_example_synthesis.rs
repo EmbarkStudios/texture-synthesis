@@ -4,7 +4,7 @@ fn main() {
         //load a single example image
         .load_examples(&vec!["imgs/1.jpg"]);
     //generate an image
-    texsynth.run().unwrap();
+    texsynth.run(None).unwrap();
 
     //save the image to the disk
     texsynth.save("out/01.jpg").unwrap();

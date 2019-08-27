@@ -17,7 +17,7 @@ fn main() {
         .tiling_mode(true);
 
     //generate image
-    texsynth.run().unwrap();
+    texsynth.run(None).unwrap();
 
     //save the result to the disk
     texsynth.save("out/06.jpg").unwrap();

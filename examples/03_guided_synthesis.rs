@@ -12,7 +12,7 @@ fn main() {
     // you can ensure that by overwriting the input images sizes with .resize_input()
 
     //now the generator will take our target guide into account during synthesis
-    texsynth.run().unwrap();
+    texsynth.run(None).unwrap();
 
     //save the image to the disk
     texsynth.save("out/03.jpg").unwrap();

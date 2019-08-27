@@ -4,7 +4,8 @@
 //! `Session` implements API for loading/saving images and changing parameters.
 //! During `Session.run()`, Session pre-processes all the data, checks for errors and calls `multires_stochastic_texture_synthesis.rs`
 //! to generate a new image.
-//! # Features
+//!
+//! ## Features
 //! 1. Single example generation
 //! 2. Multi example generation
 //! 3. Guided synthesis
@@ -14,7 +15,7 @@
 //!
 //! Please, refer to the examples folder in the [repository](https://github.com/EmbarkStudios/texture-synthesis) for the features usage examples.
 //!
-//! # Usage
+//! ## Usage
 //! Session follows a "builder pattern" for defining parameters, meaning you chain functions together.
 //! ```no_run
 //! //create a new session with default parameters
@@ -33,13 +34,12 @@ mod img_pyramid;
 use img_pyramid::*;
 mod utils;
 use utils::*;
-mod progress_window;
-use progress_window::*;
 mod multires_stochastic_texture_synthesis;
 use multires_stochastic_texture_synthesis::*;
 use std::error::Error;
 use std::path::Path;
-use std::time::Duration;
+
+pub use image;
 
 struct ImagePaths {
     examples: Option<Vec<String>>,
@@ -312,12 +312,14 @@ impl Session {
 
     /// Runs the generator and outputs a generated image.
     /// Now, only runs Multiresolution Stochastic Texture Synthesis. Might be interseting to include more algorithms in the future.
-    pub fn run(&mut self) -> Result<image::RgbaImage, Box<dyn Error>> {
+    pub fn run(
+        &mut self,
+        progress: Option<Box<dyn GeneratorProgress>>,
+    ) -> Result<image::RgbaImage, Box<dyn Error>> {
         self.check_parameters_validity()?;
         self.check_images_validity()?;
 
         //pre-process input data
-        let progress_window = self.init_progress_window();
         let examples = self.init_examples()?;
         let guides = self.init_guides()?;
         let sampling_masks = self.init_sampling_masks()?;
@@ -354,7 +356,7 @@ impl Session {
         generator.main_resolve_loop(
             &self.params.to_generator_params(),
             &examples,
-            progress_window,
+            progress,
             guides,
             &sampling_masks,
             self.params.tiling_mode,
@@ -482,17 +484,6 @@ impl Session {
         })
     }
 
-    fn init_progress_window(&self) -> Option<Box<dyn GeneratorProgress>> {
-        if self.params.show_progress {
-            Some(Box::new(WindowStruct::new(
-                self.params.output_size,
-                Duration::from_millis(10),
-            )))
-        } else {
-            None
-        }
-    }
-
     fn init_sampling_masks(&self) -> Result<Vec<Option<image::RgbaImage>>, Box<dyn Error>> {
         match self.img_paths.sampling_masks {
             None => Ok(vec![None; self.img_paths.examples.as_ref().unwrap().len()]),
@@ -586,4 +577,8 @@ impl Session {
 
         Ok(())
     }
+}
+
+pub trait GeneratorProgress {
+    fn update(&mut self, image: &image::RgbaImage);
 }

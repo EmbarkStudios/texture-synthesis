@@ -9,7 +9,7 @@ fn main() {
         .load_target_guide("imgs/tom.jpg");
 
     //generate an image that applies 'style' to "tom.jpg"
-    texsynth.run().unwrap();
+    texsynth.run(None).unwrap();
 
     //save the result to the disk
     texsynth.save("out/04.jpg").unwrap();

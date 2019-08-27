@@ -137,10 +137,6 @@ impl ColorPattern {
     }
 }
 
-pub trait GeneratorProgress {
-    fn update(&mut self, image: &image::RgbaImage);
-}
-
 pub struct Generator {
     pub color_map: image::RgbaImage,
     coord_map: Vec<(Coord2D, MapId)>, //list of samples coordinates from example map
@@ -649,7 +645,7 @@ impl Generator {
         &mut self,
         params: &GeneratorParams,
         example_maps_pyramid: &[ImagePyramid],
-        mut progress: Option<Box<dyn GeneratorProgress>>,
+        mut progress: Option<Box<dyn crate::GeneratorProgress>>,
         guides_pyramid: Option<GuidesPyramidStruct>,
         valid_samples: &[Option<image::RgbaImage>],
         is_tiling_mode: bool,

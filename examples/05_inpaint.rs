@@ -16,7 +16,7 @@ fn main() {
         .output_size(400, 400);
 
     //inpaint out image
-    texsynth.run().unwrap();
+    texsynth.run(None).unwrap();
 
     //save the result to the disk
     texsynth.save("out/05.jpg").unwrap();

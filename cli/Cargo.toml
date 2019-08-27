@@ -1,5 +1,5 @@
 [package]
-name = "tex-synth-cli"
+name = "texture-synthesis-cli"
 description = "A CLI for texture-synthesis"
 repository = "https://github.com/EmbarkStudios/texture-synthesis"
 version = "0.2.0"
@@ -10,7 +10,7 @@ authors = [
 ]
 edition = "2018"
 license = "MIT OR Apache-2.0"
-readme = "README.md"
+readme = "../README.md"
 documentation = "https://docs.rs/texture-synthesis"
 homepage = "https://github.com/EmbarkStudios/texture-synthesis"
 categories = ["multimedia::images"]

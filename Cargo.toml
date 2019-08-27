@@ -1,6 +1,6 @@
 [package]
 name = "texture-synthesis"
-description = ""
+description = "Multiresolution Stochastic Texture Synthesis, a non-parametric example-based algorithm for image generation"
 repository = "https://github.com/EmbarkStudios/texture-synthesis"
 version = "0.1.0"
 authors = [

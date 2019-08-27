@@ -49,6 +49,7 @@ matrix:
     rust: beta
     os: linux
     script: .ci/lint.sh
+    if: branch = master AND tag IS blank
 
   #  _______        _   
   # |__   __|      | |  
@@ -73,12 +74,7 @@ matrix:
     rust: beta
     os: linux
     script: .ci/test.sh
-
-  # 
-  # - name: "nightly test linux"
-  #   stage: test
-  #   rust: nightly
-  #   script: .ci/test.sh
+    if: branch = master AND tag IS blank
 
   - name: "stable test osx"
     rust: stable

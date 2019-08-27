@@ -1,6 +1,6 @@
 [package]
-name = "tex-synth-cli"
-description = "A CLI for texture-synthesis"
+name = "texture-synthesis"
+description = "Multiresolution Stochastic Texture Synthesis, a non-parametric example-based algorithm for image generation"
 repository = "https://github.com/EmbarkStudios/texture-synthesis"
 version = "0.1.0"
 authors = [
@@ -14,14 +14,17 @@ readme = "README.md"
 documentation = "https://docs.rs/texture-synthesis"
 homepage = "https://github.com/EmbarkStudios/texture-synthesis"
 categories = ["multimedia::images"]
-keywords = ["texture", "synthesis", "procedural", "cli"]
+keywords = ["texture", "synthesis", "procedural"]
 
-[[bin]]
-name = "texture-synthesis"
-path = "src/main.rs"
+# We don't want the example images in the publish crate
+exclude = ["/imgs"]
 
 [dependencies]
-clap = "2.33.0"
-piston_window = "0.85.0"
+image = "0.20.1"
+lodepng = "2.4.2"
 rand = "0.6.4"
-texture-synthesis = { version = "0.1.0", path = "../lib" }
+rand_pcg = "0.1.1"
+rstar = "0.2.0"
+crossbeam-utils = "0.6"
+num_cpus = "1.9.0"
+modulo = "0.1.2"

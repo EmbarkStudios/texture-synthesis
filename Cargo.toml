@@ -1,32 +1,5 @@
-[package]
-name = "texture-synthesis"
-description = "Multiresolution Stochastic Texture Synthesis, a non-parametric example-based algorithm for image generation"
-repository = "https://github.com/EmbarkStudios/texture-synthesis"
-version = "0.1.0"
-authors = [
-    "Embark <opensource@embark-studios.com>",
-    "anastasia opara <anastasiaopara@gmail.com>",
-    "tomasz stachowiak <h3@h3.gd>",
+[workspace]
+members = [
+    "lib",
+    "cli",
 ]
-edition = "2018"
-license = "MIT OR Apache-2.0"
-readme = "README.md"
-documentation = "https://docs.rs/texture-synthesis"
-homepage = "https://github.com/EmbarkStudios/texture-synthesis"
-categories = ["multimedia::images"]
-keywords = ["texture", "synthesis", "procedural"]
-
-# We don't want the example images in the publish crate
-exclude = ["/imgs"]
-
-
-
-[dependencies]
-image = "0.20.1"
-lodepng = "2.4.2"
-rand = "0.6.4"
-rand_pcg = "0.1.1"
-rstar = "0.2.0"
-crossbeam-utils = "0.6"
-num_cpus = "1.9.0"
-modulo = "0.1.2"

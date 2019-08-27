@@ -26,7 +26,7 @@
 //!                 //load example image(s)
 //!                 .load_examples(&vec!["imgs/1.jpg"]);
 //! //generate a new image
-//! let generated_img = tex_synth.run().unwrap();
+//! let generated_img = tex_synth.run(None).unwrap();
 //! //save
 //! tex_synth.save("my_generated_img.jpg").unwrap();
 //! ```
@@ -120,7 +120,7 @@ impl Parameters {
 ///                 .seed(10)
 ///                 .tiling_mode(true)
 ///                 .load_examples(&vec!["imgs/1.jpg"]);
-/// let generated_img = tex_synth.run().unwrap();
+/// let generated_img = tex_synth.run(None).unwrap();
 /// tex_synth.save("my_generated_img.jpg").unwrap();
 /// ```
 #[derive(Default)]

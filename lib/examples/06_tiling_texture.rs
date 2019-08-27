@@ -7,9 +7,9 @@ fn main() {
     //create a new session
     let mut texsynth = texture_synthesis::Session::new()
         //load an image we want to tile
-        .load_examples(&vec!["imgs/1.jpg"])
+        .load_examples(&vec!["../imgs/1.jpg"])
         //load a mask that specifies borders of the image we can modify to make it tiling
-        .inpaint_example("imgs/masks/1_tile.jpg", 0)
+        .inpaint_example("../imgs/masks/1_tile.jpg", 0)
         //ensure correct sizes
         .resize_input(400, 400)
         .output_size(400, 400)

@@ -2,7 +2,7 @@
 name = "tex-synth-cli"
 description = "A CLI for texture-synthesis"
 repository = "https://github.com/EmbarkStudios/texture-synthesis"
-version = "0.1.0"
+version = "0.2.0"
 authors = [
     "Embark <opensource@embark-studios.com>",
     "anastasia opara <anastasiaopara@gmail.com>",
@@ -24,4 +24,4 @@ path = "src/main.rs"
 clap = "2.33.0"
 piston_window = "0.85.0"
 rand = "0.6.4"
-texture-synthesis = { version = "0.1.0", path = "../lib" }
+texture-synthesis = { version = "0.2.0", path = "../lib" }

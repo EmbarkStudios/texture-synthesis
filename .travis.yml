@@ -105,10 +105,12 @@ matrix:
     rust: stable
     os: linux
     script: echo "deploying $TRAVIS_TAG to crates.io"
+    env:
+      global:
+      - secure: Jz67Cb8eT3mzE+hnh1RS/wkjLJeX8wvUGTD1tTDvsm9jepgZSaG4X0vwrN8meIMiSCXeZ91s2U15jJWVHb17sJYLioyZrLcmS868KYkTbOpXkFYeJLpDB7D0+wW8u8512Z45suHmCw8IfLF6SZHh0To40dySub+OU88tw+7Pp/JlaL8wnxh2WrpT+6a66I0P+71M97KEqu9TI6/5U7R+lvG/a6+HUjQNIVogtfzyEb/OSo1vvBry8WDqPqlqXyJb6mqaq6QJZ8eigDz3BmESZO5hQ8y7AMZD/523Lr0MLj0X9yh2M0aWEVvZBYwEMAUbfnvBKzOH3pQdxFkTCbEG5ZARr1yU08d5zCguceI+SvDtIGvCY+I+wthl+5eIBZ81NKOonXNJj+ZQHBHjVW3E6WgteEq6mG74VGLIjRwQ0r9ayZIMpO5j0gIol+ehqcTBOljH9pjGoa0nbtYyif3vnQwOcErgcuUQ94K3VP+2VgzMJHaSbSYsPI6kJ2YhpHBsMcwltblW5CkSxBCFQ5TwZ4aZzD+0kngpWO+sl+C7vHhzULSutKwYr9qjTVnEChEn3EMm/U1os6GOQU8L4NUowkiG6qr2/a0U5XO5igY79/WqikWLxJUrzKPyuH86IZTaczb5q8Uf+EWVv5UbpG6dcNn4iGbbbS6wcnoCdbXjyB0=
     deploy:
-      provider: cargo
-      token:
-        secure: U99oK6NAfWPVVEsfpRs7KuThLcxS7joqiHm3wut1fdHnVvqm3OKpKFIfMdi4wcm+EfjWbY1zTHTsznGREjWTGVm5yiQf/Jn5k/W2Fw41ZYAwEWlGYB/1QkHhGyLOoW7dO82uhJ0rvQIRBlW3Dlaly5pZcuIpcDxSmxxZgnABj2QVbmOLF8rPVYMQ98KZKSJ3R697yfJhcvNiEwqbebdG09x3rjuGys7PIl15G+K/js2B1QEadI7vn+9wiRnU1Pl+GU/B4yqYB4itbE/NR7I6kDRXuzcHAyHSVHVuP4bSSzMZlhP1fb1BrXpvabK3gTFz/B2FOfgzc68D2UlDYjrB4vIUdPL7uwUjy36kfYsZI9ORpYHmnVZJkgxPpQJKDG/deT5F7/i/dkIhNzI8ndtwAwCbQVGdY6v0W/ItGTu0OvyuVI+LPMdRBOS1NNEc8VnNoBSgCmddkZhAKceIG4F5otSL+rXfXKS5+SeVXJOU+oGfTmhahI+iQyujDUePWzO/vNQBRFt2TnWpzOrGeBwWvhG6on4f2cpDCkuBApd4F132aLnlqQjWVWJwfvWQCsYHOL4Eeqf+ZuE2W8tes+ePtkdQIQVo9W3trHLPQksK7ZQi35+mh5+YVe6N44rD0MyY7gcOeQFnT3haJiCZys+ylR13o7GqSxJ8w3r/yMI1yyE=
+      provider: script
+      script: bash .ci/crates_io_deploy.sh $CRATES_TOKEN
       on:
         repo: EmbarkStudios/texture-synthesis
         tags: true

@@ -21,7 +21,7 @@ name = "texture-synthesis"
 path = "src/main.rs"
 
 [dependencies]
-clap = "2.33.0"
 piston_window = "0.85.0"
 rand = "0.6.4"
+structopt = "0.2.18"
 texture-synthesis = { version = "0.2.0", path = "../lib" }

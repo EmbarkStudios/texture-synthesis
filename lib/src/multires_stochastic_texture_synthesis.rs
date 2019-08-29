@@ -4,7 +4,7 @@ use rstar::RTree;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, RwLock};
 
-use crate::img_pyramid::*;
+use crate::{img_pyramid::*, SamplingMethod};
 use modulo::Mod;
 
 #[derive(Debug)]
@@ -168,14 +168,22 @@ impl Generator {
 
     pub fn new_from_inpaint(
         size: (u32, u32),
-        inpaint_map: &image::RgbaImage,
-        color_map: &image::RgbaImage,
-        color_map_index: u32,
+        inpaint_map: image::RgbaImage,
+        color_map: image::RgbaImage,
+        color_map_index: usize,
     ) -> Self {
-        let inpaint_map =
-            image::imageops::resize(inpaint_map, size.0, size.1, image::imageops::Triangle);
-        let color_map =
-            image::imageops::resize(color_map, size.0, size.1, image::imageops::Triangle);
+        let inpaint_map = if inpaint_map.width() != size.0 || inpaint_map.height() != size.1 {
+            image::imageops::resize(&inpaint_map, size.0, size.1, image::imageops::Triangle)
+        } else {
+            inpaint_map
+        };
+
+        let color_map = if color_map.width() != size.0 || color_map.height() != size.1 {
+            image::imageops::resize(&color_map, size.0, size.1, image::imageops::Triangle)
+        } else {
+            color_map
+        };
+
         //
         let s = (size.0 as usize) * (size.1 as usize);
         let mut unresolved: Vec<CoordFlat> = Vec::new();
@@ -189,7 +197,7 @@ impl Generator {
             } else {
                 resolved.push((CoordFlat(i as u32), Score(0.0)));
                 let coord = CoordFlat(i as u32).to_2d(size);
-                coord_map[i] = (coord, MapId(color_map_index)); //this absolutely requires the input image and output image to be the same size!!!!
+                coord_map[i] = (coord, MapId(color_map_index as u32)); //this absolutely requires the input image and output image to be the same size!!!!
                 rtree.insert([coord.x as i32, coord.y as i32]);
             }
         }
@@ -451,7 +459,7 @@ impl Generator {
         unresolved_coord: Coord2D,
         k_neighs: &[SignedCoord2D],
         example_maps: &[&image::RgbaImage],
-        valid_samples_mask: &[Option<image::RgbaImage>],
+        valid_samples_mask: &[SamplingMethod],
         m: u32,
         m_seed: u64,
     ) -> &'a [CandidateStruct] {
@@ -558,7 +566,7 @@ impl Generator {
         &candidates_vec[0..candidate_count]
     }
 
-    //returns an image of Ids for visualizing the 'copy islands' and map ids of those islands
+    /// Returns an image of Ids for visualizing the 'copy islands' and map ids of those islands
     pub fn get_id_maps(&self) -> [image::RgbaImage; 2] {
         //init empty image
         let mut map_id_map = image::RgbaImage::new(self.output_size.0, self.output_size.1);
@@ -587,29 +595,6 @@ impl Generator {
         }
         [patch_id_map, map_id_map]
     }
-
-    /*
-    // unused
-    // returns a coordinate map of the performed 'transformation'
-    pub fn get_coord_map(&self) -> Vec<u16> {
-        //init empty image
-        let mut buffer: Vec<u16> = Vec::new();
-        //populate the image with colors
-        for (coord, map_id) in self.coord_map.iter() {
-            //normalize coord to color
-            let r = coord.x as u16; //((f64::from(coord.0) / f64::from(dimx)) * f64::from(std::u16::MAX)) as u16;
-            let g = coord.y as u16; //((f64::from(coord.1) / f64::from(dimy)) * f64::from(std::u16::MAX)) as u16;
-            let b = map_id.0 as u16;
-            //convert from little endian to big endian
-            //let r = (r >> 8) | (r << 8);
-            //let g = (g >> 8) | (g << 8);
-            //let b = (b >> 8) | (b << 8);
-            //record the color
-            buffer.extend_from_slice(&[r, g, b]);
-        }
-        buffer
-    }
-    */
 
     pub fn get_uncertainty_map(&self) -> image::RgbaImage {
         let mut uncertainty_map = image::RgbaImage::new(self.output_size.0, self.output_size.1);
@@ -646,8 +631,8 @@ impl Generator {
         params: &GeneratorParams,
         example_maps_pyramid: &[ImagePyramid],
         mut progress: Option<Box<dyn crate::GeneratorProgress>>,
-        guides_pyramid: Option<GuidesPyramidStruct>,
-        valid_samples: &[Option<image::RgbaImage>],
+        guides_pyramid: &Option<GuidesPyramidStruct>,
+        valid_samples: &[SamplingMethod],
         is_tiling_mode: bool,
     ) {
         let total_pixels_to_resolve = self.unresolved.lock().unwrap().len();
@@ -887,7 +872,7 @@ fn k_neighs_to_color_pattern<Iter: ExactSizeIterator<Item = (SignedCoord2D, MapI
             n_coord
         };
         //check if he haven't gone outside the possible bounds
-        if check_coord_validity(coord, n_map, example_maps, &None) {
+        if check_coord_validity(coord, n_map, example_maps, &SamplingMethod::All) {
             let pixel = *(example_maps[n_map.0 as usize]).get_pixel(coord.x as u32, coord.y as u32);
             pattern.0[i] = pixel[0];
             i += 1;
@@ -1000,20 +985,26 @@ fn check_coord_validity(
     coord: SignedCoord2D,
     map_id: MapId,
     example_maps: &[&image::RgbaImage],
-    mask: &Option<image::RgbaImage>,
+    mask: &SamplingMethod,
 ) -> bool {
+    if mask.is_ignore() {
+        return false;
+    }
+
     let map_shape = example_maps[map_id.0 as usize].dimensions(); //get corresponding map number
-    let is_not_out_of_bounds: bool = coord.x >= 0
+    let is_not_out_of_bounds = coord.x >= 0
         && coord.x < map_shape.0 as i32
         && coord.y >= 0
         && coord.y < map_shape.1 as i32;
-    if is_not_out_of_bounds {
-        match mask {
-            Some(ref mask) => (mask[(coord.x as u32, coord.y as u32)][0] != 0),
-            None => is_not_out_of_bounds,
-        }
-    } else {
-        false
+
+    if !is_not_out_of_bounds {
+        return false;
+    }
+
+    match mask {
+        SamplingMethod::All => true,
+        SamplingMethod::Image(ref img) => img[(coord.x as u32, coord.y as u32)][0] != 0,
+        SamplingMethod::Ignore => unreachable!(),
     }
 }
 

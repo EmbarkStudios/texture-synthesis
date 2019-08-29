@@ -1,67 +1,67 @@
 use std::error::Error;
 use std::path::Path;
 
+pub enum ImageSource<'a> {
+    Memory(&'a [u8]),
+    Path(&'a Path),
+}
+
+impl<'a, S> From<&'a S> for ImageSource<'a>
+where
+    S: AsRef<Path> + 'a,
+{
+    fn from(path: &'a S) -> Self {
+        Self::Path(path.as_ref())
+    }
+}
+
 pub fn load_image(
-    path: &str,
-    resize: &Option<(u32, u32)>,
+    src: &ImageSource<'_>,
+    resize: Option<(u32, u32)>,
 ) -> Result<image::RgbaImage, Box<dyn Error>> {
-    let img = image::open(path)?;
+    let img = match src {
+        ImageSource::Memory(data) => image::load_from_memory(data),
+        ImageSource::Path(path) => image::open(path),
+    }?;
 
     Ok(match resize {
         None => img.to_rgba(),
         Some(ref size) => {
-            image::imageops::resize(&img.to_rgba(), size.0, size.1, image::imageops::CatmullRom)
+            use image::GenericImageView;
+
+            if img.width() != size.0 || img.height() != size.1 {
+                image::imageops::resize(&img.to_rgba(), size.0, size.1, image::imageops::CatmullRom)
+            } else {
+                img.to_rgba()
+            }
         }
     })
 }
 
-pub fn load_image_multiple(
-    paths: &[String],
-    resize: &Option<(u32, u32)>,
-) -> Result<Vec<image::RgbaImage>, Box<dyn Error>> {
-    paths
-        .iter()
-        .map(|p| load_image(p, resize))
-        .collect::<Result<Vec<image::RgbaImage>, Box<dyn Error>>>()
-}
-
-pub fn save_image(path: &str, image: &image::RgbaImage) -> Result<(), Box<dyn Error>> {
-    let path = Path::new(&path);
-    if let Some(parent_path) = path.parent() {
-        std::fs::create_dir_all(&parent_path)?;
-    }
-
-    image.save(&path)?;
-
-    Ok(())
-}
-
-pub fn load_images_as_guide_maps(
-    path_vec: &[String],
-    size: &Option<(u32, u32)>,
+pub fn transform_to_guide_map(
+    image: image::RgbaImage,
+    size: Option<(u32, u32)>,
     blur_sigma: f32,
-) -> Result<Vec<image::RgbaImage>, Box<dyn Error>> {
-    let mut img_vec: Vec<image::RgbaImage> = Vec::new();
+) -> image::RgbaImage {
+    use image::GenericImageView;
+    let dyn_img = image::DynamicImage::ImageRgba8(image);
 
-    for path in path_vec.iter() {
-        let img = match size {
-            None => image::open(path)?.blur(blur_sigma).grayscale(),
-            Some(s) => image::open(path)?
-                .resize(s.0, s.1, image::imageops::Triangle)
-                .blur(blur_sigma)
-                .grayscale(),
-        };
-
-        img_vec.push(img.to_rgba());
+    if let Some(s) = size {
+        if dyn_img.width() != s.0 || dyn_img.height() != s.1 {
+            dyn_img.resize(s.0, s.1, image::imageops::Triangle);
+        }
     }
-    Ok(img_vec)
+
+    dyn_img.blur(blur_sigma).grayscale().to_rgba()
 }
 
-pub fn get_histogram(a: &[u8]) -> Vec<u32> {
+pub fn get_histogram(img: &image::RgbaImage) -> Vec<u32> {
     let mut hist = vec![0; 256]; //0-255 incl
 
+    let pixels = &img;
+
     //populate the hist
-    for (i, pixel_value) in a.iter().enumerate() {
+    for (i, pixel_value) in pixels.iter().enumerate() {
         //since RGBA image, we only care for 1st channel
         if i % 4 == 0 {
             hist[*pixel_value as usize] += 1; //increment histogram by 1
@@ -72,21 +72,20 @@ pub fn get_histogram(a: &[u8]) -> Vec<u32> {
 }
 
 //source will be modified to fit the target
-pub fn match_histograms(source: &image::RgbaImage, target: &image::RgbaImage) -> image::RgbaImage {
-    let target_hist = get_histogram(&target.clone().into_raw());
-    let source_hist = get_histogram(&source.clone().into_raw());
+pub fn match_histograms(source: &mut image::RgbaImage, target: &image::RgbaImage) {
+    let target_hist = get_histogram(target);
+    let source_hist = get_histogram(source);
 
     //get commutative distrib
     let target_cdf = get_cdf(&target_hist);
     let source_cdf = get_cdf(&source_hist);
 
     //clone the source image, modify and return
-    let mut source_modified = source.clone();
     let (dx, dy) = source.dimensions();
 
     for x in 0..dx {
         for y in 0..dy {
-            let pixel_value = source.get_pixel(x, y)[0]; //we only care for the first channel
+            let pixel_value = source.get_pixel(x, y)[0]; //we only care about the first channel
             let pixel_source_cdf = source_cdf[pixel_value as usize];
 
             //now need to find by value similar cdf in the target
@@ -98,11 +97,9 @@ pub fn match_histograms(source: &image::RgbaImage, target: &image::RgbaImage) ->
 
             let new_color: image::Rgba<u8> =
                 image::Rgba([new_pixel_val, new_pixel_val, new_pixel_val, 255]);
-            source_modified.put_pixel(x, y, new_color);
+            source.put_pixel(x, y, new_color);
         }
     }
-
-    source_modified
 }
 
 pub fn get_cdf(a: &[u32]) -> Vec<f32> {

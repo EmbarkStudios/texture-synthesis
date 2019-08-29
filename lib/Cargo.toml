@@ -19,6 +19,8 @@ keywords = ["texture", "synthesis", "procedural"]
 # We don't want the example images in the publish crate
 exclude = ["/imgs"]
 
+build = "build.rs"
+
 [dependencies]
 image = "0.20.1"
 lodepng = "2.4.2"
@@ -28,3 +30,9 @@ rstar = "0.2.0"
 crossbeam-utils = "0.6"
 num_cpus = "1.9.0"
 modulo = "0.1.2"
+
+[build-dependencies]
+skeptic = "0.13"
+
+[dev-dependencies]
+skeptic = "0.13"

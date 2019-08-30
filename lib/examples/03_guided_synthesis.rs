@@ -1,21 +1,22 @@
-fn main() {
-    //create a new session
-    let mut texsynth = texture_synthesis::Session::new()
-        //load example
-        .load_examples(&vec!["imgs/2.jpg"])
-        //load segmentation of the example
-        .load_example_guides(&vec!["imgs/masks/2_example.jpg"])
-        //load target "heart" shape that we would like the generated image to look like
-        .load_target_guide("imgs/masks/2_target.jpg");
+use texture_synthesis as ts;
 
-    // NOTE: it is important that example(s) and their corresponding guides have same size(s)
-    // you can ensure that by overwriting the input images sizes with .resize_input()
+fn main() -> Result<(), ts::Error> {
+    let mut example = ts::Example::from(&"imgs/2.jpg");
+    example.with_guide(&"imgs/masks/2_example.jpg");
 
-    //now the generator will take our target guide into account during synthesis
-    texsynth.run(None).unwrap();
+    let texsynth = ts::Session::builder()
+        // NOTE: it is important that example(s) and their corresponding guides have same size(s)
+        // you can ensure that by overwriting the input images sizes with .resize_input()
+        .add_example(example)
+        // load target "heart" shape that we would like the generated image to look like
+        // now the generator will take our target guide into account during synthesis
+        .load_target_guide(&"imgs/masks/2_target.jpg")
+        .build()?;
 
-    //save the image to the disk
-    texsynth.save("out/03.jpg").unwrap();
+    let generated = texsynth.run(None);
 
-    //You can also do a more involved segmentation with guide maps with R G B annotating specific features of your examples
+    // save the image to the disk
+    generated.save("out/03.jpg")
+
+    // You can also do a more involved segmentation with guide maps with R G B annotating specific features of your examples
 }

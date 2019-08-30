@@ -638,6 +638,21 @@ impl Generator {
         let total_pixels_to_resolve = self.unresolved.lock().unwrap().len();
         let mut pyramid_level = 0;
 
+        let actual_total_pixels_to_resolve = {
+            let mut atp = 0;
+            for p_stage in (-1..=params.p_stages).rev() {
+                atp += if p_stage >= 0 {
+                    (params.p.powf(p_stage as f32) * (total_pixels_to_resolve as f32)) as usize
+                } else {
+                    total_pixels_to_resolve
+                };
+            }
+
+            atp
+        };
+
+        let mut total_processed_pixels = 0;
+
         for p_stage in (0..=params.p_stages).rev() {
             //get maps from current pyramid level (for now it will be p-stage dependant)
             let example_maps =
@@ -841,13 +856,46 @@ impl Generator {
                                 self.resolve_at_random(unresolved_2d, &example_maps, p_stage_seed);
                             }
                         }
+
+                        remaining_threads.fetch_sub(1, Ordering::Relaxed);
                     });
                 }
 
                 if let Some(ref mut progress) = progress {
-                    while processed_pixel_count.load(Ordering::Relaxed) < pixels_to_resolve {
-                        progress.update(&self.color_map);
+                    let mut last_pcnt = 0;
+
+                    loop {
+                        let stage_progress = processed_pixel_count.load(Ordering::Relaxed);
+
+                        if stage_progress >= pixels_to_resolve - n_workers
+                            && remaining_threads.load(Ordering::Relaxed) == 0
+                        {
+                            break;
+                        }
+
+                        let pcnt = ((total_processed_pixels + stage_progress) as f32
+                            / actual_total_pixels_to_resolve as f32
+                            * 100f32)
+                            .round() as u32;
+
+                        if pcnt != last_pcnt {
+                            progress.update(crate::ProgressUpdate {
+                                image: &self.color_map,
+                                total: crate::ProgressStat {
+                                    total: actual_total_pixels_to_resolve,
+                                    current: total_processed_pixels + stage_progress,
+                                },
+                                stage: crate::ProgressStat {
+                                    total: pixels_to_resolve,
+                                    current: stage_progress,
+                                },
+                            });
+
+                            last_pcnt = pcnt;
+                        }
                     }
+
+                    total_processed_pixels += pixels_to_resolve;
                 }
             })
             .unwrap();

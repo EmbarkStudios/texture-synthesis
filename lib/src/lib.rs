@@ -649,6 +649,29 @@ impl Session {
     }
 }
 
+pub struct ProgressStat {
+    pub current: usize,
+    pub total: usize,
+}
+
+pub struct ProgressUpdate<'a> {
+    /// The currenty resolved image
+    pub image: &'a image::RgbaImage,
+    /// The total progress for the final image
+    pub total: ProgressStat,
+    /// The progress for the current stage
+    pub stage: ProgressStat,
+}
+
 pub trait GeneratorProgress {
-    fn update(&mut self, image: &image::RgbaImage);
+    fn update(&mut self, info: ProgressUpdate<'_>);
+}
+
+impl<G> GeneratorProgress for G
+where
+    G: FnMut(ProgressUpdate<'_>) + Send,
+{
+    fn update(&mut self, info: ProgressUpdate<'_>) {
+        self(info)
+    }
 }

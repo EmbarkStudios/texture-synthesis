@@ -89,6 +89,9 @@ struct Tweaks {
     /// Show a window with the current progress of the generation
     #[structopt(long = "window")]
     show_window: bool,
+    /// Show a window with the current progress of the generation
+    #[structopt(long = "no-progress")]
+    no_progress: bool,
     /// A seed value for the random generator to give pseudo-deterministic result.
     /// Smaller details will be different from generation to generation due to the
     /// non-deterministic nature of multi-threading
@@ -241,16 +244,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let session = sb.build()?;
 
-    let preview = if args.tweaks.show_window {
-        Some(create_progress_window(
-            args.output_size,
-            std::time::Duration::from_millis(100),
-        ))
-    } else {
-        None
-    };
+    let progress: Option<Box<dyn texture_synthesis::GeneratorProgress>> =
+        if !args.tweaks.no_progress {
+            let progress = ProgressWindow::new();
+            let progress = if args.tweaks.show_window {
+                progress.with_preview(args.output_size, std::time::Duration::from_millis(100))
+            } else {
+                progress
+            };
 
-    let generated = session.run(preview);
+            Some(Box::new(progress))
+        } else {
+            None
+        };
+
+    let generated = session.run(progress);
 
     if let Some(ref dir) = args.debug_output_dir {
         generated.save_debug(dir)?;
@@ -267,36 +275,97 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn create_progress_window(
-    size: (u32, u32),
-    update_every: std::time::Duration,
-) -> Box<dyn texture_synthesis::GeneratorProgress> {
-    use std::time::Duration;
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use std::time::Duration;
 
-    pub struct ProgressWindow {
-        window: piston_window::PistonWindow,
-        update_freq: Duration,
-        last_update: std::time::Instant,
-    }
+pub struct ProgressWindow {
+    window: Option<piston_window::PistonWindow>,
+    update_freq: Duration,
+    last_update: std::time::Instant,
 
-    impl ProgressWindow {
-        fn new(size: (u32, u32), update_every: Duration) -> Self {
-            let mut my_return = Self {
-                window: piston_window::WindowSettings::new("Texture Synthesis", [size.0, size.1])
-                    .exit_on_esc(true)
-                    .build()
-                    .unwrap(),
-                update_freq: update_every,
-                last_update: std::time::Instant::now(),
-            };
-            use piston_window::*;
-            my_return.window.set_bench_mode(true); //disallow sleeping
-            my_return
+    total_pb: ProgressBar,
+    stage_pb: ProgressBar,
+
+    total_len: usize,
+    stage_len: usize,
+    stage_num: u32,
+}
+
+impl ProgressWindow {
+    fn new() -> Self {
+        let multi_pb = MultiProgress::new();
+        let sty = ProgressStyle::default_bar()
+            .template("[{elapsed_precise}] {bar:40.cyan/blue} {percent}%")
+            .progress_chars("##-");
+
+        let total_pb = multi_pb.add(ProgressBar::new(100));
+        total_pb.set_style(sty);
+
+        let sty = ProgressStyle::default_bar()
+            .template(" stage {msg:>3} {bar:40.cyan/blue} {percent}%")
+            .progress_chars("##-");
+        let stage_pb = multi_pb.add(ProgressBar::new(100));
+        stage_pb.set_style(sty);
+
+        std::thread::spawn(move || {
+            let _ = multi_pb.join();
+        });
+
+        Self {
+            window: None,
+            update_freq: Duration::from_millis(10),
+            last_update: std::time::Instant::now(),
+            total_pb,
+            stage_pb,
+            total_len: 100,
+            stage_len: 100,
+            stage_num: 0,
         }
     }
 
-    impl texture_synthesis::GeneratorProgress for ProgressWindow {
-        fn update(&mut self, in_image: &texture_synthesis::image::RgbaImage) {
+    fn with_preview(mut self, size: (u32, u32), update_every: Duration) -> Self {
+        use piston_window::EventLoop;
+
+        let mut window: piston_window::PistonWindow =
+            piston_window::WindowSettings::new("Texture Synthesis", [size.0, size.1])
+                .exit_on_esc(true)
+                .build()
+                .unwrap();
+
+        // disallow sleeping
+        window.set_bench_mode(true);
+        self.window = Some(window);
+        self.update_freq = update_every;
+
+        self
+    }
+}
+
+impl Drop for ProgressWindow {
+    fn drop(&mut self) {
+        self.total_pb.finish();
+        self.stage_pb.finish();
+    }
+}
+
+impl texture_synthesis::GeneratorProgress for ProgressWindow {
+    fn update(&mut self, update: texture_synthesis::ProgressUpdate<'_>) {
+        if update.total.total != self.total_len {
+            self.total_len = update.total.total;
+            self.total_pb.set_length(self.total_len as u64);
+        }
+
+        if update.stage.total != self.stage_len {
+            self.stage_len = update.stage.total;
+            self.stage_pb.set_length(self.stage_len as u64);
+            self.stage_num += 1;
+            self.stage_pb.set_message(&self.stage_num.to_string());
+        }
+
+        self.total_pb.set_position(update.total.current as u64);
+        self.stage_pb.set_position(update.stage.current as u64);
+
+        if let Some(ref mut window) = self.window {
             let now = std::time::Instant::now();
 
             if now - self.last_update < self.update_freq {
@@ -307,14 +376,14 @@ fn create_progress_window(
 
             //image to texture
             let texture: piston_window::G2dTexture = piston_window::Texture::from_image(
-                &mut self.window.factory,
-                &in_image,
+                &mut window.factory,
+                &update.image,
                 &piston_window::TextureSettings::new(),
             )
             .unwrap();
 
-            if let Some(event) = self.window.next() {
-                self.window.draw_2d(&event, |context, graphics| {
+            if let Some(event) = window.next() {
+                window.draw_2d(&event, |context, graphics| {
                     piston_window::clear([1.0; 4], graphics);
                     piston_window::image(
                         &texture,
@@ -336,6 +405,4 @@ fn create_progress_window(
             }
         }
     }
-
-    Box::new(ProgressWindow::new(size, update_every))
 }

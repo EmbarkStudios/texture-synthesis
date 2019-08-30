@@ -158,7 +158,7 @@ struct Opt {
     cmd: Subcommand,
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), texture_synthesis::Error> {
     let args = Opt::from_args();
 
     let (mut examples, target_guide) = match &args.cmd {

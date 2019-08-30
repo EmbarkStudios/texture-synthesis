@@ -1,4 +1,4 @@
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), texture_synthesis::Error> {
     // create a new session
     let texsynth = texture_synthesis::Session::builder()
         // load multiple example image

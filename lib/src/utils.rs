@@ -1,4 +1,4 @@
-use std::error::Error;
+use crate::Error;
 use std::path::Path;
 
 pub enum ImageSource<'a> {
@@ -18,7 +18,7 @@ where
 pub fn load_image(
     src: &ImageSource<'_>,
     resize: Option<(u32, u32)>,
-) -> Result<image::RgbaImage, Box<dyn Error>> {
+) -> Result<image::RgbaImage, Error> {
     let img = match src {
         ImageSource::Memory(data) => image::load_from_memory(data),
         ImageSource::Path(path) => image::open(path),

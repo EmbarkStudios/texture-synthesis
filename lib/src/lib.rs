@@ -36,12 +36,12 @@ mod utils;
 use utils::*;
 mod multires_stochastic_texture_synthesis;
 use multires_stochastic_texture_synthesis::*;
-use std::error::Error;
 use std::path::Path;
 
 pub use utils::ImageSource;
-
 pub use image;
+
+pub type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
 
 struct Parameters {
     tiling_mode: bool,
@@ -95,8 +95,7 @@ pub struct GeneratedImage {
 }
 
 impl GeneratedImage {
-    /// Saves the generated image.
-    pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn Error>> {
+    pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
         let path = path.as_ref();
         if let Some(parent_path) = path.parent() {
             std::fs::create_dir_all(&parent_path)?;
@@ -111,15 +110,12 @@ impl GeneratedImage {
         self,
         writer: &mut W,
         fmt: image::ImageOutputFormat,
-    ) -> Result<(), Box<dyn Error>> {
-        let dyn_img = image::DynamicImage::ImageRgba8(self.inner.color_map);
-
+    ) -> Result<(), Error> {
         Ok(dyn_img.write_to(writer, fmt)?)
     }
 
     /// Saves debug information such as copied patches ids, map ids (if you have multi example generation)
-    /// and an uncertainty map indicating generated pixels generator was "uncertain" of.
-    pub fn save_debug<P: AsRef<Path>>(&self, dir: P) -> Result<(), Box<dyn Error>> {
+    pub fn save_debug<P: AsRef<Path>>(&self, dir: P) -> Result<(), Error> {
         let dir = dir.as_ref();
         std::fs::create_dir_all(&dir)?;
 
@@ -204,8 +200,7 @@ impl<'a> Example<'a> {
         backtracks: u32,
         resize: Option<(u32, u32)>,
         target_guide: &Option<ImagePyramid>,
-    ) -> Result<ResolvedExample, Box<dyn Error>> {
-        let image = ImagePyramid::new(load_image(&self.img, resize)?, Some(backtracks));
+    ) -> Result<ResolvedExample, Error> {
 
         let guide = match target_guide {
             Some(tg) => {
@@ -420,7 +415,7 @@ impl<'a> SessionBuilder<'a> {
         self
     }
 
-    pub fn build(self) -> Result<Session, Box<dyn Error>> {
+    pub fn build(self) -> Result<Session, Error> {
         self.check_parameters_validity()?;
         self.check_images_validity()?;
 
@@ -514,7 +509,7 @@ impl<'a> SessionBuilder<'a> {
         Ok(session)
     }
 
-    fn check_parameters_validity(&self) -> Result<(), Box<dyn Error>> {
+    fn check_parameters_validity(&self) -> Result<(), Error> {
         if self.params.cauchy_dispersion < 0.0 || self.params.cauchy_dispersion > 1.0 {
             return Err(Box::new(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
@@ -557,7 +552,7 @@ impl<'a> SessionBuilder<'a> {
         Ok(())
     }
 
-    fn check_images_validity(&self) -> Result<(), Box<dyn Error>> {
+    fn check_images_validity(&self) -> Result<(), Error> {
         if self.examples.is_empty() {
             return Err(Box::new(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,

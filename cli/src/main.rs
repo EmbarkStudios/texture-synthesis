@@ -67,12 +67,12 @@ enum Subcommand {
 
 #[derive(StructOpt)]
 struct Tweaks {
-    /// The number of neighbouring pixels each pixel is aware of during the generation,
+    /// The number of neighboring pixels each pixel is aware of during the generation,
     /// larger numbers means more global structures are captured.
     #[structopt(long = "k-neighs", default_value = "20")]
     k_neighbors: u32,
     /// The number of random locations that will be considered during a pixel resolution,
-    /// apart from its immediate neighbours. If unsure of this parameter, keep as the same as k-neigh.
+    /// apart from its immediate neighbors. If unsure of this parameter, keep as the same as k-neigh.
     #[structopt(long = "m-rand", default_value = "20")]
     m_rand: u64,
     /// The distribution dispersion used for picking best candidate (controls the distribution 'tail flatness').
@@ -223,7 +223,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .add_examples(examples)
         .output_size(args.output_size.0, args.output_size.1)
         .seed(args.tweaks.seed.unwrap_or_default())
-        .nearest_neighbours(args.tweaks.k_neighbors)
+        .nearest_neighbors(args.tweaks.k_neighbors)
         .random_sample_locations(args.tweaks.m_rand)
         .cauchy_dispersion(args.tweaks.cauchy)
         .backtrack_percent(args.tweaks.backtrack_percentage)

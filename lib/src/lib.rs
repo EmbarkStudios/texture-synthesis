@@ -22,7 +22,7 @@
 //! let mut tex_synth = texture_synthesis::Session::new()
 //!                 //set parameters
 //!                 .seed(10)
-//!                 .nearest_neighbours(20)
+//!                 .nearest_neighbors(20)
 //!                 //load example image(s)
 //!                 .load_examples(&vec!["imgs/1.jpg"]);
 //! //generate a new image
@@ -45,7 +45,7 @@ pub use image;
 
 struct Parameters {
     tiling_mode: bool,
-    nearest_neighbours: u32,
+    nearest_neighbors: u32,
     random_sample_locations: u64,
     cauchy_dispersion: f32,
     backtrack_percent: f32,
@@ -61,7 +61,7 @@ impl Default for Parameters {
     fn default() -> Self {
         Self {
             tiling_mode: false,
-            nearest_neighbours: 50,
+            nearest_neighbors: 50,
             random_sample_locations: 50,
             cauchy_dispersion: 1.0,
             backtrack_percent: 0.5,
@@ -78,7 +78,7 @@ impl Default for Parameters {
 impl Parameters {
     fn to_generator_params(&self) -> GeneratorParams {
         GeneratorParams {
-            nearest_neighbours: self.nearest_neighbours,
+            nearest_neighbors: self.nearest_neighbors,
             random_sample_locations: self.random_sample_locations,
             caushy_dispersion: self.cauchy_dispersion,
             p: self.backtrack_percent,
@@ -357,15 +357,15 @@ impl<'a> SessionBuilder<'a> {
         self
     }
 
-    /// How many neighbouring pixels each pixel is aware of during the generation (bigger number -> more global structures are captured).
+    /// How many neighboring pixels each pixel is aware of during the generation (bigger number -> more global structures are captured).
     /// Default: 50
-    pub fn nearest_neighbours(mut self, count: u32) -> Self {
-        self.params.nearest_neighbours = count;
+    pub fn nearest_neighbors(mut self, count: u32) -> Self {
+        self.params.nearest_neighbors = count;
         self
     }
 
-    /// How many random locations will be considered during a pixel resolution apart from its immediate neighbours.
-    /// If unsure, keep same as nearest neighbours.
+    /// How many random locations will be considered during a pixel resolution apart from its immediate neighbors.
+    /// If unsure, keep same as nearest neighbors.
     /// Default: 50
     pub fn random_sample_locations(mut self, count: u64) -> Self {
         self.params.random_sample_locations = count;

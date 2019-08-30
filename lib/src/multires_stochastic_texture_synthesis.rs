@@ -9,11 +9,16 @@ use modulo::Mod;
 
 #[derive(Debug)]
 pub struct GeneratorParams {
-    /// How many neighbouring pixels each pixel is aware of during the generation (bigger number -> more global structures are captured).
-    pub nearest_neighbours: u32,
-    /// How many random locations will be considered during a pixel resolution apart from its immediate neighbours (if unsure, keep same as k-neighbours)
+    /// How many neighboring pixels each pixel is aware of during the generation
+    /// (bigger number -> more global structures are captured).
+    pub nearest_neighbors: u32,
+    /// How many random locations will be considered during a pixel resolution
+    /// apart from its immediate neighbors (if unsure, keep same as k-neighbors)
     pub random_sample_locations: u64,
-    /// The distribution dispersion used for picking best candidate (controls the distribution 'tail flatness'). Values close to 0.0 will produce 'harsh' borders between generated 'chunks'. Values  closer to 1.0 will produce a smoother gradient on those borders.
+    /// The distribution dispersion used for picking best candidate (controls
+    /// the distribution 'tail flatness'). Values close to 0.0 will produce
+    /// 'harsh' borders between generated 'chunks'. Values  closer to 1.0 will
+    /// produce a smoother gradient on those borders.
     pub caushy_dispersion: f32,
     /// The percentage of pixels to be backtracked during each p_stage. Range (0,1).
     pub p: f32,
@@ -64,7 +69,7 @@ impl GuidesPyramidStruct {
     }
 }
 
-//for k-neighbours
+// for k-neighbors
 #[derive(Clone, Copy, Debug, Default)]
 struct SignedCoord2D {
     x: i32,
@@ -346,7 +351,7 @@ impl Generator {
         {
             let resolved = self.resolved.read().unwrap();
 
-            //check how many resolved neighbours we have
+            //check how many resolved neighbors we have
             let total_resolved = resolved.len() as u32;
             if total_resolved == 0 {
                 return false;
@@ -466,9 +471,9 @@ impl Generator {
         let mut candidate_count = 0;
         let unresolved_coord = unresolved_coord.to_signed();
 
-        //neighbourhood based candidates
+        //neighborhood based candidates
         for neigh_coord in k_neighs {
-            //calculate the shift between the center coord and its found neighbour
+            //calculate the shift between the center coord and its found neighbor
             let shift = (
                 unresolved_coord.x - (*neigh_coord).x,
                 unresolved_coord.y - (*neigh_coord).y,
@@ -482,7 +487,7 @@ impl Generator {
                 .0 as usize;
             let (n_original_coord, _) = self.coord_map[n_flat_coord];
             let (n_patch_id, n_map_id) = self.id_map[n_flat_coord];
-            //candidate coord is the original location of the neighbour + neighbour's shift to the center
+            //candidate coord is the original location of the neighbor + neighbor's shift to the center
             let candidate_coord = SignedCoord2D::from(
                 n_original_coord.x as i32 + shift.0,
                 n_original_coord.y as i32 + shift.1,
@@ -494,7 +499,7 @@ impl Generator {
                 &example_maps,
                 &valid_samples_mask[n_map_id.0 as usize],
             ) {
-                //lets construct the full candidate pattern of neighbours identical to the center coord
+                //lets construct the full candidate pattern of neighbors identical to the center coord
                 candidates_vec[candidate_count].k_neighs = k_neighs
                     .iter()
                     .map(|n2| {
@@ -544,7 +549,7 @@ impl Generator {
                     .to_flat(example_maps[rand_map as usize].dimensions())
                     .0,
             );
-            //lets construct the full neighbourhood pattern
+            //lets construct the full neighborhood pattern
             candidates_vec[candidate_count].k_neighs = k_neighs
                 .iter()
                 .map(|n2| {
@@ -697,6 +702,7 @@ impl Generator {
 
             // Keep track of how many items have been processed. Goes up to `pixels_to_resolve`
             let processed_pixel_count = AtomicUsize::new(0);
+            let remaining_threads = AtomicUsize::new(n_workers);
 
             crossbeam_utils::thread::scope(|scope| {
                 for _ in 0..n_workers {
@@ -705,9 +711,9 @@ impl Generator {
                         let mut candidates_patterns: Vec<ColorPattern> = Vec::new();
                         let mut my_pattern: ColorPattern = ColorPattern::new();
                         let mut k_neighs: Vec<SignedCoord2D> =
-                            Vec::with_capacity(params.nearest_neighbours as usize);
+                            Vec::with_capacity(params.nearest_neighbors as usize);
 
-                        let max_candidate_count = params.nearest_neighbours as usize
+                        let max_candidate_count = params.nearest_neighbors as usize
                             + params.random_sample_locations as usize;
 
                         candidates.resize(max_candidate_count, CandidateStruct::default());
@@ -755,10 +761,10 @@ impl Generator {
                             // 2. find K nearest resolved neighs
                             if self.find_k_nearest_resolved_neighs(
                                 unresolved_2d,
-                                params.nearest_neighbours,
+                                params.nearest_neighbors,
                                 &mut k_neighs,
                             ) {
-                                //2.1 get distances to the pattern of neighbours
+                                //2.1 get distances to the pattern of neighbors
                                 let k_neighs_dist =
                                     self.get_distances_to_k_neighs(unresolved_2d, &k_neighs);
                                 let k_neighs_w_map_id =

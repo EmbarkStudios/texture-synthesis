@@ -38,8 +38,8 @@ mod multires_stochastic_texture_synthesis;
 use multires_stochastic_texture_synthesis::*;
 use std::path::Path;
 
-pub use utils::ImageSource;
 pub use image;
+pub use utils::ImageSource;
 
 pub type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
 
@@ -154,6 +154,24 @@ pub enum SampleMethod<'a> {
     Image(ImageSource<'a>),
 }
 
+impl<'a> SampleMethod<'a> {
+    fn is_ignore(&self) -> bool {
+        match self {
+            Self::Ignore => true,
+            _ => false,
+        }
+    }
+}
+
+impl<'a, S> From<&'a S> for SampleMethod<'a>
+where
+    S: AsRef<Path> + 'a,
+{
+    fn from(path: &'a S) -> Self {
+        Self::Image(ImageSource::Path(path.as_ref()))
+    }
+}
+
 /// Internal sample method
 pub enum SamplingMethod {
     All,
@@ -164,7 +182,7 @@ pub enum SamplingMethod {
 impl SamplingMethod {
     fn is_ignore(&self) -> bool {
         match self {
-            SamplingMethod::Ignore => true,
+            Self::Ignore => true,
             _ => false,
         }
     }
@@ -582,6 +600,19 @@ impl<'a> SessionBuilder<'a> {
                     self.examples.len()
                 ),
             )));
+        }
+
+        // When using inpaint, the example it's paired with must not be ignored
+        // if there are no other examples, otherwise we will have no pixels to source
+        if let Some(ref inpaint) = self.inpaint_mask {
+            if self.examples[inpaint.1].sample_method.is_ignore() &&
+                self.examples.len() == 1
+            {
+                return Err(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "Inpaint example will not be sampled from, and there are no other example inputs to use",
+                )));
+            }
         }
 
         Ok(())

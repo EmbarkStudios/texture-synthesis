@@ -41,7 +41,7 @@ struct Generate {
     #[structopt(long = "guides", parse(from_os_str))]
     example_guides: Vec<PathBuf>,
     /// Path(s) to example images used to synthesize a new image
-    #[structopt(long, parse(from_os_str))]
+    #[structopt(parse(from_os_str))]
     examples: Vec<PathBuf>,
 }
 
@@ -211,9 +211,10 @@ fn main() -> Result<(), texture_synthesis::Error> {
     if let Some(ref inpaint) = args.inpaint {
         let mut inpaint_example = examples.remove(0);
 
-        // If the user hasn't explicitly specified sample masks, assume ignore for the example
+        // If the user hasn't explicitly specified sample masks, assume they
+        // want to use the same mask
         if args.sample_masks.is_empty() {
-            inpaint_example.set_sample_method(SampleMethod::Ignore);
+            inpaint_example.set_sample_method(SampleMethod::from(inpaint));
         }
 
         sb = sb.inpaint_example(inpaint, inpaint_example);

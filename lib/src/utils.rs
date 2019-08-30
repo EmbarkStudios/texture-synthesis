@@ -1,9 +1,11 @@
 use crate::Error;
 use std::path::Path;
 
+#[derive(Clone)]
 pub enum ImageSource<'a> {
     Memory(&'a [u8]),
     Path(&'a Path),
+    Image(image::DynamicImage),
 }
 
 impl<'a, S> From<&'a S> for ImageSource<'a>
@@ -16,12 +18,13 @@ where
 }
 
 pub fn load_image(
-    src: &ImageSource<'_>,
+    src: ImageSource<'_>,
     resize: Option<(u32, u32)>,
 ) -> Result<image::RgbaImage, Error> {
     let img = match src {
         ImageSource::Memory(data) => image::load_from_memory(data),
         ImageSource::Path(path) => image::open(path),
+        ImageSource::Image(img) => Ok(img),
     }?;
 
     Ok(match resize {

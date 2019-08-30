@@ -111,6 +111,7 @@ impl GeneratedImage {
         writer: &mut W,
         fmt: image::ImageOutputFormat,
     ) -> Result<(), Error> {
+        let dyn_img = self.into_image();
         Ok(dyn_img.write_to(writer, fmt)?)
     }
 
@@ -127,6 +128,11 @@ impl GeneratedImage {
         id_maps[1].save(&dir.join("map_id.png"))?;
 
         Ok(())
+    }
+
+    /// Returns the generated output image
+    pub fn into_image(self) -> image::DynamicImage {
+        image::DynamicImage::ImageRgba8(self.inner.color_map)
     }
 }
 
@@ -201,12 +207,13 @@ impl<'a> Example<'a> {
         resize: Option<(u32, u32)>,
         target_guide: &Option<ImagePyramid>,
     ) -> Result<ResolvedExample, Error> {
+        let image = ImagePyramid::new(load_image(self.img, resize)?, Some(backtracks));
 
         let guide = match target_guide {
             Some(tg) => {
                 Some(match self.guide {
                     Some(exguide) => {
-                        let exguide = load_image(&exguide, resize)?;
+                        let exguide = load_image(exguide, resize)?;
                         ImagePyramid::new(exguide, Some(backtracks))
                     }
                     None => {
@@ -225,7 +232,7 @@ impl<'a> Example<'a> {
             SampleMethod::All => SamplingMethod::All,
             SampleMethod::Ignore => SamplingMethod::Ignore,
             SampleMethod::Image(src) => {
-                let img = load_image(&src, resize)?;
+                let img = load_image(src, resize)?;
                 SamplingMethod::Image(img)
             }
         };
@@ -421,7 +428,7 @@ impl<'a> SessionBuilder<'a> {
 
         let target_guide = match self.target_guide {
             Some(tg) => {
-                let tg_img = load_image(&tg, Some(self.params.output_size))?;
+                let tg_img = load_image(tg, Some(self.params.output_size))?;
 
                 let num_guides = self.examples.iter().filter(|ex| ex.guide.is_some()).count();
                 let tg_img = if num_guides == 0 {
@@ -446,8 +453,11 @@ impl<'a> SessionBuilder<'a> {
 
         let inpaint = match self.inpaint_mask {
             Some((src, ind)) => {
-                let inpaint_mask = load_image(&src, Some(self.params.output_size))?;
-                let color_map = load_image(&self.examples[ind].img, Some(self.params.output_size))?;
+                let inpaint_mask = load_image(src, Some(self.params.output_size))?;
+                let color_map = load_image(
+                    self.examples[ind].img.clone(),
+                    Some(self.params.output_size),
+                )?;
 
                 Some(InpaintExample {
                     inpaint_mask,

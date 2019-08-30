@@ -95,6 +95,7 @@ pub struct GeneratedImage {
 }
 
 impl GeneratedImage {
+    /// Saves the generated image to the specified path
     pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
         let path = path.as_ref();
         if let Some(parent_path) = path.parent() {
@@ -105,7 +106,7 @@ impl GeneratedImage {
         Ok(())
     }
 
-    /// Writes the generated image to the specified output
+    /// Writes the generated image to the specified stream
     pub fn write<W: std::io::Write>(
         self,
         writer: &mut W,
@@ -116,6 +117,7 @@ impl GeneratedImage {
     }
 
     /// Saves debug information such as copied patches ids, map ids (if you have multi example generation)
+    /// and a map indicating generated pixels the generator was "uncertain" of.
     pub fn save_debug<P: AsRef<Path>>(&self, dir: P) -> Result<(), Error> {
         let dir = dir.as_ref();
         std::fs::create_dir_all(&dir)?;

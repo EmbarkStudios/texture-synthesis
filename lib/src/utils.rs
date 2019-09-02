@@ -1,10 +1,16 @@
 use crate::Error;
 use std::path::Path;
 
+/// Helper type used to pass image data to the Session
 #[derive(Clone)]
 pub enum ImageSource<'a> {
+    /// A raw buffer of image data, see `image::load_from_memory` for details
+    /// on what is supported
     Memory(&'a [u8]),
+    /// The path to an image to load from disk. The image format is inferred
+    /// from the file extension, see `image::open` for details
     Path(&'a Path),
+    /// An already loaded image that is passed directly to the generator
     Image(image::DynamicImage),
 }
 
@@ -17,7 +23,7 @@ where
     }
 }
 
-pub fn load_image(
+pub(crate) fn load_image(
     src: ImageSource<'_>,
     resize: Option<(u32, u32)>,
 ) -> Result<image::RgbaImage, Error> {
@@ -41,7 +47,7 @@ pub fn load_image(
     })
 }
 
-pub fn transform_to_guide_map(
+pub(crate) fn transform_to_guide_map(
     image: image::RgbaImage,
     size: Option<(u32, u32)>,
     blur_sigma: f32,
@@ -58,7 +64,7 @@ pub fn transform_to_guide_map(
     dyn_img.blur(blur_sigma).grayscale().to_rgba()
 }
 
-pub fn get_histogram(img: &image::RgbaImage) -> Vec<u32> {
+pub(crate) fn get_histogram(img: &image::RgbaImage) -> Vec<u32> {
     let mut hist = vec![0; 256]; //0-255 incl
 
     let pixels = &img;
@@ -75,7 +81,7 @@ pub fn get_histogram(img: &image::RgbaImage) -> Vec<u32> {
 }
 
 //source will be modified to fit the target
-pub fn match_histograms(source: &mut image::RgbaImage, target: &image::RgbaImage) {
+pub(crate) fn match_histograms(source: &mut image::RgbaImage, target: &image::RgbaImage) {
     let target_hist = get_histogram(target);
     let source_hist = get_histogram(source);
 
@@ -105,7 +111,7 @@ pub fn match_histograms(source: &mut image::RgbaImage, target: &image::RgbaImage
     }
 }
 
-pub fn get_cdf(a: &[u32]) -> Vec<f32> {
+pub(crate) fn get_cdf(a: &[u32]) -> Vec<f32> {
     let mut cumm = vec![0.0; 256];
 
     for i in 0..a.len() {

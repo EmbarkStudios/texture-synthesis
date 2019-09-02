@@ -21,6 +21,7 @@ name = "texture-synthesis"
 path = "src/main.rs"
 
 [dependencies]
+atty = "0.2.13" # indicatif's tty detection only works with stdout for some reason
 indicatif = "0.11.0"
 piston_window = "0.85.0"
 rand = "0.6.4"

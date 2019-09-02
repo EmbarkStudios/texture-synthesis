@@ -162,7 +162,19 @@ struct Opt {
     cmd: Subcommand,
 }
 
-fn main() -> Result<(), texture_synthesis::Error> {
+fn main() {
+    if let Err(e) = real_main() {
+        if atty::is(atty::Stream::Stderr) {
+            eprintln!("\x1b[31merror\x1b[0m: {}", e.description());
+        } else {
+            eprintln!("error: {}", e.description());
+        }
+
+        std::process::exit(1);
+    }
+}
+
+fn real_main() -> Result<(), texture_synthesis::Error> {
     let args = Opt::from_args();
 
     let (mut examples, target_guide) = match &args.cmd {

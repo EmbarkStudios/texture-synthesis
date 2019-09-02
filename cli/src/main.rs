@@ -33,6 +33,7 @@ fn parse_img_fmt(input: &str) -> Result<ImgFmt, String> {
 }
 
 #[derive(StructOpt)]
+#[structopt(rename_all = "kebab-case")]
 struct Generate {
     /// A target guidance map
     #[structopt(long, parse(from_os_str))]
@@ -66,6 +67,7 @@ enum Subcommand {
 }
 
 #[derive(StructOpt)]
+#[structopt(rename_all = "kebab-case")]
 struct Tweaks {
     /// The number of neighboring pixels each pixel is aware of during the generation,
     /// larger numbers means more global structures are captured.
@@ -90,7 +92,7 @@ struct Tweaks {
     #[structopt(long = "window")]
     show_window: bool,
     /// Show a window with the current progress of the generation
-    #[structopt(long = "no-progress")]
+    #[structopt(long)]
     no_progress: bool,
     /// A seed value for the random generator to give pseudo-deterministic result.
     /// Smaller details will be different from generation to generation due to the
@@ -102,7 +104,7 @@ struct Tweaks {
     #[structopt(long, default_value = "1.0")]
     alpha: f32,
     /// The number of randomly initialized pixels before the main resolve loop starts
-    #[structopt(long = "rand-init")]
+    #[structopt(long)]
     rand_init: Option<u64>,
     /// Enables tiling of the output image
     #[structopt(long = "tiling")]
@@ -112,7 +114,8 @@ struct Tweaks {
 #[derive(StructOpt)]
 #[structopt(
     name = "texture-synthesis",
-    about = "Synthesizes images based on example images"
+    about = "Synthesizes images based on example images",
+    rename_all = "kebab-case"
 )]
 struct Opt {
     /// Path(s) to sample masks used to determine which pixels in an example can be used as inputs
@@ -128,20 +131,21 @@ struct Opt {
     inpaint: Option<PathBuf>,
     /// Size of the generated image, in `width x height`, or a single number for both dimensions
     #[structopt(
-        long = "out-size",
+        long,
         default_value = "500",
-        parse(try_from_str = "parse_size")
+        parse(try_from_str = parse_size)
     )]
-    output_size: (u32, u32),
+    out_size: (u32, u32),
+    /// The format to save the generated image as.
     #[structopt(
-        long = "out-fmt",
+        long,
         default_value = "png",
-        parse(try_from_str = "parse_img_fmt")
+        parse(try_from_str = parse_img_fmt)
     )]
-    output_fmt: texture_synthesis::image::ImageOutputFormat,
+    out_fmt: texture_synthesis::image::ImageOutputFormat,
     /// Resize input example map(s), in `width x height`, or a single number for both dimensions
-    #[structopt(long = "in-size", parse(try_from_str = "parse_size"))]
-    input_size: Option<(u32, u32)>,
+    #[structopt(long, parse(try_from_str = parse_size))]
+    in_size: Option<(u32, u32)>,
     /// The path to save the generated image to, use `-` for stdout
     #[structopt(long = "out", short, default_value = "-")]
     output_path: String,
@@ -150,8 +154,8 @@ struct Opt {
     /// * `patch_id.png` - Map of the `copy islands` from an example
     /// * `map_id.png` - Map of ids of which example was the source of a pixel
     /// * `uncertainty.png` - Map of pixels the generator was uncertain of
-    #[structopt(long = "debug-out-dir", parse(from_os_str))]
-    debug_output_dir: Option<PathBuf>,
+    #[structopt(long, parse(from_os_str))]
+    debug_out_dir: Option<PathBuf>,
     #[structopt(flatten)]
     tweaks: Tweaks,
     #[structopt(subcommand)]
@@ -222,7 +226,7 @@ fn main() -> Result<(), texture_synthesis::Error> {
 
     sb = sb
         .add_examples(examples)
-        .output_size(args.output_size.0, args.output_size.1)
+        .output_size(args.out_size.0, args.out_size.1)
         .seed(args.tweaks.seed.unwrap_or_default())
         .nearest_neighbors(args.tweaks.k_neighbors)
         .random_sample_locations(args.tweaks.m_rand)
@@ -239,7 +243,7 @@ fn main() -> Result<(), texture_synthesis::Error> {
         sb = sb.random_init(rand_init);
     }
 
-    if let Some(insize) = args.input_size {
+    if let Some(insize) = args.in_size {
         sb = sb.resize_input(insize.0, insize.1);
     }
 
@@ -249,7 +253,7 @@ fn main() -> Result<(), texture_synthesis::Error> {
         if !args.tweaks.no_progress {
             let progress = ProgressWindow::new();
             let progress = if args.tweaks.show_window {
-                progress.with_preview(args.output_size, std::time::Duration::from_millis(100))
+                progress.with_preview(args.out_size, std::time::Duration::from_millis(100))
             } else {
                 progress
             };
@@ -261,14 +265,14 @@ fn main() -> Result<(), texture_synthesis::Error> {
 
     let generated = session.run(progress);
 
-    if let Some(ref dir) = args.debug_output_dir {
+    if let Some(ref dir) = args.debug_out_dir {
         generated.save_debug(dir)?;
     }
 
     if args.output_path == "-" {
         let out = std::io::stdout();
         let mut out = out.lock();
-        generated.write(&mut out, args.output_fmt)?;
+        generated.write(&mut out, args.out_fmt)?;
     } else {
         generated.save(&args.output_path)?;
     }

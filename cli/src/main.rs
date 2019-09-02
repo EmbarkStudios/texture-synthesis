@@ -71,11 +71,11 @@ enum Subcommand {
 struct Tweaks {
     /// The number of neighboring pixels each pixel is aware of during the generation,
     /// larger numbers means more global structures are captured.
-    #[structopt(long = "k-neighs", default_value = "20")]
+    #[structopt(long = "k-neighs", default_value = "50")]
     k_neighbors: u32,
     /// The number of random locations that will be considered during a pixel resolution,
     /// apart from its immediate neighbors. If unsure of this parameter, keep as the same as k-neigh.
-    #[structopt(long = "m-rand", default_value = "20")]
+    #[structopt(long, default_value = "50")]
     m_rand: u64,
     /// The distribution dispersion used for picking best candidate (controls the distribution 'tail flatness').
     /// Values close to 0.0 will produce 'harsh' borders between generated 'chunks'.
@@ -83,7 +83,7 @@ struct Tweaks {
     #[structopt(long, default_value = "1.0")]
     cauchy: f32,
     /// The percentage of pixels to be backtracked during each p_stage. Range (0.0, 1.0).
-    #[structopt(long = "backtrack-pct", default_value = "0.35")]
+    #[structopt(long = "backtrack-pct", default_value = "0.5")]
     backtrack_percentage: f32,
     /// The number of backtracking stages. Backtracking prevents 'garbage' generation.
     #[structopt(long = "backtrack-stages", default_value = "5")]
@@ -101,7 +101,7 @@ struct Tweaks {
     seed: Option<u64>,
     /// Alpha parameter controls the 'importance' of the user guide maps. If you want
     /// to preserve more details from the example map, make sure the number < 1.0. Range (0.0 - 1.0)
-    #[structopt(long, default_value = "1.0")]
+    #[structopt(long, default_value = "0.8")]
     alpha: f32,
     /// The number of randomly initialized pixels before the main resolve loop starts
     #[structopt(long)]

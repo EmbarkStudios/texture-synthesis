@@ -660,15 +660,18 @@ impl<'a> SessionBuilder<'a> {
             )));
         }
 
-        // When using inpaint, the example it's paired with must not be ignored
-        // if there are no other examples, otherwise we will have no pixels to source
-        if let Some(ref inpaint) = self.inpaint_mask {
-            if self.examples[inpaint.1].sample_method.is_ignore() && self.examples.len() == 1 {
-                return Err(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    "Inpaint example will not be sampled from, and there are no other example inputs to use",
-                )));
-            }
+        // We must have at least one example image to source pixels from
+        let input_count = self
+            .examples
+            .iter()
+            .filter(|ex| !ex.sample_method.is_ignore())
+            .count();
+
+        if input_count == 0 {
+            return Err(Box::new(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "At least 1 example image must be sampled to generate an output image",
+            )));
         }
 
         Ok(())

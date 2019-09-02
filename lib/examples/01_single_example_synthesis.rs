@@ -4,7 +4,7 @@ fn main() -> Result<(), ts::Error> {
     //create a new session
     let texsynth = ts::Session::builder()
         //load a single example image
-        .add_examples(&[&"imgs/1.jpg"])
+        .add_example(&"imgs/1.jpg")
         .build()?;
 
     //generate an image

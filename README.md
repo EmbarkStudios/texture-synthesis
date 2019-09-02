@@ -27,7 +27,7 @@ fn main() -> Result<(), ts::Error> {
     //create a new session
     let texsynth = ts::Session::builder()
         //load a single example image
-        .add_examples(&[&"imgs/1.jpg"])
+        .add_example(&"imgs/1.jpg")
         .build()?;
 
     //generate an image
@@ -100,16 +100,10 @@ We can also guide the generation by providing a transformation "FROM"-"TO" in a 
 use texture_synthesis as ts;
 
 fn main() -> Result<(), ts::Error> {
-    let example = {
-        let mut ex = ts::Example::new(&"imgs/2.jpg");
-        ex.with_guide(&"imgs/masks/2_example.jpg");
-        ex
-    };
-
     let texsynth = ts::Session::builder()
         // NOTE: it is important that example(s) and their corresponding guides have same size(s)
         // you can ensure that by overwriting the input images sizes with .resize_input()
-        .add_example(example)
+        .add_example(ts::Example::builder(&"imgs/2.jpg").with_guide(&"imgs/masks/2_example.jpg"))
         // load target "heart" shape that we would like the generated image to look like
         // now the generator will take our target guide into account during synthesis
         .load_target_guide(&"imgs/masks/2_target.jpg")
@@ -119,8 +113,6 @@ fn main() -> Result<(), ts::Error> {
 
     // save the image to the disk
     generated.save("out/03.jpg")
-
-    // You can also do a more involved segmentation with guide maps with R G B annotating specific features of your examples
 }
 ```
 
@@ -174,20 +166,21 @@ We can also fill-in missing information with inpaint. By changing the seed, we w
 use texture_synthesis as ts;
 
 fn main() -> Result<(), ts::Error> {
-    // load a "corrupted" example with missing red information we would like to fill in
-    let mut example = ts::Example::from(&"imgs/3.jpg");
-    // we would also like to prevent sampling from "corrupted" red areas
-    // otherwise, generator will treat that those as valid areas it can copy from in the example,
-    // we could also use SampleMethod::Ignore to ignore the example altogether, but we
-    // would then need at least 1 other example image to actually source from
-    // example.set_sample_method(ts::SampleMethod::Ignore);
-    example.set_sample_method(ts::SampleMethod::from(&"imgs/masks/3_inpaint.jpg"));
-
     let texsynth = ts::Session::builder()
         // let the generator know which part we would like to fill in
         // if we had more examples, they would be additional information
         // the generator could use to inpaint
-        .inpaint_example(&"imgs/masks/3_inpaint.jpg", example)
+        .inpaint_example(
+            &"imgs/masks/3_inpaint.jpg",
+            // load a "corrupted" example with missing red information we would like to fill in
+            ts::Example::builder(&"imgs/3.jpg")
+                // we would also like to prevent sampling from "corrupted" red areas
+                // otherwise, generator will treat that those as valid areas it can copy from in the example,
+                // we could also use SampleMethod::Ignore to ignore the example altogether, but we
+                // would then need at least 1 other example image to actually source from
+                // example.set_sample_method(ts::SampleMethod::Ignore);
+                .set_sample_method(&"imgs/masks/3_inpaint.jpg"),
+        )
         // during inpaint, it is important to ensure both input and output are the same size
         .resize_input(400, 400)
         .output_size(400, 400)

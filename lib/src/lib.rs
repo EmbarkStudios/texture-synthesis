@@ -196,9 +196,9 @@ pub struct Example<'a> {
 }
 
 impl<'a> Example<'a> {
-    pub fn new(img: ImageSource<'a>) -> Self {
+    pub fn new<I: Into<ImageSource<'a>>>(img: I) -> Self {
         Self {
-            img,
+            img: img.into(),
             guide: None,
             sample_method: SampleMethod::All,
         }
@@ -265,18 +265,12 @@ impl<'a> Example<'a> {
     }
 }
 
-// impl<'a> From<&'a Path> for Example<'a> {
-//     fn from(path: &'a Path) -> Self {
-//         Example::new(ImageSource::Path(path))
-//     }
-// }
-
 impl<'a, S> From<&'a S> for Example<'a>
 where
     S: AsRef<Path> + 'a,
 {
     fn from(path: &'a S) -> Self {
-        Example::new(ImageSource::Path(path.as_ref()))
+        Example::new(path)
     }
 }
 
@@ -605,9 +599,7 @@ impl<'a> SessionBuilder<'a> {
         // When using inpaint, the example it's paired with must not be ignored
         // if there are no other examples, otherwise we will have no pixels to source
         if let Some(ref inpaint) = self.inpaint_mask {
-            if self.examples[inpaint.1].sample_method.is_ignore() &&
-                self.examples.len() == 1
-            {
+            if self.examples[inpaint.1].sample_method.is_ignore() && self.examples.len() == 1 {
                 return Err(Box::new(std::io::Error::new(
                     std::io::ErrorKind::InvalidInput,
                     "Inpaint example will not be sampled from, and there are no other example inputs to use",

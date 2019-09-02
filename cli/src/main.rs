@@ -167,7 +167,7 @@ fn main() -> Result<(), texture_synthesis::Error> {
 
     let (mut examples, target_guide) = match &args.cmd {
         Subcommand::Generate(gen) => {
-            let mut examples: Vec<_> = gen.examples.iter().map(Example::from).collect();
+            let mut examples: Vec<_> = gen.examples.iter().map(Example::new).collect();
             if !gen.example_guides.is_empty() {
                 if examples.len() != gen.example_guides.len() {
                     return Err(Box::new(std::io::Error::new(
@@ -187,7 +187,7 @@ fn main() -> Result<(), texture_synthesis::Error> {
 
             (examples, gen.target_guide.as_ref())
         }
-        Subcommand::TransferStyle(ts) => (vec![Example::from(&ts.style)], Some(&ts.guide)),
+        Subcommand::TransferStyle(ts) => (vec![Example::new(&ts.style)], Some(&ts.guide)),
     };
 
     if !args.sample_masks.is_empty() {

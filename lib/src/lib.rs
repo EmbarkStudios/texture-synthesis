@@ -192,6 +192,51 @@ impl SamplingMethod {
     }
 }
 
+/// A builder for an `Example`
+pub struct ExampleBuilder<'a> {
+    img: ImageSource<'a>,
+    guide: Option<ImageSource<'a>>,
+    sample_method: SampleMethod<'a>,
+}
+
+impl<'a> ExampleBuilder<'a> {
+    /// Creates a new example builder from the specified image source
+    pub fn new<I: Into<ImageSource<'a>>>(img: I) -> Self {
+        Self {
+            img: img.into(),
+            guide: None,
+            sample_method: SampleMethod::All,
+        }
+    }
+
+    /// Use a guide map that describe a 'FROM' transformation.
+    ///
+    /// Note: If any one example has a guide, then they **all** must have
+    /// a guide, otherwise a session will not be created.
+    pub fn with_guide<G: Into<ImageSource<'a>>>(mut self, guide: G) -> Self {
+        self.guide = Some(guide.into());
+        self
+    }
+
+    /// Specify how the example image is sampled during texture generation.
+    ///
+    /// By default, all pixels in the example can be sampled.
+    pub fn set_sample_method<M: Into<SampleMethod<'a>>>(mut self, method: M) -> Self {
+        self.sample_method = method.into();
+        self
+    }
+}
+
+impl<'a> Into<Example<'a>> for ExampleBuilder<'a> {
+    fn into(self) -> Example<'a> {
+        Example {
+            img: self.img,
+            guide: self.guide,
+            sample_method: self.sample_method,
+        }
+    }
+}
+
 /// An example to be used in texture generation
 pub struct Example<'a> {
     img: ImageSource<'a>,
@@ -200,6 +245,12 @@ pub struct Example<'a> {
 }
 
 impl<'a> Example<'a> {
+    /// Creates a new example builder from the specified image source
+    pub fn builder<I: Into<ImageSource<'a>>>(img: I) -> ExampleBuilder<'a> {
+        ExampleBuilder::new(img)
+    }
+
+    /// Creates a new example input from the specified image source
     pub fn new<I: Into<ImageSource<'a>>>(img: I) -> Self {
         Self {
             img: img.into(),
@@ -220,8 +271,8 @@ impl<'a> Example<'a> {
     /// Specify how the example image is sampled during texture generation.
     ///
     /// By default, all pixels in the example can be sampled.
-    pub fn set_sample_method(&mut self, method: SampleMethod<'a>) -> &mut Self {
-        self.sample_method = method;
+    pub fn set_sample_method<M: Into<SampleMethod<'a>>>(&mut self, method: M) -> &mut Self {
+        self.sample_method = method.into();
         self
     }
 

@@ -218,7 +218,7 @@ fn main() -> Result<(), texture_synthesis::Error> {
         // If the user hasn't explicitly specified sample masks, assume they
         // want to use the same mask
         if args.sample_masks.is_empty() {
-            inpaint_example.set_sample_method(SampleMethod::from(inpaint));
+            inpaint_example.set_sample_method(inpaint);
         }
 
         sb = sb.inpaint_example(inpaint, inpaint_example);

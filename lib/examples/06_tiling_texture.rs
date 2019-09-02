@@ -8,7 +8,7 @@ fn main() -> Result<(), ts::Error> {
 
     let texsynth = ts::Session::builder()
         // load a mask that specifies borders of the image we can modify to make it tiling
-        .inpaint_example(&"imgs/masks/1_tile.jpg", &"imgs/1.jpg")
+        .inpaint_example(&"imgs/masks/1_tile.jpg", ts::Example::new(&"imgs/1.jpg"))
         //ensure correct sizes
         .resize_input(400, 400)
         .output_size(400, 400)

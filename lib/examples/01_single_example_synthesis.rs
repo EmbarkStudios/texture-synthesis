@@ -1,8 +1,10 @@
-fn main() -> Result<(), texture_synthesis::Error> {
+use texture_synthesis as ts;
+
+fn main() -> Result<(), ts::Error> {
     //create a new session
-    let texsynth = texture_synthesis::Session::builder()
+    let texsynth = ts::Session::builder()
         //load a single example image
-        .add_example(&"imgs/1.jpg")
+        .add_examples(&[&"imgs/1.jpg"])
         .build()?;
 
     //generate an image

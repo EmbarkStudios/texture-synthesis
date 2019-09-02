@@ -6,6 +6,7 @@
 //! to generate a new image.
 //!
 //! ## Features
+//!
 //! 1. Single example generation
 //! 2. Multi example generation
 //! 3. Guided synthesis
@@ -19,16 +20,19 @@
 //! Session follows a "builder pattern" for defining parameters, meaning you chain functions together.
 //! ```no_run
 //! //create a new session with default parameters
-//! let mut tex_synth = texture_synthesis::Session::new()
-//!                 //set parameters
-//!                 .seed(10)
-//!                 .nearest_neighbors(20)
-//!                 //load example image(s)
-//!                 .load_examples(&vec!["imgs/1.jpg"]);
+//! let session = texture_synthesis::Session::builder()
+//!     //set parameters
+//!     .seed(10)
+//!     .nearest_neighbors(20)
+//!     //load example image(s)
+//!     .add_example(&"imgs/1.jpg")
+//!     .build().expect("failed to build session");
+//!
 //! //generate a new image
-//! let generated_img = tex_synth.run(None).unwrap();
+//! let generated_img = session.run(None);
+//!
 //! //save
-//! tex_synth.save("my_generated_img.jpg").unwrap();
+//! generated_img.save("my_generated_img.jpg").expect("failed to save generated image");
 //! ```
 mod img_pyramid;
 use img_pyramid::*;
@@ -287,12 +291,15 @@ impl<'a> SessionBuilder<'a> {
         Self::default()
     }
 
-    /// Adds an [Example] from which a generator will synthesize a new image.
+    /// Adds an [Example] image from which a generator will synthesize a new image.
+    ///
+    /// See [example files](https://github.com/EmbarkStudios/texture-synthesis/tree/master/examples):
+    /// * `examples/03_guided_synthesis.rs`
     ///
     /// ```no_run
     /// let tex_synth = texture_synthesis::Session::builder()
-    ///     .add_example(["imgs/1.jpg"])
-    ///     .build()?;
+    ///     .add_example(&"imgs/1.jpg")
+    ///     .build().expect("failed to build session");
     /// ```
     pub fn add_example<E: Into<Example<'a>>>(mut self, example: E) -> Self {
         self.examples.push(example.into());
@@ -306,8 +313,8 @@ impl<'a> SessionBuilder<'a> {
     ///
     /// ```no_run
     /// let tex_synth = texture_synthesis::Session::builder()
-    ///     .add_examples([Path::from("imgs/1.jpg"), Path::from("imgs/2.jpg")])j
-    ///     .build()?;
+    ///     .add_examples(&[&"imgs/1.jpg", &"imgs/2.jpg"])
+    ///     .build().expect("failed to build session");
     /// ```
     pub fn add_examples<E: Into<Example<'a>>, I: IntoIterator<Item = E>>(
         mut self,
@@ -325,10 +332,16 @@ impl<'a> SessionBuilder<'a> {
     ///
     /// # Example
     /// ```no_run
-    /// let tex_synth = texture_synthesis::Session::new()
-    ///                 .load_examples(&vec!["imgs/1.jpg", "imgs/2.jpg", "imgs/3.jpg"])
-    ///                 .inpaint_example("masks/inpaint.jpg", 1) //this will inpaint "imgs/2.jpg" example
-    ///                 .load_sampling_masks(&vec!["None", "masks/black.jpg", "None"]); //this will prevent any sampling from "imgs/2.jpg" example
+    /// let mut example = texture_synthesis::Example::new(&"imgs/2.jpg");
+    /// // This will prevent sampling from the imgs/2.jpg, note that
+    /// // we *MUST* provide other examples when entirely ignoring
+    /// // the example paired with the inpaint
+    /// example.set_sample_method(texture_synthesis::SampleMethod::Ignore);
+    ///
+    /// let tex_synth = texture_synthesis::Session::builder()
+    ///     .add_examples(&[&"imgs/1.jpg", &"imgs/3.jpg"])
+    ///     .inpaint_example(&"masks/inpaint.jpg", example)
+    ///     .build().expect("failed to build session");
     /// ```
     pub fn inpaint_example<I: Into<ImageSource<'a>>, E: Into<Example<'a>>>(
         mut self,
@@ -620,14 +633,17 @@ struct ResolvedExample {
 /// Texture synthesis session.
 ///
 /// Session follows a "builder pattern" for defining parameters, meaning you chain functions together.
+///
 /// # Example
 /// ```no_run
-/// let mut tex_synth = texture_synthesis::Session::new()
-///                 .seed(10)
-///                 .tiling_mode(true)
-///                 .load_examples(&vec!["imgs/1.jpg"]);
-/// let generated_img = tex_synth.run(None).unwrap();
-/// tex_synth.save("my_generated_img.jpg").unwrap();
+/// let tex_synth = texture_synthesis::Session::builder()
+///     .seed(10)
+///     .tiling_mode(true)
+///     .add_example(&"imgs/1.jpg")
+///     .build().expect("failed to build session");
+///
+/// let generated_img = tex_synth.run(None);
+/// generated_img.save("my_generated_img.jpg").expect("failed to save image");
 /// ```
 pub struct Session {
     examples: Vec<ImagePyramid>,

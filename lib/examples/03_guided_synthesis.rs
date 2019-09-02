@@ -1,8 +1,11 @@
 use texture_synthesis as ts;
 
 fn main() -> Result<(), ts::Error> {
-    let mut example = ts::Example::from(&"imgs/2.jpg");
-    example.with_guide(&"imgs/masks/2_example.jpg");
+    let example = {
+        let mut ex = ts::Example::new(&"imgs/2.jpg");
+        ex.with_guide(&"imgs/masks/2_example.jpg");
+        ex
+    };
 
     let texsynth = ts::Session::builder()
         // NOTE: it is important that example(s) and their corresponding guides have same size(s)

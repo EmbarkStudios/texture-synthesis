@@ -1,12 +1,14 @@
-fn main() -> Result<(), texture_synthesis::Error> {
+use texture_synthesis as ts;
+
+fn main() -> Result<(), ts::Error> {
     // create a new session
-    let texsynth = texture_synthesis::Session::builder()
+    let texsynth = ts::Session::builder()
         // load multiple example image
         .add_examples(&[
-            "imgs/multiexample/1.jpg",
-            "imgs/multiexample/2.jpg",
-            "imgs/multiexample/3.jpg",
-            "imgs/multiexample/4.jpg",
+            &"imgs/multiexample/1.jpg",
+            &"imgs/multiexample/2.jpg",
+            &"imgs/multiexample/3.jpg",
+            &"imgs/multiexample/4.jpg",
         ])
         // we can ensure all of them come with same size
         // that is however optional, the generator doesnt care whether all images are same sizes

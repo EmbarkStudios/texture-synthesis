@@ -80,7 +80,7 @@ impl Parameters {
         GeneratorParams {
             nearest_neighbors: self.nearest_neighbors,
             random_sample_locations: self.random_sample_locations,
-            caushy_dispersion: self.cauchy_dispersion,
+            cauchy_dispersion: self.cauchy_dispersion,
             p: self.backtrack_percent,
             p_stages: self.backtrack_stages as i32,
             seed: self.seed,

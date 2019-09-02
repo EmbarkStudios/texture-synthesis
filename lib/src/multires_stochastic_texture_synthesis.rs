@@ -19,7 +19,7 @@ pub struct GeneratorParams {
     /// the distribution 'tail flatness'). Values close to 0.0 will produce
     /// 'harsh' borders between generated 'chunks'. Values  closer to 1.0 will
     /// produce a smoother gradient on those borders.
-    pub caushy_dispersion: f32,
+    pub cauchy_dispersion: f32,
     /// The percentage of pixels to be backtracked during each p_stage. Range (0,1).
     pub p: f32,
     /// Controls the number of backtracking stages. Backtracking prevents 'garbage' generation
@@ -841,7 +841,7 @@ impl Generator {
                                     &k_neighs_dist,
                                     guidance_bool,
                                     adaptive_alpha,
-                                    params.caushy_dispersion,
+                                    params.cauchy_dispersion,
                                 );
 
                                 let best_match_coord = best_match.coord.0.to_unsigned();
@@ -967,7 +967,7 @@ fn find_best_match<'a>(
     k_distances: &[f64], //weight by distance
     use_guidance: bool,
     guide_alpha: f32,
-    caushy_dispersion: f32,
+    cauchy_dispersion: f32,
 ) -> (&'a CandidateStruct, Score) {
     let mut best_match = 0;
     let mut lowest_cost = std::f32::MAX;
@@ -981,7 +981,7 @@ fn find_best_match<'a>(
             k_distances,
             use_guidance,
             guide_alpha,
-            caushy_dispersion,
+            cauchy_dispersion,
             lowest_cost,
         ) {
             lowest_cost = cost;

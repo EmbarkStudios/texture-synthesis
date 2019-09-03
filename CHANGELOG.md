@@ -31,7 +31,7 @@ in the `SessionBuilder`, which means the examples provided in the README.md matc
 - Replaced `load_examples`, `load_example`, `load_example_guides`, and `load_sampling_masks` with
 [`add_example`](https://github.com/EmbarkStudios/texture-synthesis/blob/7e65b8abb9508841e7acf758cb79dd3f49aac28e/lib/src/lib.rs#L366) and [`add_examples`](https://github.com/EmbarkStudios/texture-synthesis/blob/7e65b8abb9508841e7acf758cb79dd3f49aac28e/lib/src/lib.rs#L382) which work with `Example`(s)
 
-## [0.2.0] - 2019-09-03
+## [0.2.0] - 2019-08-27
 ### Added
 - Split lib and cli into separate crates so CLI specific dependencies
 weren't pulled in

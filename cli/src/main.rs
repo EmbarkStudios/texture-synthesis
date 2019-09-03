@@ -1,289 +1,388 @@
-use clap::{App, Arg};
-use rand::Rng;
-use std::path::Path;
+use structopt::StructOpt;
 
-fn parse_size(input: &str) -> (u32, u32) {
-    let a: Vec<&str> = input.split('x').collect();
-    let x: u32 = a[0].parse().expect("couldn't parse size");
-    let y: u32 = a[1].parse().expect("couldn't parse size");
-    (x, y)
+use std::path::PathBuf;
+use texture_synthesis::{
+    image::ImageOutputFormat as ImgFmt, Example, ImageSource, SampleMethod, Session,
+};
+
+fn parse_size(input: &str) -> Result<(u32, u32), std::num::ParseIntError> {
+    let mut i = input.splitn(2, 'x');
+
+    let x: u32 = i.next().unwrap_or("").parse()?;
+    let y: u32 = match i.next() {
+        Some(num) => num.parse()?,
+        None => x,
+    };
+    Ok((x, y))
 }
 
-fn parse_string_vector(input: &str) -> Vec<&str> {
-    input.split(',').collect()
+fn parse_img_fmt(input: &str) -> Result<ImgFmt, String> {
+    let fmt = match input {
+        "png" => ImgFmt::PNG,
+        "jpg" => ImgFmt::JPEG(75),
+        "bmp" => ImgFmt::BMP,
+        other => {
+            return Err(format!(
+                "image format `{}` not one of: 'png', 'jpg', 'bmp'",
+                other
+            ))
+        }
+    };
+
+    Ok(fmt)
+}
+
+#[derive(StructOpt)]
+#[structopt(rename_all = "kebab-case")]
+struct Generate {
+    /// A target guidance map
+    #[structopt(long, parse(from_os_str))]
+    target_guide: Option<PathBuf>,
+    /// Path(s) to guide maps for the example output.
+    #[structopt(long = "guides", parse(from_os_str))]
+    example_guides: Vec<PathBuf>,
+    /// Path(s) to example images used to synthesize a new image
+    #[structopt(parse(from_os_str))]
+    examples: Vec<PathBuf>,
+}
+
+#[derive(StructOpt)]
+struct TransferStyle {
+    /// The image from which the style will be be sourced
+    #[structopt(long)]
+    style: PathBuf,
+    /// The image used as a guide for the generated output
+    #[structopt(long)]
+    guide: PathBuf,
+}
+
+#[derive(StructOpt)]
+enum Subcommand {
+    /// Transfers the style from an example onto a target guide
+    #[structopt(name = "transfer-style")]
+    TransferStyle(TransferStyle),
+    /// Generates a new image from 1 or more examples
+    #[structopt(name = "generate")]
+    Generate(Generate),
+}
+
+#[derive(StructOpt)]
+#[structopt(rename_all = "kebab-case")]
+struct Tweaks {
+    /// The number of neighboring pixels each pixel is aware of during the generation,
+    /// larger numbers means more global structures are captured.
+    #[structopt(long = "k-neighs", default_value = "50")]
+    k_neighbors: u32,
+    /// The number of random locations that will be considered during a pixel resolution,
+    /// apart from its immediate neighbors. If unsure of this parameter, keep as the same as k-neigh.
+    #[structopt(long, default_value = "50")]
+    m_rand: u64,
+    /// The distribution dispersion used for picking best candidate (controls the distribution 'tail flatness').
+    /// Values close to 0.0 will produce 'harsh' borders between generated 'chunks'.
+    /// Values closer to 1.0 will produce a smoother gradient on those borders.
+    #[structopt(long, default_value = "1.0")]
+    cauchy: f32,
+    /// The percentage of pixels to be backtracked during each p_stage. Range (0.0, 1.0).
+    #[structopt(long = "backtrack-pct", default_value = "0.5")]
+    backtrack_percentage: f32,
+    /// The number of backtracking stages. Backtracking prevents 'garbage' generation.
+    #[structopt(long = "backtrack-stages", default_value = "5")]
+    backtrack_stages: u32,
+    /// Show a window with the current progress of the generation
+    #[structopt(long = "window")]
+    show_window: bool,
+    /// Show a window with the current progress of the generation
+    #[structopt(long)]
+    no_progress: bool,
+    /// A seed value for the random generator to give pseudo-deterministic result.
+    /// Smaller details will be different from generation to generation due to the
+    /// non-deterministic nature of multi-threading
+    #[structopt(long)]
+    seed: Option<u64>,
+    /// Alpha parameter controls the 'importance' of the user guide maps. If you want
+    /// to preserve more details from the example map, make sure the number < 1.0. Range (0.0 - 1.0)
+    #[structopt(long, default_value = "0.8")]
+    alpha: f32,
+    /// The number of randomly initialized pixels before the main resolve loop starts
+    #[structopt(long)]
+    rand_init: Option<u64>,
+    /// Enables tiling of the output image
+    #[structopt(long = "tiling")]
+    enable_tiling: bool,
+}
+
+#[derive(StructOpt)]
+#[structopt(
+    name = "texture-synthesis",
+    about = "Synthesizes images based on example images",
+    rename_all = "kebab-case"
+)]
+struct Opt {
+    /// Path(s) to sample masks used to determine which pixels in an example can be used as inputs
+    /// during generation, any example that doesn't have a mask, or uses `ALL`, will consider
+    /// all pixels in the example. If `IGNORE` is specified, then the example image won't be used
+    /// at all, which is useful with `--inpaint`.
+    ///
+    /// The sample masks must be specified in the same order as the examples
+    #[structopt(long = "sample-masks")]
+    sample_masks: Vec<String>,
+    /// Path to an inpaint map image, where black pixels are resolved, and white pixels are kept
+    #[structopt(long, parse(from_os_str))]
+    inpaint: Option<PathBuf>,
+    /// Size of the generated image, in `width x height`, or a single number for both dimensions
+    #[structopt(
+        long,
+        default_value = "500",
+        parse(try_from_str = parse_size)
+    )]
+    out_size: (u32, u32),
+    /// The format to save the generated image as.
+    #[structopt(
+        long,
+        default_value = "png",
+        parse(try_from_str = parse_img_fmt)
+    )]
+    out_fmt: texture_synthesis::image::ImageOutputFormat,
+    /// Resize input example map(s), in `width x height`, or a single number for both dimensions
+    #[structopt(long, parse(try_from_str = parse_size))]
+    in_size: Option<(u32, u32)>,
+    /// The path to save the generated image to, use `-` for stdout
+    #[structopt(long = "out", short, default_value = "-")]
+    output_path: String,
+    /// A directory into which debug images are also saved.
+    ///
+    /// * `patch_id.png` - Map of the `copy islands` from an example
+    /// * `map_id.png` - Map of ids of which example was the source of a pixel
+    /// * `uncertainty.png` - Map of pixels the generator was uncertain of
+    #[structopt(long, parse(from_os_str))]
+    debug_out_dir: Option<PathBuf>,
+    #[structopt(flatten)]
+    tweaks: Tweaks,
+    #[structopt(subcommand)]
+    cmd: Subcommand,
 }
 
 fn main() {
-    let user_params = App::new("Rget")
-        .version("0.1.0")
-        .author("anastasia opara and tomasz stachowiak")
-        .about("texture synthesis")
-        .arg(
-            Arg::with_name("Example Map Path")
-                .long("examples")
-                .required(true)
-                .takes_value(true)
-                .help("Path to the example image(s). If multiple please seperate with a comma with no space. Example: img/1.jpg,img/5.jpg")
-        ).arg(
-            Arg::with_name("Inpaint Map Path")
-                .long("inpaint")
-                .takes_value(true)
-                .help("Path to the inpaint map image, where black is pixels to resolve, and white pixels to keep")
-        ).arg(
-            Arg::with_name("Valid Samples Map Path")
-                .long("sample-masks")
-                .takes_value(true)
-                .help("Path to the inpaint map image, where black is pixels to resolve, and white pixels to keep. If no valid map is availale, you can put it as 'None'")
-        ).arg(
-            Arg::with_name("Example Guidance Map Path")
-                .long("example-guide")
-                .takes_value(true)
-                .help("Path to the example guidance map(s)")
-        ).arg(
-            Arg::with_name("Target Guidance Map Path")
-                .long("target-guide")
-                .takes_value(true)
-                .help("Path to the target guidance map")
-        ).arg(
-            Arg::with_name("Output Size")
-                .long("out-size")
-                .takes_value(true)
-                .help("Size of the generated image. Please separate with 'x' (ex '100x100'). Default: 500x500")
-        ).arg(
-            Arg::with_name("Input Size")
-                .long("in-size")
-                .takes_value(true)
-                .help("Resizes the example map. Please separate with 'x' (ex '100x100'). Default: input img size")
-        ).arg(
-            Arg::with_name("Save Path")
-                .long("save")
-                .takes_value(true)
-                .help("Save path for the generated image (include name, ex final.jpg). Default: 'generated.jpg'")
-        ).arg(
-            Arg::with_name("K Nearest Neighbours")
-                .long("k-neighs")
-                .takes_value(true)
-                .help("How many neighbouring pixels each pixel is aware of during the generation (bigger number -> more global structures are captured). Default: 20")
-        ).arg(
-            Arg::with_name("Random M Sample Locations")
-                .long("m-rand")
-                .takes_value(true)
-                .help("How many random locations will be considered during a pixel resolution apart from its immediate neighbours (if unsure, keep same as k-neighbours). Default: 20")
-        ).arg(
-            Arg::with_name("Cauchy Dispersion")
-                .long("cauchy")
-                .takes_value(true)
-                .help("The distribution dispersion used for picking best candidate (controls the distribution 'tail flatness'). Values close to 0.0 will produce 'harsh' borders between generated 'chunks'. Values  closer to 1.0 will produce a smoother gradient on those borders. Default: 1.0")
-        ).arg(
-            Arg::with_name("Backtracking Percentage")
-                .long("backtrack-p")
-                .takes_value(true)
-                .help("The percentage of pixels to be backtracked during each p_stage. Range (0,1). Default: 0.35")
-        ).arg(
-            Arg::with_name("Backtracking Stages")
-                .long("backtrack-s")
-                .takes_value(true)
-                .help("Controls the number of backtracking stages. Backtracking prevents 'garbage' generation. Default: 5")
-        ).arg(
-            Arg::with_name("no-window")
-                .long("no-window")
-                .help("Disable showing progress with window")
-        ).arg(
-            Arg::with_name("Seed")
-                .long("seed")
-                .takes_value(true)
-                .help("Random seed. Gives pseudo-deterministic result. Smaller details will be different from generation to generation due to the nondeterministic nature of multi-threading")
-        ).arg(
-            Arg::with_name("Alpha")
-                .long("alpha")
-                .takes_value(true)
-                .help("Alpha parameter controls the 'importance' of the user guide maps. If you want to preserve more details from the example map, make sure the number < 1.0. Range (0.0 - 1.0)")
-        ).arg(
-            Arg::with_name("Random Init")
-                .long("rand-init")
-                .takes_value(true)
-                .help("The number of randomly initialized pixels before the main resolve loop starts")
-        ).arg(
-            Arg::with_name("Debug Maps")
-                .long("debug-maps")
-                .help("Outputs patch_id, map_id, uncertainty")
-        ).arg(
-            Arg::with_name("Tiling")
-                .long("tiling")
-                .help("Enable tiling")
-        )
-        .get_matches();
+    if let Err(e) = real_main() {
+        if atty::is(atty::Stream::Stderr) {
+            eprintln!("\x1b[31merror\x1b[0m: {}", e.description());
+        } else {
+            eprintln!("error: {}", e.description());
+        }
 
-    let outsize = parse_size(user_params.value_of("Output Size").unwrap_or("500x500"));
-    let save_path = String::from(
-        user_params
-            .value_of("Save Path")
-            .unwrap_or("out/generated.jpg"),
-    );
-
-    let mut tex_synth = texture_synthesis::Session::new()
-        .load_examples(&parse_string_vector(
-            user_params
-                .value_of("Example Map Path")
-                .expect("couldn't parse examples paths"),
-        ))
-        .seed(
-            user_params
-                .value_of("Seed")
-                .unwrap_or(&rand::thread_rng().gen::<u64>().to_string())
-                .parse::<u64>()
-                .expect("couldn't parse seed"),
-        )
-        .output_size(outsize.0, outsize.1)
-        .nearest_neighbours(
-            user_params
-                .value_of("K Nearest Neighbours")
-                .unwrap_or("20")
-                .parse::<u32>()
-                .expect("couldn't parse k neigh"),
-        )
-        .random_sample_locations(
-            user_params
-                .value_of("Random M Sample Locations")
-                .unwrap_or("20")
-                .parse::<u64>()
-                .expect("couldn't parse m-rand"),
-        )
-        .cauchy_dispersion(
-            user_params
-                .value_of("Cauchy Dispersion")
-                .unwrap_or("1.0")
-                .parse::<f32>()
-                .expect("couldn't parse caushy"),
-        )
-        .backtrack_percent(
-            user_params
-                .value_of("Backtracking Percentage")
-                .unwrap_or("0.35")
-                .parse::<f32>()
-                .expect("couldn't parse backtrack-p"),
-        )
-        .backtrack_stages(
-            user_params
-                .value_of("Backtracking Stages")
-                .unwrap_or("5")
-                .parse::<u32>()
-                .expect("couldn't parse backtrack-s"),
-        )
-        .guide_alpha(
-            user_params
-                .value_of("Alpha")
-                .unwrap_or("1.0")
-                .parse::<f32>()
-                .expect("couldn't parse alpha"),
-        );
-
-    if user_params.is_present("Example Guidance Map Path") {
-        tex_synth = tex_synth.load_example_guides(&parse_string_vector(
-            user_params
-                .value_of("Example Guidance Map Path")
-                .expect("Couldn't parse example guide maps"),
-        ));
-    }
-
-    if user_params.is_present("Target Guidance Map Path") {
-        tex_synth = tex_synth.load_target_guide(
-            &user_params
-                .value_of("Target Guidance Map Path")
-                .expect("Couldn't parse target guide map"),
-        );
-    }
-
-    if user_params.is_present("Valid Samples Map Path") {
-        tex_synth = tex_synth.load_sampling_masks(&parse_string_vector(
-            &user_params
-                .value_of("Valid Samples Map Path")
-                .expect("Couldn't parse sampling masks"),
-        ));
-    }
-
-    if user_params.is_present("Inpaint Map Path") {
-        tex_synth = tex_synth.inpaint_example(
-            &user_params
-                .value_of("Inpaint Map Path")
-                .expect("Couldn't parse inpaint mask"),
-            0,
-        );
-    }
-
-    if user_params.is_present("Random Init") {
-        tex_synth = tex_synth.random_init(
-            user_params
-                .value_of("Random Init")
-                .unwrap_or("0")
-                .parse::<u64>()
-                .expect("couldn't parse random init"),
-        );
-    }
-
-    if user_params.is_present("Tiling") {
-        tex_synth = tex_synth.tiling_mode(true);
-    }
-
-    if user_params.is_present("Input Size") {
-        let resize = parse_size(
-            user_params
-                .value_of("Input Size")
-                .expect("Couldn't parse input size"),
-        );
-        tex_synth = tex_synth.resize_input(resize.0, resize.1);
-    }
-
-    let preview = if !user_params.is_present("no-window") {
-        Some(create_progress_window(
-            outsize,
-            std::time::Duration::from_millis(100),
-        ))
-    } else {
-        None
-    };
-
-    tex_synth.run(preview).unwrap();
-    tex_synth.save(&save_path).unwrap();
-
-    if user_params.is_present("Debug Maps") {
-        let parent_path = Path::new(&save_path)
-            .parent()
-            .expect("couldnt make a path for debug imgs");
-        tex_synth.save_debug(parent_path.to_str().unwrap()).unwrap();
+        std::process::exit(1);
     }
 }
 
-fn create_progress_window(
-    size: (u32, u32),
-    update_every: std::time::Duration,
-) -> Box<dyn texture_synthesis::GeneratorProgress> {
-    use std::time::Duration;
+fn real_main() -> Result<(), texture_synthesis::Error> {
+    let args = Opt::from_args();
 
-    pub struct ProgressWindow {
-        window: piston_window::PistonWindow,
-        update_freq: Duration,
-        last_update: std::time::Instant,
-    }
+    let (mut examples, target_guide) = match &args.cmd {
+        Subcommand::Generate(gen) => {
+            let mut examples: Vec<_> = gen.examples.iter().map(Example::new).collect();
+            if !gen.example_guides.is_empty() {
+                if examples.len() != gen.example_guides.len() {
+                    return Err(Box::new(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        format!(
+                            "Mismatch of maps: {} example guide(s) vs {} example(s)",
+                            gen.example_guides.len(),
+                            examples.len()
+                        ),
+                    )));
+                }
 
-    impl ProgressWindow {
-        fn new(size: (u32, u32), update_every: Duration) -> Self {
-            let mut my_return = Self {
-                window: piston_window::WindowSettings::new("Texture Synthesis", [size.0, size.1])
-                    .exit_on_esc(true)
-                    .build()
-                    .unwrap(),
-                update_freq: update_every,
-                last_update: std::time::Instant::now(),
+                for (i, guide) in gen.example_guides.iter().enumerate() {
+                    examples[i].with_guide(guide);
+                }
+            }
+
+            (examples, gen.target_guide.as_ref())
+        }
+        Subcommand::TransferStyle(ts) => (vec![Example::new(&ts.style)], Some(&ts.guide)),
+    };
+
+    if !args.sample_masks.is_empty() {
+        for (i, mask) in args.sample_masks.iter().enumerate() {
+            // Just ignore sample masks that don't have a corresponding example,
+            // though we could also just error out
+            if i == examples.len() {
+                break;
+            }
+
+            let example = &mut examples[i];
+            match mask.as_str() {
+                "ALL" => example.set_sample_method(SampleMethod::All),
+                "IGNORE" => example.set_sample_method(SampleMethod::Ignore),
+                path => example.set_sample_method(SampleMethod::Image(ImageSource::Path(
+                    &std::path::Path::new(path),
+                ))),
             };
-            use piston_window::*;
-            my_return.window.set_bench_mode(true); //disallow sleeping
-            my_return
         }
     }
 
-    impl texture_synthesis::GeneratorProgress for ProgressWindow {
-        fn update(&mut self, in_image: &texture_synthesis::image::RgbaImage) {
+    let mut sb = Session::builder();
+
+    // TODO: Make inpaint work with multiple examples
+    if let Some(ref inpaint) = args.inpaint {
+        let mut inpaint_example = examples.remove(0);
+
+        // If the user hasn't explicitly specified sample masks, assume they
+        // want to use the same mask
+        if args.sample_masks.is_empty() {
+            inpaint_example.set_sample_method(inpaint);
+        }
+
+        sb = sb.inpaint_example(inpaint, inpaint_example);
+    }
+
+    sb = sb
+        .add_examples(examples)
+        .output_size(args.out_size.0, args.out_size.1)
+        .seed(args.tweaks.seed.unwrap_or_default())
+        .nearest_neighbors(args.tweaks.k_neighbors)
+        .random_sample_locations(args.tweaks.m_rand)
+        .cauchy_dispersion(args.tweaks.cauchy)
+        .backtrack_percent(args.tweaks.backtrack_percentage)
+        .backtrack_stages(args.tweaks.backtrack_stages)
+        .guide_alpha(args.tweaks.alpha)
+        .tiling_mode(args.tweaks.enable_tiling);
+
+    if let Some(ref tg) = target_guide {
+        sb = sb.load_target_guide(tg);
+    }
+    if let Some(rand_init) = args.tweaks.rand_init {
+        sb = sb.random_init(rand_init);
+    }
+
+    if let Some(insize) = args.in_size {
+        sb = sb.resize_input(insize.0, insize.1);
+    }
+
+    let session = sb.build()?;
+
+    let progress: Option<Box<dyn texture_synthesis::GeneratorProgress>> =
+        if !args.tweaks.no_progress {
+            let progress = ProgressWindow::new();
+            let progress = if args.tweaks.show_window {
+                progress.with_preview(args.out_size, std::time::Duration::from_millis(100))
+            } else {
+                progress
+            };
+
+            Some(Box::new(progress))
+        } else {
+            None
+        };
+
+    let generated = session.run(progress);
+
+    if let Some(ref dir) = args.debug_out_dir {
+        generated.save_debug(dir)?;
+    }
+
+    if args.output_path == "-" {
+        let out = std::io::stdout();
+        let mut out = out.lock();
+        generated.write(&mut out, args.out_fmt)?;
+    } else {
+        generated.save(&args.output_path)?;
+    }
+
+    Ok(())
+}
+
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use std::time::Duration;
+
+pub struct ProgressWindow {
+    window: Option<piston_window::PistonWindow>,
+    update_freq: Duration,
+    last_update: std::time::Instant,
+
+    total_pb: ProgressBar,
+    stage_pb: ProgressBar,
+
+    total_len: usize,
+    stage_len: usize,
+    stage_num: u32,
+}
+
+impl ProgressWindow {
+    fn new() -> Self {
+        let multi_pb = MultiProgress::new();
+        let sty = ProgressStyle::default_bar()
+            .template("[{elapsed_precise}] {bar:40.cyan/blue} {percent}%")
+            .progress_chars("##-");
+
+        let total_pb = multi_pb.add(ProgressBar::new(100));
+        total_pb.set_style(sty);
+
+        let sty = ProgressStyle::default_bar()
+            .template(" stage {msg:>3} {bar:40.cyan/blue} {percent}%")
+            .progress_chars("##-");
+        let stage_pb = multi_pb.add(ProgressBar::new(100));
+        stage_pb.set_style(sty);
+
+        std::thread::spawn(move || {
+            let _ = multi_pb.join();
+        });
+
+        Self {
+            window: None,
+            update_freq: Duration::from_millis(10),
+            last_update: std::time::Instant::now(),
+            total_pb,
+            stage_pb,
+            total_len: 100,
+            stage_len: 100,
+            stage_num: 0,
+        }
+    }
+
+    fn with_preview(mut self, size: (u32, u32), update_every: Duration) -> Self {
+        use piston_window::EventLoop;
+
+        let mut window: piston_window::PistonWindow =
+            piston_window::WindowSettings::new("Texture Synthesis", [size.0, size.1])
+                .exit_on_esc(true)
+                .build()
+                .unwrap();
+
+        // disallow sleeping
+        window.set_bench_mode(true);
+        self.window = Some(window);
+        self.update_freq = update_every;
+
+        self
+    }
+}
+
+impl Drop for ProgressWindow {
+    fn drop(&mut self) {
+        self.total_pb.finish();
+        self.stage_pb.finish();
+    }
+}
+
+impl texture_synthesis::GeneratorProgress for ProgressWindow {
+    fn update(&mut self, update: texture_synthesis::ProgressUpdate<'_>) {
+        if update.total.total != self.total_len {
+            self.total_len = update.total.total;
+            self.total_pb.set_length(self.total_len as u64);
+        }
+
+        if update.stage.total != self.stage_len {
+            self.stage_len = update.stage.total;
+            self.stage_pb.set_length(self.stage_len as u64);
+            self.stage_num += 1;
+            self.stage_pb.set_message(&self.stage_num.to_string());
+        }
+
+        self.total_pb.set_position(update.total.current as u64);
+        self.stage_pb.set_position(update.stage.current as u64);
+
+        if let Some(ref mut window) = self.window {
             let now = std::time::Instant::now();
 
             if now - self.last_update < self.update_freq {
@@ -294,14 +393,14 @@ fn create_progress_window(
 
             //image to texture
             let texture: piston_window::G2dTexture = piston_window::Texture::from_image(
-                &mut self.window.factory,
-                &in_image,
+                &mut window.factory,
+                &update.image,
                 &piston_window::TextureSettings::new(),
             )
             .unwrap();
 
-            if let Some(event) = self.window.next() {
-                self.window.draw_2d(&event, |context, graphics| {
+            if let Some(event) = window.next() {
+                window.draw_2d(&event, |context, graphics| {
                     piston_window::clear([1.0; 4], graphics);
                     piston_window::image(
                         &texture,
@@ -323,6 +422,4 @@ fn create_progress_window(
             }
         }
     }
-
-    Box::new(ProgressWindow::new(size, update_every))
 }

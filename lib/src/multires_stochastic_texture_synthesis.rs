@@ -4,17 +4,22 @@ use rstar::RTree;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, RwLock};
 
-use crate::img_pyramid::*;
+use crate::{img_pyramid::*, SamplingMethod};
 use modulo::Mod;
 
 #[derive(Debug)]
 pub struct GeneratorParams {
-    /// How many neighbouring pixels each pixel is aware of during the generation (bigger number -> more global structures are captured).
-    pub nearest_neighbours: u32,
-    /// How many random locations will be considered during a pixel resolution apart from its immediate neighbours (if unsure, keep same as k-neighbours)
+    /// How many neighboring pixels each pixel is aware of during the generation
+    /// (bigger number -> more global structures are captured).
+    pub nearest_neighbors: u32,
+    /// How many random locations will be considered during a pixel resolution
+    /// apart from its immediate neighbors (if unsure, keep same as k-neighbors)
     pub random_sample_locations: u64,
-    /// The distribution dispersion used for picking best candidate (controls the distribution 'tail flatness'). Values close to 0.0 will produce 'harsh' borders between generated 'chunks'. Values  closer to 1.0 will produce a smoother gradient on those borders.
-    pub caushy_dispersion: f32,
+    /// The distribution dispersion used for picking best candidate (controls
+    /// the distribution 'tail flatness'). Values close to 0.0 will produce
+    /// 'harsh' borders between generated 'chunks'. Values  closer to 1.0 will
+    /// produce a smoother gradient on those borders.
+    pub cauchy_dispersion: f32,
     /// The percentage of pixels to be backtracked during each p_stage. Range (0,1).
     pub p: f32,
     /// Controls the number of backtracking stages. Backtracking prevents 'garbage' generation
@@ -64,7 +69,7 @@ impl GuidesPyramidStruct {
     }
 }
 
-//for k-neighbours
+// for k-neighbors
 #[derive(Clone, Copy, Debug, Default)]
 struct SignedCoord2D {
     x: i32,
@@ -168,14 +173,22 @@ impl Generator {
 
     pub fn new_from_inpaint(
         size: (u32, u32),
-        inpaint_map: &image::RgbaImage,
-        color_map: &image::RgbaImage,
-        color_map_index: u32,
+        inpaint_map: image::RgbaImage,
+        color_map: image::RgbaImage,
+        color_map_index: usize,
     ) -> Self {
-        let inpaint_map =
-            image::imageops::resize(inpaint_map, size.0, size.1, image::imageops::Triangle);
-        let color_map =
-            image::imageops::resize(color_map, size.0, size.1, image::imageops::Triangle);
+        let inpaint_map = if inpaint_map.width() != size.0 || inpaint_map.height() != size.1 {
+            image::imageops::resize(&inpaint_map, size.0, size.1, image::imageops::Triangle)
+        } else {
+            inpaint_map
+        };
+
+        let color_map = if color_map.width() != size.0 || color_map.height() != size.1 {
+            image::imageops::resize(&color_map, size.0, size.1, image::imageops::Triangle)
+        } else {
+            color_map
+        };
+
         //
         let s = (size.0 as usize) * (size.1 as usize);
         let mut unresolved: Vec<CoordFlat> = Vec::new();
@@ -189,7 +202,7 @@ impl Generator {
             } else {
                 resolved.push((CoordFlat(i as u32), Score(0.0)));
                 let coord = CoordFlat(i as u32).to_2d(size);
-                coord_map[i] = (coord, MapId(color_map_index)); //this absolutely requires the input image and output image to be the same size!!!!
+                coord_map[i] = (coord, MapId(color_map_index as u32)); //this absolutely requires the input image and output image to be the same size!!!!
                 rtree.insert([coord.x as i32, coord.y as i32]);
             }
         }
@@ -338,7 +351,7 @@ impl Generator {
         {
             let resolved = self.resolved.read().unwrap();
 
-            //check how many resolved neighbours we have
+            //check how many resolved neighbors we have
             let total_resolved = resolved.len() as u32;
             if total_resolved == 0 {
                 return false;
@@ -451,16 +464,16 @@ impl Generator {
         unresolved_coord: Coord2D,
         k_neighs: &[SignedCoord2D],
         example_maps: &[&image::RgbaImage],
-        valid_samples_mask: &[Option<image::RgbaImage>],
+        valid_samples_mask: &[SamplingMethod],
         m: u32,
         m_seed: u64,
     ) -> &'a [CandidateStruct] {
         let mut candidate_count = 0;
         let unresolved_coord = unresolved_coord.to_signed();
 
-        //neighbourhood based candidates
+        //neighborhood based candidates
         for neigh_coord in k_neighs {
-            //calculate the shift between the center coord and its found neighbour
+            //calculate the shift between the center coord and its found neighbor
             let shift = (
                 unresolved_coord.x - (*neigh_coord).x,
                 unresolved_coord.y - (*neigh_coord).y,
@@ -474,7 +487,7 @@ impl Generator {
                 .0 as usize;
             let (n_original_coord, _) = self.coord_map[n_flat_coord];
             let (n_patch_id, n_map_id) = self.id_map[n_flat_coord];
-            //candidate coord is the original location of the neighbour + neighbour's shift to the center
+            //candidate coord is the original location of the neighbor + neighbor's shift to the center
             let candidate_coord = SignedCoord2D::from(
                 n_original_coord.x as i32 + shift.0,
                 n_original_coord.y as i32 + shift.1,
@@ -486,7 +499,7 @@ impl Generator {
                 &example_maps,
                 &valid_samples_mask[n_map_id.0 as usize],
             ) {
-                //lets construct the full candidate pattern of neighbours identical to the center coord
+                //lets construct the full candidate pattern of neighbors identical to the center coord
                 candidates_vec[candidate_count].k_neighs = k_neighs
                     .iter()
                     .map(|n2| {
@@ -536,7 +549,7 @@ impl Generator {
                     .to_flat(example_maps[rand_map as usize].dimensions())
                     .0,
             );
-            //lets construct the full neighbourhood pattern
+            //lets construct the full neighborhood pattern
             candidates_vec[candidate_count].k_neighs = k_neighs
                 .iter()
                 .map(|n2| {
@@ -558,7 +571,7 @@ impl Generator {
         &candidates_vec[0..candidate_count]
     }
 
-    //returns an image of Ids for visualizing the 'copy islands' and map ids of those islands
+    /// Returns an image of Ids for visualizing the 'copy islands' and map ids of those islands
     pub fn get_id_maps(&self) -> [image::RgbaImage; 2] {
         //init empty image
         let mut map_id_map = image::RgbaImage::new(self.output_size.0, self.output_size.1);
@@ -587,29 +600,6 @@ impl Generator {
         }
         [patch_id_map, map_id_map]
     }
-
-    /*
-    // unused
-    // returns a coordinate map of the performed 'transformation'
-    pub fn get_coord_map(&self) -> Vec<u16> {
-        //init empty image
-        let mut buffer: Vec<u16> = Vec::new();
-        //populate the image with colors
-        for (coord, map_id) in self.coord_map.iter() {
-            //normalize coord to color
-            let r = coord.x as u16; //((f64::from(coord.0) / f64::from(dimx)) * f64::from(std::u16::MAX)) as u16;
-            let g = coord.y as u16; //((f64::from(coord.1) / f64::from(dimy)) * f64::from(std::u16::MAX)) as u16;
-            let b = map_id.0 as u16;
-            //convert from little endian to big endian
-            //let r = (r >> 8) | (r << 8);
-            //let g = (g >> 8) | (g << 8);
-            //let b = (b >> 8) | (b << 8);
-            //record the color
-            buffer.extend_from_slice(&[r, g, b]);
-        }
-        buffer
-    }
-    */
 
     pub fn get_uncertainty_map(&self) -> image::RgbaImage {
         let mut uncertainty_map = image::RgbaImage::new(self.output_size.0, self.output_size.1);
@@ -646,12 +636,27 @@ impl Generator {
         params: &GeneratorParams,
         example_maps_pyramid: &[ImagePyramid],
         mut progress: Option<Box<dyn crate::GeneratorProgress>>,
-        guides_pyramid: Option<GuidesPyramidStruct>,
-        valid_samples: &[Option<image::RgbaImage>],
+        guides_pyramid: &Option<GuidesPyramidStruct>,
+        valid_samples: &[SamplingMethod],
         is_tiling_mode: bool,
     ) {
         let total_pixels_to_resolve = self.unresolved.lock().unwrap().len();
         let mut pyramid_level = 0;
+
+        let actual_total_pixels_to_resolve = {
+            let mut atp = 0;
+            for p_stage in (-1..=params.p_stages).rev() {
+                atp += if p_stage >= 0 {
+                    (params.p.powf(p_stage as f32) * (total_pixels_to_resolve as f32)) as usize
+                } else {
+                    total_pixels_to_resolve
+                };
+            }
+
+            atp
+        };
+
+        let mut total_processed_pixels = 0;
 
         for p_stage in (0..=params.p_stages).rev() {
             //get maps from current pyramid level (for now it will be p-stage dependant)
@@ -697,6 +702,7 @@ impl Generator {
 
             // Keep track of how many items have been processed. Goes up to `pixels_to_resolve`
             let processed_pixel_count = AtomicUsize::new(0);
+            let remaining_threads = AtomicUsize::new(n_workers);
 
             crossbeam_utils::thread::scope(|scope| {
                 for _ in 0..n_workers {
@@ -705,9 +711,9 @@ impl Generator {
                         let mut candidates_patterns: Vec<ColorPattern> = Vec::new();
                         let mut my_pattern: ColorPattern = ColorPattern::new();
                         let mut k_neighs: Vec<SignedCoord2D> =
-                            Vec::with_capacity(params.nearest_neighbours as usize);
+                            Vec::with_capacity(params.nearest_neighbors as usize);
 
-                        let max_candidate_count = params.nearest_neighbours as usize
+                        let max_candidate_count = params.nearest_neighbors as usize
                             + params.random_sample_locations as usize;
 
                         candidates.resize(max_candidate_count, CandidateStruct::default());
@@ -755,10 +761,10 @@ impl Generator {
                             // 2. find K nearest resolved neighs
                             if self.find_k_nearest_resolved_neighs(
                                 unresolved_2d,
-                                params.nearest_neighbours,
+                                params.nearest_neighbors,
                                 &mut k_neighs,
                             ) {
-                                //2.1 get distances to the pattern of neighbours
+                                //2.1 get distances to the pattern of neighbors
                                 let k_neighs_dist =
                                     self.get_distances_to_k_neighs(unresolved_2d, &k_neighs);
                                 let k_neighs_w_map_id =
@@ -835,7 +841,7 @@ impl Generator {
                                     &k_neighs_dist,
                                     guidance_bool,
                                     adaptive_alpha,
-                                    params.caushy_dispersion,
+                                    params.cauchy_dispersion,
                                 );
 
                                 let best_match_coord = best_match.coord.0.to_unsigned();
@@ -856,13 +862,46 @@ impl Generator {
                                 self.resolve_at_random(unresolved_2d, &example_maps, p_stage_seed);
                             }
                         }
+
+                        remaining_threads.fetch_sub(1, Ordering::Relaxed);
                     });
                 }
 
                 if let Some(ref mut progress) = progress {
-                    while processed_pixel_count.load(Ordering::Relaxed) < pixels_to_resolve {
-                        progress.update(&self.color_map);
+                    let mut last_pcnt = 0;
+
+                    loop {
+                        let stage_progress = processed_pixel_count.load(Ordering::Relaxed);
+
+                        if stage_progress >= pixels_to_resolve - n_workers
+                            && remaining_threads.load(Ordering::Relaxed) == 0
+                        {
+                            break;
+                        }
+
+                        let pcnt = ((total_processed_pixels + stage_progress) as f32
+                            / actual_total_pixels_to_resolve as f32
+                            * 100f32)
+                            .round() as u32;
+
+                        if pcnt != last_pcnt {
+                            progress.update(crate::ProgressUpdate {
+                                image: &self.color_map,
+                                total: crate::ProgressStat {
+                                    total: actual_total_pixels_to_resolve,
+                                    current: total_processed_pixels + stage_progress,
+                                },
+                                stage: crate::ProgressStat {
+                                    total: pixels_to_resolve,
+                                    current: stage_progress,
+                                },
+                            });
+
+                            last_pcnt = pcnt;
+                        }
                     }
+
+                    total_processed_pixels += pixels_to_resolve;
                 }
             })
             .unwrap();
@@ -887,7 +926,7 @@ fn k_neighs_to_color_pattern<Iter: ExactSizeIterator<Item = (SignedCoord2D, MapI
             n_coord
         };
         //check if he haven't gone outside the possible bounds
-        if check_coord_validity(coord, n_map, example_maps, &None) {
+        if check_coord_validity(coord, n_map, example_maps, &SamplingMethod::All) {
             let pixel = *(example_maps[n_map.0 as usize]).get_pixel(coord.x as u32, coord.y as u32);
             pattern.0[i] = pixel[0];
             i += 1;
@@ -928,7 +967,7 @@ fn find_best_match<'a>(
     k_distances: &[f64], //weight by distance
     use_guidance: bool,
     guide_alpha: f32,
-    caushy_dispersion: f32,
+    cauchy_dispersion: f32,
 ) -> (&'a CandidateStruct, Score) {
     let mut best_match = 0;
     let mut lowest_cost = std::f32::MAX;
@@ -942,7 +981,7 @@ fn find_best_match<'a>(
             k_distances,
             use_guidance,
             guide_alpha,
-            caushy_dispersion,
+            cauchy_dispersion,
             lowest_cost,
         ) {
             lowest_cost = cost;
@@ -1000,20 +1039,26 @@ fn check_coord_validity(
     coord: SignedCoord2D,
     map_id: MapId,
     example_maps: &[&image::RgbaImage],
-    mask: &Option<image::RgbaImage>,
+    mask: &SamplingMethod,
 ) -> bool {
+    if mask.is_ignore() {
+        return false;
+    }
+
     let map_shape = example_maps[map_id.0 as usize].dimensions(); //get corresponding map number
-    let is_not_out_of_bounds: bool = coord.x >= 0
+    let is_not_out_of_bounds = coord.x >= 0
         && coord.x < map_shape.0 as i32
         && coord.y >= 0
         && coord.y < map_shape.1 as i32;
-    if is_not_out_of_bounds {
-        match mask {
-            Some(ref mask) => (mask[(coord.x as u32, coord.y as u32)][0] != 0),
-            None => is_not_out_of_bounds,
-        }
-    } else {
-        false
+
+    if !is_not_out_of_bounds {
+        return false;
+    }
+
+    match mask {
+        SamplingMethod::All => true,
+        SamplingMethod::Image(ref img) => img[(coord.x as u32, coord.y as u32)][0] != 0,
+        SamplingMethod::Ignore => unreachable!(),
     }
 }
 

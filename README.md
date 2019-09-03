@@ -1,6 +1,5 @@
 # 🎨 texture-synthesis
 
-<!--- FIXME: Update crate and repo names here! --->
 [![Build Status](https://travis-ci.com/EmbarkStudios/texture-synthesis.svg?branch=master)](https://travis-ci.com/EmbarkStudios/texture-synthesis)
 [![Crates.io](https://img.shields.io/crates/v/texture-synthesis.svg)](https://crates.io/crates/texture-synthesis)
 [![Docs](https://docs.rs/texture-synthesis/badge.svg)](https://docs.rs/texture-synthesis)
@@ -19,27 +18,29 @@ The repo also includes multiple code examples to get you started (along with tes
 
 Generate similar-looking images from a single example.
 
-Below is how to do it with the texture-synthesis API:
-```rust
-extern crate texture_synthesis;
+#### API - [01_single_example_synthesis](lib/examples/01_single_example_synthesis.rs)
 
-fn main() {
+```rust
+use texture_synthesis as ts;
+
+fn main() -> Result<(), ts::Error> {
     //create a new session
-    let mut texsynth = texture_synthesis::Session::new()
+    let texsynth = ts::Session::builder()
         //load a single example image
-        .load_examples(&vec!["imgs/1.jpg"]);
-        
+        .add_example(&"imgs/1.jpg")
+        .build()?;
+
     //generate an image
-    texsynth.run().unwrap();
+    let generated = texsynth.run(None);
 
     //save the image to the disk
-    texsynth.save("out/01.jpg").unwrap();
+    generated.save("out/01.jpg")
 }
 ```
-This code snippet can be found in `examples/01_single_example_synthesis.rs`
 
-To replicate this example with the command line binary run: 
-`texture_synthesis.exe --examples imgs/1.jpg --save out/01.jpg`
+#### CLI
+
+`texture_synthesis --out-fmt jpg generate -- imgs/1.jpg > out/01.jpg`
 
 ### 2. Multi example generation
 
@@ -47,43 +48,45 @@ To replicate this example with the command line binary run:
 
 We can also provide multiple example images and the algorithm will "remix" them into a new image.
 
-Below is how to do it with the texture-synthesis API:
+#### API - [02_multi_example_synthesis](lib/examples/02_multi_example_synthesis.rs)
+
 ```rust
-extern crate texture_synthesis;
+use texture_synthesis as ts;
 
-fn main() {
-    //create a new session
-    let mut texsynth = texture_synthesis::Session::new()
-        //load multiple example image
-        .load_examples(&vec![
-            "imgs/multiexample/1.jpg",
-            "imgs/multiexample/2.jpg",
-            "imgs/multiexample/3.jpg",
-            "imgs/multiexample/4.jpg",
+fn main() -> Result<(), ts::Error> {
+    // create a new session
+    let texsynth = ts::Session::builder()
+        // load multiple example image
+        .add_examples(&[
+            &"imgs/multiexample/1.jpg",
+            &"imgs/multiexample/2.jpg",
+            &"imgs/multiexample/3.jpg",
+            &"imgs/multiexample/4.jpg",
         ])
-        //we can ensure all of them come with same size
-        //that is however optional, the generator doesnt care whether all images are same sizes
-        //however, if you have guides or other additional maps, those have to be same size(s) as corresponding example(s)
+        // we can ensure all of them come with same size
+        // that is however optional, the generator doesnt care whether all images are same sizes
+        // however, if you have guides or other additional maps, those have to be same size(s) as corresponding example(s)
         .resize_input(300, 300)
-        //randomly initialize first 10 pixels
+        // randomly initialize first 10 pixels
         .random_init(10)
-        .seed(211);
+        .seed(211)
+        .build()?;
 
-    //generate an image
-    texsynth.run().unwrap();
+    // generate an image
+    let generated = texsynth.run(None);
 
-    //save the image to the disk
-    texsynth.save("out/02.jpg").unwrap();
+    // save the image to the disk
+    generated.save("out/02.jpg")?;
 
     //save debug information to see "remixing" borders of different examples in map_id.jpg
     //different colors represent information coming from different maps
-    texsynth.save_debug("out/").unwrap();
+    generated.save_debug("out/")
 }
 ```
-This code snippet can be found in `examples/02_multi_example_synthesis.rs`
 
-To replicate this example with the command line binary run: 
-`texture_synthesis.exe --examples imgs/multiexample/1.jpg,imgs/multiexample/2.jpg,imgs/multiexample/3.jpg,imgs/multiexample/4.jpg --rand-init 10 --in-size 300x300 --save out/02.jpg --debug-maps`
+#### CLI
+
+`texture_synthesis --rand-init 10 --seed 211 --in-size 300 --debug-out-dir out generate -- imgs/multiexample/1.jpg imgs/multiexample/2.jpg imgs/multiexample/3.jpg imgs/multiexample/4.jpg > out/02.png`
 
 ### 3. Guided Synthesis
 
@@ -91,70 +94,65 @@ To replicate this example with the command line binary run:
 
 We can also guide the generation by providing a transformation "FROM"-"TO" in a form of guide maps
 
-Below is how to do it with the texture-synthesis API:
+#### API - [03_guided_synthesis](lib/examples/03_guided_synthesis.rs)
 
 ```rust
-extern crate texture_synthesis;
+use texture_synthesis as ts;
 
-fn main() {
-    //create a new session
-    let mut texsynth = texture_synthesis::Session::new()
-        //load example
-        .load_examples(&vec!["imgs/2.jpg"])
-        //load example guide map
-        .load_example_guides(&vec!["imgs/masks/2_example.jpg"])
-        //load target shape that we would like the generated image to look like
-        .load_target_guide("imgs/masks/2_target.jpg");
+fn main() -> Result<(), ts::Error> {
+    let texsynth = ts::Session::builder()
+        // NOTE: it is important that example(s) and their corresponding guides have same size(s)
+        // you can ensure that by overwriting the input images sizes with .resize_input()
+        .add_example(ts::Example::builder(&"imgs/2.jpg").with_guide(&"imgs/masks/2_example.jpg"))
+        // load target "heart" shape that we would like the generated image to look like
+        // now the generator will take our target guide into account during synthesis
+        .load_target_guide(&"imgs/masks/2_target.jpg")
+        .build()?;
 
-    // NOTE: it is important that example(s) and their corresponding guides have same size(s)
-    // you can ensure that by overwriting the input images sizes with .resize_input()
+    let generated = texsynth.run(None);
 
-    //now the generator will take our target guide into account during synthesis
-    texsynth.run().unwrap();
-
-    //save the image to the disk
-    texsynth.save("out/03.jpg").unwrap();
-
-    //You can also do a more involved segmentation with guide maps with R G B annotating specific features of your examples
+    // save the image to the disk
+    generated.save("out/03.jpg")
 }
 ```
-This code snippet can be found in `examples/03_guided_synthesis.rs`
 
-To replicate this example with the command line binary run:
-`texture_synthesis.exe --examples imgs/2.jpg --example-guide imgs/masks/2_example.jpg --target-guide imgs/masks/2_target.jpg --save out/03.jpg`
+#### CLI
+
+`texture_synthesis generate --target-guide imgs/masks/2_target.jpg --guides imgs/masks/2_example.jpg -- imgs/2.jpg > out/03.png`
 
 ### 4. Style Transfer
 
 ![Imgur](https://i.imgur.com/o9UxFGO.jpg)
 
-Texture synthesis API supports auto-generation of example guide maps, which would produce a style transfer like effect.
+Texture synthesis API supports auto-generation of example guide maps, which produces a style transfer-like effect.
 
-Below is how to do it with the texture-synthesis API:
+#### API - [04_style_transfer](lib/examples/04_style_transfer.rs)
 
 ```rust
-extern crate texture_synthesis;
+use texture_synthesis as ts;
 
-fn main() {
-    //create a new session
-    let mut texsynth = texture_synthesis::Session::new()
-        //load example(s) which will serve as our style
-        .load_examples(&vec!["imgs/multiexample/4.jpg"])
-        //load target which will be the content
-        //with style transfer, we do not need to provide example guides 
-        //they will be auto-generated if none were provided
-        .load_target_guide("imgs/tom.jpg");
+fn main() -> Result<(), ts::Error> {
+    let texsynth = ts::Session::builder()
+        // load example which will serve as our style, note you can have more than 1!
+        .add_examples(&[&"imgs/multiexample/4.jpg"])
+        // load target which will be the content
+        // with style transfer, we do not need to provide example guides
+        // they will be auto-generated if none were provided
+        .load_target_guide(&"imgs/tom.jpg")
+        .alpha(0.8)
+        .build()?;
 
-    //generate an image that applies 'style' to "tom.jpg"
-    texsynth.run().unwrap();
+    // generate an image that applies 'style' to "tom.jpg"
+    let generated = texsynth.run(None);
 
-    //save the result to the disk
-    texsynth.save("out/04.jpg").unwrap();
+    // save the result to the disk
+    generated.save("out/04.jpg")
 }
 ```
-This code snippet can be found in `examples/04_style_transfer.rs`
 
-To replicate this example with the command line binary run:
-`texture_synthesis.exe --examples imgs/multiexample/4.jpg --target-guide imgs/tom.jpg --alpha 0.8 --save out/04.jpg`
+#### CLI
+
+`texture_synthesis --alpha 0.8 transfer-style --style imgs/multiexample/4.jpg --guide imgs/tom.jpg > out/04.png`
 
 ### 5. Inpaint
 
@@ -162,38 +160,42 @@ To replicate this example with the command line binary run:
 
 We can also fill-in missing information with inpaint. By changing the seed, we will get different version of the 'fillment'.
 
-Below is how to do it with the texture-synthesis API:
+#### API - [05_inpaint](lib/examples/05_inpaint.rs)
+
 ```rust
-extern crate texture_synthesis;
+use texture_synthesis as ts;
 
-fn main() {
-    //create a new session
-    let mut texsynth = texture_synthesis::Session::new()
-        //load a "corrupted" example with missing red information we would like to fill in
-        .load_examples(&vec!["imgs/3.jpg"])
-        //let the generator know which part we would like to fill in
-        //since we only have one example, we put 0 in the example_id 
-        //if we had more example, we could specify the index of which one to inpaint
-        //then the rest of example would be additional information the generator could use to inpaint
-        .inpaint_example("imgs/masks/3_inpaint.jpg", 0)
-        //we would also like to prevent sampling from "corrupted" red areas
-        //otherwise, generator will treat that those as valid areas it can copy from in the example
-        .load_sampling_masks(&vec!["imgs/masks/3_inpaint.jpg"])
-        //during inpaint, it is important to ensure both input and output are the same size
+fn main() -> Result<(), ts::Error> {
+    let texsynth = ts::Session::builder()
+        // let the generator know which part we would like to fill in
+        // if we had more examples, they would be additional information
+        // the generator could use to inpaint
+        .inpaint_example(
+            &"imgs/masks/3_inpaint.jpg",
+            // load a "corrupted" example with missing red information we would like to fill in
+            ts::Example::builder(&"imgs/3.jpg")
+                // we would also like to prevent sampling from "corrupted" red areas
+                // otherwise, generator will treat that those as valid areas it can copy from in the example,
+                // we could also use SampleMethod::Ignore to ignore the example altogether, but we
+                // would then need at least 1 other example image to actually source from
+                // example.set_sample_method(ts::SampleMethod::Ignore);
+                .set_sample_method(&"imgs/masks/3_inpaint.jpg"),
+        )
+        // during inpaint, it is important to ensure both input and output are the same size
         .resize_input(400, 400)
-        .output_size(400, 400);
+        .output_size(400, 400)
+        .build()?;
 
-    //inpaint out image
-    texsynth.run().unwrap();
+    let generated = texsynth.run(None);
 
     //save the result to the disk
-    texsynth.save("out/05.jpg").unwrap();
+    generated.save("out/05.jpg")
 }
 ```
-This code snippet can be found in `examples/05_inpaint.rs`
 
-To replicate this example with the command line binary run:
-`texture_synthesis.exe --examples imgs/3.jpg --inpaint imgs/masks/3_inpaint.jpg --sample-masks imgs/masks/3_inpaint.jpg --in-size 400x400 --out-size 400x400 --save out/05.jpg`
+#### CLI
+
+`texture_synthesis --in-size 400 --out-size 400 --inpaint imgs/masks/3_inpaint.jpg generate -- imgs/3.jpg > out/05.png`
 
 ### 6. Tiling texture
 
@@ -201,40 +203,36 @@ To replicate this example with the command line binary run:
 
 We can make the generated image tile (meaning it will not have seams if you put multiple images together side-by-side). By invoking inpaint mode together with tiling, we can make an existing image tile.
 
-Below is how to do it with the texture-synthesis API:
+#### API - [06_tiling_texture](lib/examples/06_tiling_texture.rs)
+
 ```rust
-extern crate texture_synthesis;
+use texture_synthesis as ts;
 
-fn main() {
+fn main() -> Result<(), ts::Error> {
+    // Let's start layering some of the "verbs" of texture synthesis
+    // if we just run tiling_mode(true) we will generate a completely new image from scratch (try it!)
+    // but what if we want to tile an existing image?
+    // we can use inpaint!
 
-    //let's start layering some of the "verbs" of texture synthesis
-    //if we just run tiling_mode(true) we will generate a completely new image from scratch (try it!)
-    //but what if we want to tile an existing image?
-    //we can use inpaint!
-
-    //create a new session
-    let mut texsynth = texture_synthesis::Session::new()
-        //load an image we want to tile
-        .load_examples(&vec!["imgs/1.jpg"])
-        //load a mask that specifies borders of the image we can modify to make it tiling
-        .inpaint_example("imgs/masks/1_tile.jpg", 0)
+    let texsynth = ts::Session::builder()
+        // load a mask that specifies borders of the image we can modify to make it tiling
+        .inpaint_example(&"imgs/masks/1_tile.jpg", ts::Example::new(&"imgs/1.jpg"))
         //ensure correct sizes
         .resize_input(400, 400)
         .output_size(400, 400)
         //turn on tiling mode!
-        .tiling_mode(true);
+        .tiling_mode(true)
+        .build()?;
 
-    //generate image
-    texsynth.run().unwrap();
+    let generated = texsynth.run(None);
 
-    //save the result to the disk
-    texsynth.save("out/06.jpg").unwrap();
+    generated.save("out/06.jpg")
 }
 ```
-This code snippet can be found in `examples/06_tiling_texture.rs`
 
-To replicate this example with the command line binary run:
-`texture_synthesis.exe --examples imgs/1.jpg --inpaint imgs/masks/1_tile.jpg --sample-masks imgs/masks/1_tile.jpg --in-size 400x400 --out-size 400x400 --tiling --save out/06.jpg`
+#### CLI
+
+`texture_synthesis --inpaint imgs/masks/1_tile.jpg --in-size 400 --out-size 400 --tiling generate --examples imgs/1.jpg > out/06.png`
 
 ### 7. Combining texture synthesis 'verbs'
 
@@ -248,14 +246,14 @@ Or chaining multiple stages of generation together:
 
 ## Command line binary
 
-Instruction on how to use:
-* download the binary from the release tab (alternatively, you can compile it yourself. the source is in `src\cmd.rs`)
-* open the terminal (on windows: search for `cmd`)
-* navigate to the folder containing the `texture_synthesis.exe` (for ex: cd C:\Downloads\texture-synthesis)
-* run `texture_synthesis.exe --help` (this will give you a list of all commands you can run)
-* refer to the examples section in this readme for examples of running the binary
+* [Download the binary](https://github.com/EmbarkStudios/texture-synthesis/releases) for your OS, or install it from source, `cargo install .`
+* Open a terminal
+* Navigate to the directory where you downloaded the binary, if you didn't just `cargo install` it
+* Run `texture_synthesis --help` to get a list of all of the options and commands you can run
+* Refer to the examples section in this readme for examples of running the binary
 
 ## Limitations
+
 * Struggles with complex semantics beyond pixel color (unless you guide it)
 * Not great with regular textures (seams can become obvious)
 * Cannot infer new information from existing information (only operates on what’s already there)

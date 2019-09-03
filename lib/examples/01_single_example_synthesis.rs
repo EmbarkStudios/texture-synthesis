@@ -1,11 +1,15 @@
-fn main() {
+use texture_synthesis as ts;
+
+fn main() -> Result<(), ts::Error> {
     //create a new session
-    let mut texsynth = texture_synthesis::Session::new()
+    let texsynth = ts::Session::builder()
         //load a single example image
-        .load_examples(&vec!["imgs/1.jpg"]);
+        .add_example(&"imgs/1.jpg")
+        .build()?;
+
     //generate an image
-    texsynth.run(None).unwrap();
+    let generated = texsynth.run(None);
 
     //save the image to the disk
-    texsynth.save("out/01.jpg").unwrap();
+    generated.save("out/01.jpg")
 }

@@ -10,6 +10,9 @@ env:
   global:
   # We always want full stack traces in the event of a panic
   - RUST_BACKTRACE=1
+  # Would prefer not to have this here for only 1 job, but travis' dpl tool doesn't support
+  # publishing more than 1 crate at a time to crates.io :p
+  - secure: Jz67Cb8eT3mzE+hnh1RS/wkjLJeX8wvUGTD1tTDvsm9jepgZSaG4X0vwrN8meIMiSCXeZ91s2U15jJWVHb17sJYLioyZrLcmS868KYkTbOpXkFYeJLpDB7D0+wW8u8512Z45suHmCw8IfLF6SZHh0To40dySub+OU88tw+7Pp/JlaL8wnxh2WrpT+6a66I0P+71M97KEqu9TI6/5U7R+lvG/a6+HUjQNIVogtfzyEb/OSo1vvBry8WDqPqlqXyJb6mqaq6QJZ8eigDz3BmESZO5hQ8y7AMZD/523Lr0MLj0X9yh2M0aWEVvZBYwEMAUbfnvBKzOH3pQdxFkTCbEG5ZARr1yU08d5zCguceI+SvDtIGvCY+I+wthl+5eIBZ81NKOonXNJj+ZQHBHjVW3E6WgteEq6mG74VGLIjRwQ0r9ayZIMpO5j0gIol+ehqcTBOljH9pjGoa0nbtYyif3vnQwOcErgcuUQ94K3VP+2VgzMJHaSbSYsPI6kJ2YhpHBsMcwltblW5CkSxBCFQ5TwZ4aZzD+0kngpWO+sl+C7vHhzULSutKwYr9qjTVnEChEn3EMm/U1os6GOQU8L4NUowkiG6qr2/a0U5XO5igY79/WqikWLxJUrzKPyuH86IZTaczb5q8Uf+EWVv5UbpG6dcNn4iGbbbS6wcnoCdbXjyB0=
 
 # See http://www.garbers.co.za/2017/11/01/code-folding-and-timing-in-travis-ci/
 # this just allows us to give _somewhat_ better views of the build steps
@@ -105,9 +108,6 @@ matrix:
     rust: stable
     os: linux
     script: echo "deploying $TRAVIS_TAG to crates.io"
-    env:
-      global:
-      - secure: Jz67Cb8eT3mzE+hnh1RS/wkjLJeX8wvUGTD1tTDvsm9jepgZSaG4X0vwrN8meIMiSCXeZ91s2U15jJWVHb17sJYLioyZrLcmS868KYkTbOpXkFYeJLpDB7D0+wW8u8512Z45suHmCw8IfLF6SZHh0To40dySub+OU88tw+7Pp/JlaL8wnxh2WrpT+6a66I0P+71M97KEqu9TI6/5U7R+lvG/a6+HUjQNIVogtfzyEb/OSo1vvBry8WDqPqlqXyJb6mqaq6QJZ8eigDz3BmESZO5hQ8y7AMZD/523Lr0MLj0X9yh2M0aWEVvZBYwEMAUbfnvBKzOH3pQdxFkTCbEG5ZARr1yU08d5zCguceI+SvDtIGvCY+I+wthl+5eIBZ81NKOonXNJj+ZQHBHjVW3E6WgteEq6mG74VGLIjRwQ0r9ayZIMpO5j0gIol+ehqcTBOljH9pjGoa0nbtYyif3vnQwOcErgcuUQ94K3VP+2VgzMJHaSbSYsPI6kJ2YhpHBsMcwltblW5CkSxBCFQ5TwZ4aZzD+0kngpWO+sl+C7vHhzULSutKwYr9qjTVnEChEn3EMm/U1os6GOQU8L4NUowkiG6qr2/a0U5XO5igY79/WqikWLxJUrzKPyuH86IZTaczb5q8Uf+EWVv5UbpG6dcNn4iGbbbS6wcnoCdbXjyB0=
     deploy:
       provider: script
       script: bash .ci/crates_io_deploy.sh

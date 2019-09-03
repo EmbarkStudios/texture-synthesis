@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.2.1] - 2019-09-03
 ### Added
 - Added [`Example`](https://github.com/EmbarkStudios/texture-synthesis/blob/7e65b8abb9508841e7acf758cb79dd3f49aac28e/lib/src/lib.rs#L247) and [`ExampleBuilder`](https://github.com/EmbarkStudios/texture-synthesis/blob/7e65b8abb9508841e7acf758cb79dd3f49aac28e/lib/src/lib.rs#L208) which can be used to manipulate an indidivual
 example input before being added to a [`SessionBuilder`](https://github.com/EmbarkStudios/texture-synthesis/blob/7e65b8abb9508841e7acf758cb79dd3f49aac28e/lib/src/lib.rs#L342)

@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.2.1] - 2019-09-03
+## [0.3.0] - 2019-09-03
 ### Added
 - Added [`Example`](https://github.com/EmbarkStudios/texture-synthesis/blob/7e65b8abb9508841e7acf758cb79dd3f49aac28e/lib/src/lib.rs#L247) and [`ExampleBuilder`](https://github.com/EmbarkStudios/texture-synthesis/blob/7e65b8abb9508841e7acf758cb79dd3f49aac28e/lib/src/lib.rs#L208) which can be used to manipulate an indidivual
 example input before being added to a [`SessionBuilder`](https://github.com/EmbarkStudios/texture-synthesis/blob/7e65b8abb9508841e7acf758cb79dd3f49aac28e/lib/src/lib.rs#L342)
@@ -33,6 +33,9 @@ in the `SessionBuilder`, which means the examples provided in the README.md matc
 - Replaced `load_examples`, `load_example`, `load_example_guides`, and `load_sampling_masks` with
 [`add_example`](https://github.com/EmbarkStudios/texture-synthesis/blob/7e65b8abb9508841e7acf758cb79dd3f49aac28e/lib/src/lib.rs#L366) and [`add_examples`](https://github.com/EmbarkStudios/texture-synthesis/blob/7e65b8abb9508841e7acf758cb79dd3f49aac28e/lib/src/lib.rs#L382) which work with `Example`(s)
 
+### Fixed
+- The top-level README.md is now deployed with both `texture-synthesis` and `texture-synthesis-cli` on crates.io
+
 ## [0.2.0] - 2019-08-27
 ### Added
 - Split lib and cli into separate crates so CLI specific dependencies
@@ -44,6 +47,7 @@ callers
 ### Added
 - Initial add of `texture-synthesis`
 
-[Unreleased]: https://github.com/EmbarkStudios/texture-synthesis/compare/0.2.0...HEAD
+[Unreleased]: https://github.com/EmbarkStudios/texture-synthesis/compare/0.3.0...HEAD
+[0.3.0]: https://github.com/EmbarkStudios/texture-synthesis/compare/0.2.0...0.3.0
 [0.2.0]: https://github.com/EmbarkStudios/texture-synthesis/compare/0.1.0...0.2.0
 [0.1.0]: https://github.com/EmbarkStudios/texture-synthesis/releases/tag/0.1.0

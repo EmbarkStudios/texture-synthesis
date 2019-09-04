@@ -2,7 +2,7 @@ use structopt::StructOpt;
 
 use std::path::PathBuf;
 use texture_synthesis::{
-    image::ImageOutputFormat as ImgFmt, Example, ImageSource, SampleMethod, Session,
+    image::ImageOutputFormat as ImgFmt, Error, Example, ImageSource, SampleMethod, Session,
 };
 
 fn parse_size(input: &str) -> Result<(u32, u32), std::num::ParseIntError> {
@@ -174,7 +174,7 @@ fn main() {
     }
 }
 
-fn real_main() -> Result<(), texture_synthesis::Error> {
+fn real_main() -> Result<(), Error> {
     let args = Opt::from_args();
 
     let (mut examples, target_guide) = match &args.cmd {
@@ -265,7 +265,7 @@ fn real_main() -> Result<(), texture_synthesis::Error> {
         if !args.tweaks.no_progress {
             let progress = ProgressWindow::new();
             let progress = if args.tweaks.show_window {
-                progress.with_preview(args.out_size, std::time::Duration::from_millis(100))
+                progress.with_preview(args.out_size, std::time::Duration::from_millis(100))?
             } else {
                 progress
             };
@@ -293,10 +293,11 @@ fn real_main() -> Result<(), texture_synthesis::Error> {
 }
 
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use minifb::Window;
 use std::time::Duration;
 
 pub struct ProgressWindow {
-    window: Option<piston_window::PistonWindow>,
+    window: Option<Window>,
     update_freq: Duration,
     last_update: std::time::Instant,
 
@@ -340,21 +341,18 @@ impl ProgressWindow {
         }
     }
 
-    fn with_preview(mut self, size: (u32, u32), update_every: Duration) -> Self {
-        use piston_window::EventLoop;
+    fn with_preview(mut self, size: (u32, u32), update_every: Duration) -> Result<Self, Error> {
+        let window = Window::new(
+            "Texture Synthesis",
+            size.0 as usize,
+            size.1 as usize,
+            minifb::WindowOptions::default(),
+        )?;
 
-        let mut window: piston_window::PistonWindow =
-            piston_window::WindowSettings::new("Texture Synthesis", [size.0, size.1])
-                .exit_on_esc(true)
-                .build()
-                .unwrap();
-
-        // disallow sleeping
-        window.set_bench_mode(true);
         self.window = Some(window);
         self.update_freq = update_every;
 
-        self
+        Ok(self)
     }
 }
 
@@ -389,37 +387,24 @@ impl texture_synthesis::GeneratorProgress for ProgressWindow {
                 return;
             }
 
-            self.last_update = now;
-
-            //image to texture
-            let texture: piston_window::G2dTexture = piston_window::Texture::from_image(
-                &mut window.factory,
-                &update.image,
-                &piston_window::TextureSettings::new(),
-            )
-            .unwrap();
-
-            if let Some(event) = window.next() {
-                window.draw_2d(&event, |context, graphics| {
-                    piston_window::clear([1.0; 4], graphics);
-                    piston_window::image(
-                        &texture,
-                        [
-                            [
-                                context.transform[0][0],
-                                context.transform[0][1],
-                                context.transform[0][2],
-                            ],
-                            [
-                                context.transform[1][0],
-                                context.transform[1][1],
-                                context.transform[1][2],
-                            ],
-                        ],
-                        graphics,
-                    );
-                });
+            if !window.is_open() {
+                return;
             }
+
+            let pixels = &update.image;
+            if pixels.len() % 4 != 0 {
+                return;
+            }
+
+            // I guess someone using ARM might not like this part
+            let pixels: &[u32] = unsafe {
+                let raw_pixels: &[u8] = pixels;
+                #[allow(clippy::cast_ptr_alignment)]
+                std::mem::transmute(&*(raw_pixels as *const [u8] as *const [u32]))
+            };
+
+            // We don't particularly care if this fails
+            let _ = window.update_with_buffer(pixels);
         }
     }
 }

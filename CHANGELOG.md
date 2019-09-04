@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Changed
+- Use [`failure`](https://crates.io/crates/failure) for errors
 - CLI: Replaced piston_window with [`minifb`](https://crates.io/crates/minifb)
 - CLI: Due to how minifb works via X11, the progress window is now an optional feature
 not enabled when building for musl

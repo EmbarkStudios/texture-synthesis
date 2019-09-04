@@ -1,0 +1,43 @@
+[bans]
+multiple_versions = "deny"
+deny = [
+    # color-backtrace is nice but brings in too many dependencies and that are often outdated, so not worth it for us.
+    { name = "color-backtrace" },
+
+    # dirs crate has a lot of dependencies and there are better alternatives
+    { name = "dirs" },
+    { name = "dirs-sys" },
+
+    # deprecated
+    { name = "quickersort" },
+
+    # term is not fully maintained, and termcolor is replacing it
+    { name = "term" },
+]
+skip = [
+    # indicatif uses an older version of parking_lot which brings
+    # in an older version of rand crates
+    { name = "rand", version = "=0.6.5" },
+    { name = "rand_chacha", version = "=0.1.1" },
+    { name = "rand_core", version = "=0.4.2" },
+    { name = "rand_core", version = "=0.3.1" },
+    { name = "rand_hc", version = "=0.1.0" },
+    { name = "rand_pcg", version = "=0.1.2" },
+]
+
+[licenses]
+unlicensed = "deny"
+unknown = "deny"
+# We want really high confidence when inferring licenses from text
+confidence_threshold = 0.92
+allow = [
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "CC0-1.0",
+    "ISC",
+    "LLVM-exception",
+    "MIT",
+    "Unlicense",
+    "Zlib",
+]

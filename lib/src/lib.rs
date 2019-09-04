@@ -40,6 +40,7 @@
 //! // Save the generated image to disk
 //! generated_img.save("my_generated_img.jpg").expect("failed to save generated image");
 //! ```
+mod errors;
 mod img_pyramid;
 use img_pyramid::*;
 mod utils;
@@ -51,7 +52,7 @@ use std::path::Path;
 pub use image;
 pub use utils::ImageSource;
 
-pub type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
+pub use errors::Error;
 
 struct Parameters {
     tiling_mode: bool,
@@ -613,41 +614,40 @@ impl<'a> SessionBuilder<'a> {
 
     fn check_parameters_validity(&self) -> Result<(), Error> {
         if self.params.cauchy_dispersion < 0.0 || self.params.cauchy_dispersion > 1.0 {
-            return Err(Box::new(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "Invalid parameter range: cauchy dispersion. Make sure it is within 0.0-1.0 range",
-            )));
+            return Err(Error::InvalidRange(errors::InvalidRange {
+                min: 0.0,
+                max: 1.0,
+                value: self.params.cauchy_dispersion,
+                name: "cauchy_dispersion",
+            }));
         }
 
         if self.params.backtrack_percent < 0.0 || self.params.backtrack_percent > 1.0 {
-            return Err(Box::new(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "Invalid parameter range: backtrack percent. Make sure it is within 0.0-1.0 range",
-            )));
+            return Err(Error::InvalidRange(errors::InvalidRange {
+                min: 0.0,
+                max: 1.0,
+                value: self.params.backtrack_percent,
+                name: "backtrack_percent",
+            }));
         }
 
         if self.params.guide_alpha < 0.0 || self.params.guide_alpha > 1.0 {
-            return Err(Box::new(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "Invalid parameter range: guide alpha. Make sure it is within 0.0-1.0 range",
-            )));
+            return Err(Error::InvalidRange(errors::InvalidRange {
+                min: 0.0,
+                max: 1.0,
+                value: self.params.guide_alpha,
+                name: "guide_alpha",
+            }));
         }
 
         if self.inpaint_mask.is_some() {
-            if let Some(resize_input) = self.params.resize_input {
-                if resize_input.0 != self.params.output_size.0
-                    || resize_input.1 != self.params.output_size.1
-                {
-                    return Err(Box::new(std::io::Error::new(
-                        std::io::ErrorKind::InvalidInput,
-                        "Input and output sizes dont match. Make sure resize_input = output_size if using inpaint",
-                    )));
-                }
-            } else {
-                return Err(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    "Input and output sizes dont match. Make sure resize_input = output_size if using inpaint",
-                )));
+            let input = self.params.resize_input.unwrap_or_else(|| (0, 0));
+
+            if input.0 != self.params.output_size.0 || input.1 != self.params.output_size.1 {
+                return Err(Error::SizeMismatch(errors::SizeMismatch {
+                    input,
+                    output: self.params.output_size,
+                }));
             }
         }
 
@@ -655,25 +655,6 @@ impl<'a> SessionBuilder<'a> {
     }
 
     fn check_images_validity(&self) -> Result<(), Error> {
-        if self.examples.is_empty() {
-            return Err(Box::new(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "Missing input: example image(s)",
-            )));
-        }
-
-        let num_guides = self.examples.iter().filter(|ex| ex.guide.is_some()).count();
-        if num_guides != 0 && self.examples.len() != num_guides {
-            return Err(Box::new(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                format!(
-                    "Mismatch of maps: {} example guide(s) vs {} example(s)",
-                    num_guides,
-                    self.examples.len()
-                ),
-            )));
-        }
-
         // We must have at least one example image to source pixels from
         let input_count = self
             .examples
@@ -682,10 +663,15 @@ impl<'a> SessionBuilder<'a> {
             .count();
 
         if input_count == 0 {
-            return Err(Box::new(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "At least 1 example image must be sampled to generate an output image",
-            )));
+            return Err(Error::NoExamples);
+        }
+
+        let num_guides = self.examples.iter().filter(|ex| ex.guide.is_some()).count();
+        if num_guides != 0 && self.examples.len() != num_guides {
+            return Err(Error::ExampleGuideMismatch(
+                self.examples.len() as u32,
+                num_guides as u32,
+            ));
         }
 
         Ok(())

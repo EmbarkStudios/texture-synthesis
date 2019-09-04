@@ -21,7 +21,6 @@ exclude = ["/imgs"]
 
 [dependencies]
 crossbeam-utils = "0.6"
-lodepng = "2.4.2"
 modulo = "0.1.2"
 num_cpus = "1.10.1"
 rand = "0.7.0"

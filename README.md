@@ -246,7 +246,8 @@ Or chaining multiple stages of generation together:
 
 ## Command line binary
 
-* [Download the binary](https://github.com/EmbarkStudios/texture-synthesis/releases) for your OS, or install it from source, `cargo install .`
+* [Download the binary](https://github.com/EmbarkStudios/texture-synthesis/releases) for your OS, or install it from source, `cargo install --path=.`. **Note:** if you want to show a progress window you will need to enable the
+`progress` feature, eg. `cargo install --path=. --features="progress"`
 * Open a terminal
 * Navigate to the directory where you downloaded the binary, if you didn't just `cargo install` it
 * Run `texture_synthesis --help` to get a list of all of the options and commands you can run

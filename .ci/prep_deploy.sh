@@ -13,7 +13,12 @@ travis_fold end "cargo.fetch"
 # building and packaging
 travis_fold start "cargo.build"
     travis_time_start
-        cargo build --release --target "$TARGET"
+        # Don't enable the progress feature when building for musl
+        if [ "$TARGET" != "x86_64-unknown-linux-musl" ]; then
+            FEATS="--features=progress"
+        fi
+
+        cargo build --release --target "$TARGET" "${FEATS}" --manifest-path=cli/Cargo.toml
     travis_time_finish
 travis_fold end "cargo.build"
 

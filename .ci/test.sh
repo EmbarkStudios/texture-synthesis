@@ -7,9 +7,7 @@ TARGET=""
 if [ "$(uname)" == "Darwin" ]; then
     TARGET="apple-darwin"
 elif [ "${HOST_OS_NAME::5}" == "Linux" ]; then
-    # If we're on linux, always build for musl
-    TARGET="unknown-linux-musl"
-    .ci/install_musl.sh
+    TARGET="unknown-linux-gnu"
 elif [ "${HOST_OS_NAME::10}" == "MINGW64_NT" ]; then
     TARGET="pc-windows-msvc"
 elif [ "${HOST_OS_NAME::7}" == "MSYS_NT" ]; then # travis uses msys
@@ -36,13 +34,13 @@ travis_fold end "cargo.fetch"
 # building and running the tests
 travis_fold start "cargo.build"
     travis_time_start
-        cargo test --no-run --target $TARGET
+        cargo test --no-run --target $TARGET --all-features
     travis_time_finish
 travis_fold end "cargo.build"
 
 # Run the actual tests
 travis_fold start "cargo.test"
     travis_time_start
-        cargo test --target $TARGET
+        cargo test --target $TARGET --all-features
     travis_time_finish
 travis_fold end "cargo.test"

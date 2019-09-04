@@ -412,7 +412,9 @@ impl texture_synthesis::GeneratorProgress for ProgressWindow {
                     return;
                 }
 
-                // I guess someone using ARM might not like this part
+                // The pixel channels are in a different order so the colors are
+                // incorrect in the window, but at least the shape and unfilled pixels
+                // are still apparent
                 let pixels: &[u32] = unsafe {
                     let raw_pixels: &[u8] = pixels;
                     #[allow(clippy::cast_ptr_alignment)]

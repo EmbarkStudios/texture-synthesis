@@ -21,14 +21,14 @@ exclude = ["/imgs"]
 
 [dependencies]
 lodepng = "2.4.2"
-rand = "0.6.4"
-rand_pcg = "0.1.1"
-rstar = "0.2.0"
+rand = "0.7.0"
+rand_pcg = "0.2.0"
+rstar = "0.5.0"
 crossbeam-utils = "0.6"
-num_cpus = "1.9.0"
+num_cpus = "1.10.1"
 modulo = "0.1.2"
 
 [dependencies.image]
-version = "0.20.1"
+version = "0.22.1"
 default-features = false
 features = ["jpeg", "png_codec", "tga", "bmp"]

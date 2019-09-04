@@ -42,6 +42,9 @@ fn main() -> Result<(), ts::Error> {
 
 `texture_synthesis --out-fmt jpg generate -- imgs/1.jpg > out/01.jpg`
 
+You should get the following result with the images provided with this repo:
+<img src="https://i.imgur.com/8p6nVYl.jpg" width="600" height="364">
+
 ### 2. Multi example generation
 
 ![Imgur](https://i.imgur.com/rYaae2w.jpg)
@@ -88,6 +91,9 @@ fn main() -> Result<(), ts::Error> {
 
 `texture_synthesis --rand-init 10 --seed 211 --in-size 300 --debug-out-dir out generate -- imgs/multiexample/1.jpg imgs/multiexample/2.jpg imgs/multiexample/3.jpg imgs/multiexample/4.jpg > out/02.png`
 
+You should get the following result with the images provided with this repo:
+<img src="https://i.imgur.com/tbz5d57.jpg" width="600" height="364">
+
 ### 3. Guided Synthesis
 
 ![Imgur](https://i.imgur.com/eAiNZBg.jpg)
@@ -119,6 +125,9 @@ fn main() -> Result<(), ts::Error> {
 #### CLI
 
 `texture_synthesis generate --target-guide imgs/masks/2_target.jpg --guides imgs/masks/2_example.jpg -- imgs/2.jpg > out/03.png`
+
+You should get the following result with the images provided with this repo:
+<img src="https://i.imgur.com/arTCi2f.jpg" width="600" height="364">
 
 ### 4. Style Transfer
 
@@ -153,6 +162,9 @@ fn main() -> Result<(), ts::Error> {
 #### CLI
 
 `texture_synthesis --alpha 0.8 transfer-style --style imgs/multiexample/4.jpg --guide imgs/tom.jpg > out/04.png`
+
+You should get the following result with the images provided with this repo:
+<img src="https://i.imgur.com/1E7eDAb.jpg" width="600" height="364">
 
 ### 5. Inpaint
 
@@ -197,6 +209,9 @@ fn main() -> Result<(), ts::Error> {
 
 `texture_synthesis --in-size 400 --out-size 400 --inpaint imgs/masks/3_inpaint.jpg generate -- imgs/3.jpg > out/05.png`
 
+You should get the following result with the images provided with this repo:
+<img src="https://i.imgur.com/WZm2HHL.jpg" width="600" height="364">
+
 ### 6. Tiling texture
 
 ![](https://i.imgur.com/nFpCFzy.jpg)
@@ -233,6 +248,9 @@ fn main() -> Result<(), ts::Error> {
 #### CLI
 
 `texture_synthesis --inpaint imgs/masks/1_tile.jpg --in-size 400 --out-size 400 --tiling generate --examples imgs/1.jpg > out/06.png`
+
+You should get the following result with the images provided with this repo:
+<img src="https://i.imgur.com/foSlREz.jpg" width="600" height="364">
 
 ### 7. Combining texture synthesis 'verbs'
 

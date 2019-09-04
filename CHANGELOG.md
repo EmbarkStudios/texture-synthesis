@@ -5,6 +5,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- CLI: Replaced piston_window with [`minifb`](https://crates.io/crates/minifb)
+- CLI: Due to how minifb works via X11, the progress window is now an optional feature
+not enabled when building for musl
+
+### Removed
+- Removed several codec features from `image`, only `png`, `jpeg`, `bmp`, and `tga` are supported now
 
 ## [0.3.0] - 2019-09-03
 ### Added

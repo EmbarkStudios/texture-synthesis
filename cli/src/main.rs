@@ -2,7 +2,7 @@ use structopt::StructOpt;
 
 use std::path::PathBuf;
 use texture_synthesis::{
-    image::ImageOutputFormat as ImgFmt, Example, ImageSource, SampleMethod, Session,
+    image::ImageOutputFormat as ImgFmt, Error, Example, ImageSource, SampleMethod, Session,
 };
 
 fn parse_size(input: &str) -> Result<(u32, u32), std::num::ParseIntError> {
@@ -88,8 +88,13 @@ struct Tweaks {
     /// The number of backtracking stages. Backtracking prevents 'garbage' generation.
     #[structopt(long = "backtrack-stages", default_value = "5")]
     backtrack_stages: u32,
-    /// Show a window with the current progress of the generation
     #[structopt(long = "window")]
+    #[cfg(feature = "progress")]
+    #[cfg_attr(feature = "progress", structopt(long = "window"))]
+    #[cfg_attr(
+        feature = "progress",
+        doc = "Show a window with the current progress of the generation"
+    )]
     show_window: bool,
     /// Show a window with the current progress of the generation
     #[structopt(long)]
@@ -174,7 +179,7 @@ fn main() {
     }
 }
 
-fn real_main() -> Result<(), texture_synthesis::Error> {
+fn real_main() -> Result<(), Error> {
     let args = Opt::from_args();
 
     let (mut examples, target_guide) = match &args.cmd {
@@ -264,10 +269,14 @@ fn real_main() -> Result<(), texture_synthesis::Error> {
     let progress: Option<Box<dyn texture_synthesis::GeneratorProgress>> =
         if !args.tweaks.no_progress {
             let progress = ProgressWindow::new();
-            let progress = if args.tweaks.show_window {
-                progress.with_preview(args.out_size, std::time::Duration::from_millis(100))
-            } else {
-                progress
+
+            #[cfg(feature = "progress")]
+            let progress = {
+                if args.tweaks.show_window {
+                    progress.with_preview(args.out_size, std::time::Duration::from_millis(100))?
+                } else {
+                    progress
+                }
             };
 
             Some(Box::new(progress))
@@ -293,12 +302,12 @@ fn real_main() -> Result<(), texture_synthesis::Error> {
 }
 
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use std::time::Duration;
+#[cfg(feature = "progress")]
+use minifb::Window;
 
 pub struct ProgressWindow {
-    window: Option<piston_window::PistonWindow>,
-    update_freq: Duration,
-    last_update: std::time::Instant,
+    #[cfg(feature = "progress")]
+    window: Option<(Window, std::time::Duration, std::time::Instant)>,
 
     total_pb: ProgressBar,
     stage_pb: ProgressBar,
@@ -329,9 +338,8 @@ impl ProgressWindow {
         });
 
         Self {
+            #[cfg(feature = "progress")]
             window: None,
-            update_freq: Duration::from_millis(10),
-            last_update: std::time::Instant::now(),
             total_pb,
             stage_pb,
             total_len: 100,
@@ -340,21 +348,23 @@ impl ProgressWindow {
         }
     }
 
-    fn with_preview(mut self, size: (u32, u32), update_every: Duration) -> Self {
-        use piston_window::EventLoop;
+    #[cfg(feature = "progress")]
+    fn with_preview(
+        mut self,
+        size: (u32, u32),
+        update_every: std::time::Duration,
+    ) -> Result<Self, Error> {
+        let window = Window::new(
+            "Texture Synthesis",
+            size.0 as usize,
+            size.1 as usize,
+            minifb::WindowOptions::default(),
+        )
+        .unwrap();
 
-        let mut window: piston_window::PistonWindow =
-            piston_window::WindowSettings::new("Texture Synthesis", [size.0, size.1])
-                .exit_on_esc(true)
-                .build()
-                .unwrap();
+        self.window = Some((window, update_every, std::time::Instant::now()));
 
-        // disallow sleeping
-        window.set_bench_mode(true);
-        self.window = Some(window);
-        self.update_freq = update_every;
-
-        self
+        Ok(self)
     }
 }
 
@@ -382,43 +392,37 @@ impl texture_synthesis::GeneratorProgress for ProgressWindow {
         self.total_pb.set_position(update.total.current as u64);
         self.stage_pb.set_position(update.stage.current as u64);
 
-        if let Some(ref mut window) = self.window {
-            let now = std::time::Instant::now();
+        #[cfg(feature = "progress")]
+        {
+            if let Some((ref mut window, ref dur, ref mut last_update)) = self.window {
+                let now = std::time::Instant::now();
 
-            if now - self.last_update < self.update_freq {
-                return;
-            }
+                if now - *last_update < *dur {
+                    return;
+                }
 
-            self.last_update = now;
+                *last_update = now;
 
-            //image to texture
-            let texture: piston_window::G2dTexture = piston_window::Texture::from_image(
-                &mut window.factory,
-                &update.image,
-                &piston_window::TextureSettings::new(),
-            )
-            .unwrap();
+                if !window.is_open() {
+                    return;
+                }
 
-            if let Some(event) = window.next() {
-                window.draw_2d(&event, |context, graphics| {
-                    piston_window::clear([1.0; 4], graphics);
-                    piston_window::image(
-                        &texture,
-                        [
-                            [
-                                context.transform[0][0],
-                                context.transform[0][1],
-                                context.transform[0][2],
-                            ],
-                            [
-                                context.transform[1][0],
-                                context.transform[1][1],
-                                context.transform[1][2],
-                            ],
-                        ],
-                        graphics,
-                    );
-                });
+                let pixels = &update.image;
+                if pixels.len() % 4 != 0 {
+                    return;
+                }
+
+                // The pixel channels are in a different order so the colors are
+                // incorrect in the window, but at least the shape and unfilled pixels
+                // are still apparent
+                let pixels: &[u32] = unsafe {
+                    let raw_pixels: &[u8] = pixels;
+                    #[allow(clippy::cast_ptr_alignment)]
+                    std::mem::transmute(&*(raw_pixels as *const [u8] as *const [u32]))
+                };
+
+                // We don't particularly care if this fails
+                let _ = window.update_with_buffer(pixels);
             }
         }
     }

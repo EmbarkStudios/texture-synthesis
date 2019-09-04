@@ -23,7 +23,11 @@ path = "src/main.rs"
 [dependencies]
 atty = "0.2.13" # indicatif's tty detection only works with stdout for some reason
 indicatif = "0.11.0"
-piston_window = "0.85.0"
+minifb = { version = "0.13.0", optional = true }
 rand = "0.6.4"
 structopt = "0.3.0"
 texture-synthesis = { version = "0.3.0", path = "../lib" }
+
+[features]
+default = []
+progress = ["minifb"]

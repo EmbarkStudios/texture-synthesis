@@ -159,6 +159,7 @@ matrix:
 # place it in the deploy.api_key.secure value
 deploy:
 - provider: releases
+  name: $TRAVIS_TAG # Otherwise Slack notifications say 'Release - null', terrible defaults are terrible
   api_key:
     secure: Bl70Wlwi1dueZY159tMygxbPri7t5LHDUnuTzOvuf/gUFHls0e2LvVeWI0QTF+MEEP+bzdbzkGxnNWfzL4jQYOhDEqInPFEfebwMFQ3tLn0rFm2Pz0oaAcSg4viYY7vBnFcVoxh9VvN/Elc51xD0ovCpqfIwX2U4KwgQyCZ0zJRZ1PAbzZR9lm4tGmqu4Wv/dUNxwCIO/BLxPRPdc3idowf7HTESIGdaq/2v7Lqp0WUT4Thn8ueN7GdDRGIMGs4TXIlvi1cZ9Hp1nLjpvUMiNw4ydwCkOeIMMA8HnwO0zCkvxgqL79IBSHFOQf+uMYH8orW4En+BHA3iBzlJJCUzJ1Djrlkl8Bb+0NvwwPVrG0rhtfhjuoHA00xp9AgNfCGVua4NDPt5ECrTWKE34qD+qCS6owd3CxLvgL+anT7g54GndEmTfBuPfCEOsQ2Darf4jI8eJFtQh0bFjuKbVwiuGOT16d9I//q4Jlf6wliq0qRLkkxnyQRDY0g+gYRWWa5DES1/t7JFu9iNc2EbGDuzKp33x8T8+ovgdvO+dS+JzRFjp3PbPa7Ntl8WsuzNAyk14TcOzKIvKQAe5xLotDLrou/2mt8LvuA6LsiXHsfjdMCKuwKFlZ254/h/uTmp+uiNCTyAK+eICXObePhqEH5zO3BZoz43M9UrftynixyLkL4=
   file:

@@ -170,9 +170,9 @@ struct Opt {
 fn main() {
     if let Err(e) = real_main() {
         if atty::is(atty::Stream::Stderr) {
-            eprintln!("\x1b[31merror\x1b[0m: {}", e.description());
+            eprintln!("\x1b[31merror\x1b[0m: {}", e);
         } else {
-            eprintln!("error: {}", e.description());
+            eprintln!("error: {}", e);
         }
 
         std::process::exit(1);
@@ -186,19 +186,8 @@ fn real_main() -> Result<(), Error> {
         Subcommand::Generate(gen) => {
             let mut examples: Vec<_> = gen.examples.iter().map(Example::new).collect();
             if !gen.example_guides.is_empty() {
-                if examples.len() != gen.example_guides.len() {
-                    return Err(Box::new(std::io::Error::new(
-                        std::io::ErrorKind::InvalidInput,
-                        format!(
-                            "Mismatch of maps: {} example guide(s) vs {} example(s)",
-                            gen.example_guides.len(),
-                            examples.len()
-                        ),
-                    )));
-                }
-
-                for (i, guide) in gen.example_guides.iter().enumerate() {
-                    examples[i].with_guide(guide);
+                for (ex, guide) in examples.iter_mut().zip(gen.example_guides.iter()) {
+                    ex.with_guide(guide);
                 }
             }
 

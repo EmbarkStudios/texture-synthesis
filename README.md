@@ -262,6 +262,8 @@ Or chaining multiple stages of generation together:
 
 ![](https://i.imgur.com/FzZW3sl.jpg)
 
+For more use cases and examples, please refer to the presentation ["More Like This, Please! Texture Synthesis and Remixing from a Single Example"](https://youtu.be/fMbK7PYQux4)
+
 ## Command line binary
 
 * [Download the binary](https://github.com/EmbarkStudios/texture-synthesis/releases) for your OS, or install it from source, `cargo install --path=.`. **Note:** if you want to show a progress window you will need to enable the

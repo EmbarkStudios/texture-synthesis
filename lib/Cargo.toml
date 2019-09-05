@@ -35,4 +35,4 @@ features = []
 [dependencies.image]
 version = "0.22.1"
 default-features = false
-features = ["jpeg", "png_codec", "tga", "bmp"]
+features = ["jpeg", "png_codec", "bmp"]

@@ -49,6 +49,8 @@ pub enum Error {
     ExampleGuideMismatch(u32, u32),
     /// Io is notoriously error free with no problems, but we cover it just in case!
     Io(std::io::Error),
+    /// The user specified an image format we don't support as the output
+    UnsupportedOutputFormat(String),
     /// There are no examples to source pixels from, either because no examples
     /// were added, or all of them used SampleMethod::Ignore
     NoExamples,
@@ -76,6 +78,9 @@ impl fmt::Display for Error {
                 }
             }
             Self::Io(io) => write!(f, "{}", io),
+            Self::UnsupportedOutputFormat(fmt) => {
+                write!(f, "the output format '{}' is not supported", fmt)
+            }
             Self::NoExamples => write!(
                 f,
                 "at least 1 example must be available as a sampling source"

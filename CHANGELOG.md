@@ -5,6 +5,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- Added `Error::UnsupportedOutputFormat`
+
+### Changed
+- CLI: `--out` is now required. `-` can still be passed to write to stdout instead of a file.
+- CLI: The file extension for the `--out` path is now checked to see if it a supported format.
+
+### Removed
+- Removed tga feature in image since it wasn't used
 
 ## [0.4.1] - 2019-09-04
 ### Fixed

@@ -6,9 +6,13 @@
 [![Contributor Covenant](https://img.shields.io/badge/contributor%20covenant-v1.4%20adopted-ff69b4.svg)](CODE_OF_CONDUCT.md)
 [![Embark](https://img.shields.io/badge/embark-open%20source-blueviolet.svg)](http://embark.games)
 
-A light API for Multiresolution Stochastic Texture Synthesis [1], a non-parametric example-based algorithm for image generation. 
+A light Rust API for _Multiresolution Stochastic Texture Synthesis_ [1], a non-parametric example-based algorithm for image generation.
 
 The repo also includes multiple code examples to get you started (along with test images), and you can find a compiled binary with a command line interface under the release tab.
+
+Also see our talk [_More Like This, Please! Texture Synthesis and Remixing from a Single Example_](https://youtu.be/fMbK7PYQux4) which explains this technique and the background more in-depth:
+
+[![Video thumbnail](imgs/docs/video-thumbnail.jpg)](https://youtu.be/fMbK7PYQux4)
 
 ## Features and examples
 

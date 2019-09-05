@@ -142,18 +142,22 @@ struct Opt {
     )]
     out_size: (u32, u32),
     /// The format to save the generated image as.
+    ///
+    /// NOTE: this will only apply when stdout is specified via `-o -`, otherwise the image
+    /// format is determined by the file extension of the path provided to `-o`
     #[structopt(
         long,
         default_value = "png",
         parse(try_from_str = parse_img_fmt)
     )]
-    out_fmt: texture_synthesis::image::ImageOutputFormat,
+    out_fmt: ImgFmt,
     /// Resize input example map(s), in `width x height`, or a single number for both dimensions
     #[structopt(long, parse(try_from_str = parse_size))]
     in_size: Option<(u32, u32)>,
-    /// The path to save the generated image to, use `-` for stdout
-    #[structopt(long = "out", short, default_value = "-")]
-    output_path: String,
+    /// The path to save the generated image to, the file extensions of the path determines
+    /// the image format used. You may use `-` for stdout.
+    #[structopt(long = "out", short, parse(from_os_str))]
+    output_path: PathBuf,
     /// A directory into which debug images are also saved.
     ///
     /// * `patch_id.png` - Map of the `copy islands` from an example
@@ -279,11 +283,15 @@ fn real_main() -> Result<(), Error> {
         generated.save_debug(dir)?;
     }
 
-    if args.output_path == "-" {
+    if args.output_path.to_str() == Some("-") {
         let out = std::io::stdout();
         let mut out = out.lock();
         generated.write(&mut out, args.out_fmt)?;
     } else {
+        // This won't respect the output format specified by the user,
+        // only the extension on the path they specify, but that makes
+        // more sense, and is probably better than detecting and emitting
+        // an error
         generated.save(&args.output_path)?;
     }
 

@@ -18,7 +18,7 @@ travis_fold start "cargo.build"
             FEATS="--features=progress"
         fi
 
-        cargo build --release --target "$TARGET" "${FEATS}" --manifest-path=cli/Cargo.toml
+        cargo build --release --target "$TARGET" ${FEATS} --manifest-path=cli/Cargo.toml
     travis_time_finish
 travis_fold end "cargo.build"
 

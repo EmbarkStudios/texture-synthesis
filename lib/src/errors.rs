@@ -78,7 +78,9 @@ impl fmt::Display for Error {
                 }
             }
             Self::Io(io) => write!(f, "{}", io),
-            Self::UnsupportedOutputFormat(fmt) => write!(f, "the output format '{}' is not supported", fmt),
+            Self::UnsupportedOutputFormat(fmt) => {
+                write!(f, "the output format '{}' is not supported", fmt)
+            }
             Self::NoExamples => write!(
                 f,
                 "at least 1 example must be available as a sampling source"

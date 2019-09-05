@@ -189,8 +189,8 @@ fn real_main() -> Result<(), Error> {
     // Check that the extension for the path supplied by the user is one of the ones we support
     {
         match args.output_path.extension().and_then(|ext| ext.to_str()) {
-            Some("png") | Some("jpg") | Some("bmp") => {},
-            None => {},
+            Some("png") | Some("jpg") | Some("bmp") => {}
+            None => {}
             Some(other) => return Err(Error::UnsupportedOutputFormat(other.to_owned())),
         }
     }

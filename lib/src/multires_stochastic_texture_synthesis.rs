@@ -480,17 +480,24 @@ impl Generator {
                 &valid_samples_mask[n_map_id.0 as usize],
             ) {
                 //lets construct the full candidate pattern of neighbors identical to the center coord
-                candidates_vec[candidate_count].k_neighs = k_neighs
-                    .iter()
-                    .map(|n2| {
-                        let shift = ((*n2).x - unresolved_coord.x, (*n2).y - unresolved_coord.y);
-                        let n2_coord = SignedCoord2D::from(
-                            candidate_coord.x + shift.0,
-                            candidate_coord.y + shift.1,
-                        );
-                        (n2_coord, n_map_id)
-                    })
-                    .collect();
+                candidates_vec[candidate_count]
+                    .k_neighs
+                    .resize(k_neighs.len(), (SignedCoord2D::from(0, 0), MapId(0)));
+
+                for (output, n2) in candidates_vec[candidate_count]
+                    .k_neighs
+                    .iter_mut()
+                    .zip(k_neighs)
+                {
+                    let shift = (n2.x - unresolved_coord.x, n2.y - unresolved_coord.y);
+                    let n2_coord = SignedCoord2D::from(
+                        candidate_coord.x + shift.0,
+                        candidate_coord.y + shift.1,
+                    );
+
+                    *output = (n2_coord, n_map_id)
+                }
+
                 //record the candidate info
                 candidates_vec[candidate_count].coord = (candidate_coord, n_map_id);
                 candidates_vec[candidate_count].id = (n_patch_id, n_map_id);
@@ -530,17 +537,21 @@ impl Generator {
                     .0,
             );
             //lets construct the full neighborhood pattern
-            candidates_vec[candidate_count].k_neighs = k_neighs
-                .iter()
-                .map(|n2| {
-                    let shift = (unresolved_coord.x - (*n2).x, unresolved_coord.y - (*n2).y);
-                    let n2_coord = SignedCoord2D::from(
-                        candidate_coord.x + shift.0,
-                        candidate_coord.y + shift.1,
-                    );
-                    (n2_coord, map_id)
-                })
-                .collect();
+            candidates_vec[candidate_count]
+                .k_neighs
+                .resize(k_neighs.len(), (SignedCoord2D::from(0, 0), MapId(0)));
+
+            for (output, n2) in candidates_vec[candidate_count]
+                .k_neighs
+                .iter_mut()
+                .zip(k_neighs)
+            {
+                let shift = (unresolved_coord.x - n2.x, unresolved_coord.y - n2.y);
+                let n2_coord =
+                    SignedCoord2D::from(candidate_coord.x + shift.0, candidate_coord.y + shift.1);
+
+                *output = (n2_coord, map_id)
+            }
 
             //record the candidate info
             candidates_vec[candidate_count].coord = (candidate_coord, map_id);
@@ -976,12 +987,16 @@ fn find_best_match<'a>(
         .map(|d| d as f32)
         .collect();
 
-    for i in 0..candidates_patterns.len() {
+    for (i, (candidate_pattern, candidate_guide_pattern)) in candidates_patterns
+        .iter()
+        .zip(candidates_guide_patterns.iter())
+        .enumerate()
+    {
         if let Some(cost) = better_match(
             &my_pattern,
-            &candidates_patterns[i],
+            candidate_pattern,
             &my_guide_pattern,
-            &candidates_guide_patterns[i],
+            candidate_guide_pattern,
             distance_gaussians.as_slice(),
             my_cost,
             guide_cost,
@@ -1008,21 +1023,33 @@ fn better_match(
 ) -> Option<f32> {
     let mut score: f32 = 0.0; //minimize score
 
-    #[allow(clippy::needless_range_loop)]
-    for i in 0..my_pattern.0.len() {
-        let dist_gaussian = distance_gaussians[i];
-
-        //take into account the guidance if needed
-        if let Some(guide_cost_fn) = guide_cost {
-            // these are precomputed
-            score += dist_gaussian
-                * guide_cost_fn.get(my_guide_pattern.0[i], candidate_guide_pattern.0[i]);
-        }
-
-        score += dist_gaussian * my_cost.get(my_pattern.0[i], candidate_pattern.0[i]);
+    for ((my_value, candidate_value), dist_gaussian) in my_pattern
+        .0
+        .iter()
+        .copied()
+        .zip(candidate_pattern.0.iter().copied())
+        .zip(distance_gaussians.iter().copied())
+    {
+        score += dist_gaussian * my_cost.get(my_value, candidate_value);
 
         if score >= current_best {
             return None;
+        }
+    }
+
+    if let Some(guide_cost_fn) = guide_cost {
+        for ((my_guide, candidate_guide), dist_gaussian) in my_guide_pattern
+            .0
+            .iter()
+            .copied()
+            .zip(candidate_guide_pattern.0.iter().copied())
+            .zip(distance_gaussians.iter().copied())
+        {
+            score += dist_gaussian * guide_cost_fn.get(my_guide, candidate_guide);
+
+            if score >= current_best {
+                return None;
+            }
         }
     }
 

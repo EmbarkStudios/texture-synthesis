@@ -394,8 +394,7 @@ impl Generator {
         k_neighs_dist.iter().map(|d| d / avg).collect()
     }
 
-    #[allow(dead_code)]
-    pub fn resolve_random_batch(
+    pub(crate) fn resolve_random_batch(
         &mut self,
         steps: usize,
         example_maps: &[&image::RgbaImage],
@@ -414,47 +413,26 @@ impl Generator {
         self.locked_resolved += steps; //lock these pixels from being re-resolved
     }
 
-    //copy from single example
-    #[allow(dead_code)]
-    fn copy_random_from_example(
-        &mut self,
-        steps: usize,
-        example_map: &image::RgbaImage,
-        seed: u64,
-    ) {
-        for _ in 0..steps {
-            if let Some(ref coord_flat) = self.pick_random_unresolved(seed) {
-                let coord_2d = coord_flat.to_2d(self.output_size);
-                self.update(
-                    coord_2d,
-                    (coord_2d, MapId(0)),
-                    &[example_map],
-                    true,
-                    Score(1.0),
-                    (PatchId(coord_flat.0), MapId(0)),
-                    false,
-                ); //NOTE: giving score 1.0 which is absolutely imaginery since it it a random init
-            }
-        }
-    }
-
     fn resolve_at_random(&self, my_coord: Coord2D, example_maps: &[&image::RgbaImage], seed: u64) {
         let rand_map: u32 = Pcg32::seed_from_u64(seed).gen_range(0, example_maps.len()) as u32;
         let dims = example_maps[rand_map as usize].dimensions();
         let rand_x: u32 = Pcg32::seed_from_u64(seed).gen_range(0, dims.0);
         let rand_y: u32 = Pcg32::seed_from_u64(seed).gen_range(0, dims.1);
+
         self.update(
             my_coord,
             (Coord2D::from(rand_x, rand_y), MapId(rand_map)),
             example_maps,
             true,
+            // NOTE: giving score 0.0 which is absolutely imaginery since we're randomly
+            // initializing
             Score(0.0),
             (
                 PatchId(my_coord.to_flat(self.output_size).0),
                 MapId(rand_map),
             ),
             false,
-        ); //NOTE: giving score 0.0 which is absolutely imaginery since it it a random init
+        );
     }
 
     #[allow(clippy::too_many_arguments)]

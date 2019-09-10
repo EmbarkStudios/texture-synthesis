@@ -11,23 +11,25 @@ use modulo::Mod;
 pub struct GeneratorParams {
     /// How many neighboring pixels each pixel is aware of during the generation
     /// (bigger number -> more global structures are captured).
-    pub nearest_neighbors: u32,
+    pub(crate) nearest_neighbors: u32,
     /// How many random locations will be considered during a pixel resolution
     /// apart from its immediate neighbors (if unsure, keep same as k-neighbors)
-    pub random_sample_locations: u64,
+    pub(crate) random_sample_locations: u64,
     /// The distribution dispersion used for picking best candidate (controls
     /// the distribution 'tail flatness'). Values close to 0.0 will produce
     /// 'harsh' borders between generated 'chunks'. Values  closer to 1.0 will
     /// produce a smoother gradient on those borders.
-    pub cauchy_dispersion: f32,
+    pub(crate) cauchy_dispersion: f32,
     /// The percentage of pixels to be backtracked during each p_stage. Range (0,1).
-    pub p: f32,
+    pub(crate) p: f32,
     /// Controls the number of backtracking stages. Backtracking prevents 'garbage' generation
-    pub p_stages: i32,
+    pub(crate) p_stages: i32,
     /// random seed
-    pub seed: u64,
+    pub(crate) seed: u64,
     /// controls the trade-off between guide and example map
-    pub alpha: f32,
+    pub(crate) alpha: f32,
+    pub(crate) max_thread_count: usize,
+    pub(crate) tiling_mode: bool,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -616,8 +618,6 @@ impl Generator {
         mut progress: Option<Box<dyn crate::GeneratorProgress>>,
         guides_pyramid: &Option<GuidesPyramidStruct>,
         valid_samples: &[SamplingMethod],
-        is_tiling_mode: bool,
-        max_thread_count: Option<u32>,
     ) {
         let total_pixels_to_resolve = self.unresolved.lock().unwrap().len();
         let mut pyramid_level = 0;
@@ -635,10 +635,10 @@ impl Generator {
             atp
         };
 
+        let is_tiling_mode = params.tiling_mode;
+
         let mut total_processed_pixels = 0;
-        let max_workers = max_thread_count
-            .map(|tc| tc as usize)
-            .unwrap_or_else(|| num_cpus::get());
+        let max_workers = params.max_thread_count;
 
         for p_stage in (0..=params.p_stages).rev() {
             //get maps from current pyramid level (for now it will be p-stage dependant)

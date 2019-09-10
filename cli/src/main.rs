@@ -165,6 +165,10 @@ struct Opt {
     /// * `uncertainty.png` - Map of pixels the generator was uncertain of
     #[structopt(long, parse(from_os_str))]
     debug_out_dir: Option<PathBuf>,
+    /// The maximum number of worker threads that can be active at any one time
+    /// while synthesizing images. Defaults to the logical core count.
+    #[structopt(short = "t", long = "threads")]
+    max_threads: Option<u32>,
     #[structopt(flatten)]
     tweaks: Tweaks,
     #[structopt(subcommand)]
@@ -255,9 +259,14 @@ fn real_main() -> Result<(), Error> {
         .guide_alpha(args.tweaks.alpha)
         .tiling_mode(args.tweaks.enable_tiling);
 
+    if let Some(mt) = args.max_threads {
+        sb = sb.max_thread_count(mt);
+    }
+
     if let Some(ref tg) = target_guide {
         sb = sb.load_target_guide(tg);
     }
+
     if let Some(rand_init) = args.tweaks.rand_init {
         sb = sb.random_init(rand_init);
     }

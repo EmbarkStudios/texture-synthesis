@@ -27,7 +27,7 @@ bench = false
 # to stderr. This is also why indicatif colors don't work if you pipe
 # the image output :(
 atty = "0.2.13"
-indicatif = "0.11.0"
+indicatif = "0.12.0"
 minifb = { version = "0.13.0", optional = true }
 structopt = "0.3.0"
 texture-synthesis = { version = "0.4.2", path = "../lib" }

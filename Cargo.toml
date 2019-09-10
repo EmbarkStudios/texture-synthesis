@@ -5,4 +5,7 @@ members = [
 ]
 
 [patch.crates-io]
+# https://github.com/abonander/img_hash/pull/30
+# * Updates to use image 0.22
+# * Fixes a bug with to/from_base64
 img_hash = { git = "https://github.com/EmbarkStudios/img_hash.git", rev = "c40da78" }

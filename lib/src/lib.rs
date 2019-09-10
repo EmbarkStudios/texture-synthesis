@@ -98,7 +98,9 @@ impl Parameters {
             p_stages: self.backtrack_stages as i32,
             seed: self.seed,
             alpha: self.guide_alpha,
-            max_thread_count: self.max_thread_count.map(|tc| tc as usize)
+            max_thread_count: self
+                .max_thread_count
+                .map(|tc| tc as usize)
                 .unwrap_or_else(num_cpus::get),
             tiling_mode: self.tiling_mode,
         }

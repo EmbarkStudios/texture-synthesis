@@ -65,7 +65,7 @@ struct Parameters {
     output_size: (u32, u32),
     guide_alpha: f32,
     random_resolve: Option<u64>,
-    max_thread_count: Option<u32>,
+    max_thread_count: Option<usize>,
     seed: u64,
 }
 
@@ -100,7 +100,6 @@ impl Parameters {
             alpha: self.guide_alpha,
             max_thread_count: self
                 .max_thread_count
-                .map(|tc| tc as usize)
                 .unwrap_or_else(num_cpus::get),
             tiling_mode: self.tiling_mode,
         }
@@ -526,7 +525,7 @@ impl<'a> SessionBuilder<'a> {
     /// generally be kept at or below that number.
     ///
     /// Default: The number of logical cores on this system.
-    pub fn max_thread_count(mut self, count: u32) -> Self {
+    pub fn max_thread_count(mut self, count: usize) -> Self {
         self.params.max_thread_count = Some(count);
         self
     }

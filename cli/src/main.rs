@@ -168,7 +168,7 @@ struct Opt {
     /// The maximum number of worker threads that can be active at any one time
     /// while synthesizing images. Defaults to the logical core count.
     #[structopt(short = "t", long = "threads")]
-    max_threads: Option<u32>,
+    max_threads: Option<usize>,
     #[structopt(flatten)]
     tweaks: Tweaks,
     #[structopt(subcommand)]

@@ -1,7 +1,31 @@
 use img_hash::{HashType, ImageHash};
 use texture_synthesis as ts;
 
-macro_rules! diff_runs {
+// The tests below each run the different example code we have and
+// compare the image hash against a "known good" hash. The test
+// generation is run in a single thread, with the same seed and other
+// parameters to produce a consistent hash between runs to detect
+// regressions when making changes to the generator. If the hashes
+// don't match, the right hand side of the assertion message will
+// be the hash of the generated output, which you can copy and paste
+// into the second parameter of the test macro if you intended
+// to make an algorithm/parameter change that affects output, but
+// please don't just update solely to get the test to pass!
+
+// For example, if cargo test output this
+//
+// thread 'single_example' panicked at 'assertion failed: `(left == right)`
+//   left: `"JKc2MqWo1iNWeJ856Ty6+a2M"`,
+//  right: `"JKc2MqWo1iNWeJ856Ty6+a1M"`: images hashes differed by 0.014814815', lib/tests/diff.rs:46:1
+//
+// You would copy `JKc2MqWo1iNWeJ856Ty6+a1M` and paste it over the hash for `single_example` to
+// update the hash
+
+macro_rules! diff_hash {
+    // $name - The name of the test
+    // $expected - A base64 encoded string of our expected image hash
+    // $gen - A session builder, note that the max_thread_count is always
+    // set to 1 regardless
     ($name:ident, $expected:expr, $gen:expr) => {
         #[test]
         fn $name() {
@@ -14,8 +38,8 @@ macro_rules! diff_runs {
                 .build()
                 .unwrap()
                 .run(None);
-            let gen_img = generated.into_image();
 
+            let gen_img = generated.into_image();
             let gen_hash = ImageHash::hash(&gen_img, 8, HashType::DoubleGradient);
 
             if gen_hash != expected_hash {
@@ -28,14 +52,14 @@ macro_rules! diff_runs {
     };
 }
 
-diff_runs!(single_example, "JKc2MqWo1iNWeJ856Ty6+a1M", {
+diff_hash!(single_example, "JKc2MqWo1iNWeJ856Ty6+a1M", {
     ts::Session::builder()
         .add_example(&"../imgs/1.jpg")
         .seed(120)
         .output_size(100, 100)
 });
 
-diff_runs!(multi_example, "JFCWyK1a4vJ1eWNTQkPOmdy2", {
+diff_hash!(multi_example, "JFCWyK1a4vJ1eWNTQkPOmdy2", {
     ts::Session::builder()
         .add_examples(&[
             &"../imgs/multiexample/1.jpg",
@@ -49,7 +73,7 @@ diff_runs!(multi_example, "JFCWyK1a4vJ1eWNTQkPOmdy2", {
         .output_size(100, 100)
 });
 
-diff_runs!(guided, "JBQFEgoXm5KCiWZUfHHBhyYK", {
+diff_hash!(guided, "JBQFEgoXm5KCiWZUfHHBhyYK", {
     ts::Session::builder()
         .add_example(
             ts::Example::builder(&"../imgs/2.jpg").with_guide(&"../imgs/masks/2_example.jpg"),
@@ -58,14 +82,14 @@ diff_runs!(guided, "JBQFEgoXm5KCiWZUfHHBhyYK", {
         .output_size(100, 100)
 });
 
-diff_runs!(style_transfer, "JEMRDSUzJ4uhpHMes1Onenz0", {
+diff_hash!(style_transfer, "JEMRDSUzJ4uhpHMes1Onenz0", {
     ts::Session::builder()
         .add_example(&"../imgs/multiexample/4.jpg")
         .load_target_guide(&"../imgs/tom.jpg")
         .output_size(100, 100)
 });
 
-diff_runs!(inpaint, "JNG1tl5SaIkqauco1NEmtikk", {
+diff_hash!(inpaint, "JNG1tl5SaIkqauco1NEmtikk", {
     ts::Session::builder()
         .inpaint_example(
             &"../imgs/masks/3_inpaint.jpg",
@@ -76,7 +100,7 @@ diff_runs!(inpaint, "JNG1tl5SaIkqauco1NEmtikk", {
         .output_size(100, 100)
 });
 
-diff_runs!(tiling, "JNSV0UiMaMzh2KotmlwojR2K", {
+diff_hash!(tiling, "JNSV0UiMaMzh2KotmlwojR2K", {
     ts::Session::builder()
         .inpaint_example(
             &"../imgs/masks/1_tile.jpg",

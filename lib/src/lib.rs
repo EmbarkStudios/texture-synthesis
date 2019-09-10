@@ -65,6 +65,7 @@ struct Parameters {
     output_size: (u32, u32),
     guide_alpha: f32,
     random_resolve: Option<u64>,
+    max_thread_count: Option<u32>,
     seed: u64,
 }
 
@@ -81,6 +82,7 @@ impl Default for Parameters {
             output_size: (500, 500),
             guide_alpha: 0.8,
             random_resolve: None,
+            max_thread_count: None,
             seed: 0,
         }
     }
@@ -174,12 +176,12 @@ impl<'a> SampleMethod<'a> {
     }
 }
 
-impl<'a, S> From<&'a S> for SampleMethod<'a>
+impl<'a, IS> From<IS> for SampleMethod<'a>
 where
-    S: AsRef<Path> + 'a,
+    IS: Into<ImageSource<'a>>,
 {
-    fn from(path: &'a S) -> Self {
-        Self::Image(ImageSource::Path(path.as_ref()))
+    fn from(is: IS) -> Self {
+        SampleMethod::Image(is.into())
     }
 }
 
@@ -327,12 +329,12 @@ impl<'a> Example<'a> {
     }
 }
 
-impl<'a, S> From<&'a S> for Example<'a>
+impl<'a, IS> From<IS> for Example<'a>
 where
-    S: AsRef<Path> + 'a,
+    IS: Into<ImageSource<'a>>,
 {
-    fn from(path: &'a S) -> Self {
-        Example::new(path)
+    fn from(is: IS) -> Self {
+        Example::new(is)
     }
 }
 
@@ -513,6 +515,17 @@ impl<'a> SessionBuilder<'a> {
         self
     }
 
+    /// Specify the maximum number of threads that will be spawned
+    /// at any one time in parallel. This number is allowed to exceed
+    /// the number of logical cores on the system, but it should
+    /// generally be kept at or below that number.
+    ///
+    /// Default: The number of logical cores on this system.
+    pub fn max_thread_count(mut self, count: u32) -> Self {
+        self.params.max_thread_count = Some(count);
+        self
+    }
+
     /// Creates a `Session`, or returns an error if invalid parameters or input
     /// images were specified.
     pub fn build(self) -> Result<Session, Error> {
@@ -640,6 +653,17 @@ impl<'a> SessionBuilder<'a> {
             }));
         }
 
+        if let Some(max_count) = self.params.max_thread_count {
+            if max_count == 0 {
+                return Err(Error::InvalidRange(errors::InvalidRange {
+                    min: 1.0,
+                    max: 1024.0,
+                    value: max_count as f32,
+                    name: "max_thread_count",
+                }));
+            }
+        }
+
         if self.inpaint_mask.is_some() {
             let input = self.params.resize_input.unwrap_or_else(|| (0, 0));
 
@@ -744,6 +768,7 @@ impl Session {
             &self.guides,
             &self.sampling_methods,
             self.params.tiling_mode,
+            self.params.max_thread_count,
         );
 
         GeneratedImage {

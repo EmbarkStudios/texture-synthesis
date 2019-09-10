@@ -635,6 +635,9 @@ impl Generator {
         };
 
         let mut total_processed_pixels = 0;
+        let max_workers = max_thread_count
+            .map(|tc| tc as usize)
+            .unwrap_or_else(|| num_cpus::get());
 
         for p_stage in (0..=params.p_stages).rev() {
             //get maps from current pyramid level (for now it will be p-stage dependant)
@@ -663,11 +666,7 @@ impl Generator {
             let redo_count = self.resolved.get_mut().unwrap().len() - self.locked_resolved;
 
             // Start with serial execution for the first few pixels, then go wide
-            let n_workers = if redo_count < 1000 {
-                1
-            } else {
-                num_cpus::get()
-            };
+            let n_workers = if redo_count < 1000 { 1 } else { max_workers };
 
             //calculate the guidance alpha
             let adaptive_alpha = if guides.is_some() && p_stage > 0 {

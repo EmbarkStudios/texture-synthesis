@@ -5,6 +5,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- You can now specify the maximum number of threads that can be used at any one time
+via `SessionBuilder::max_thread_count`
+- CLI: You can now specify the maximum thread count via `-t | --threads`
+- Added `From<image::DynamicImage>` for `ImageSource`
+- Added integrations tests for different examples, to catch regressions in generation
+- Added criterion benchmarks for the different examples, to catch performance regressions
+
+### Changed
+- `SampleMethod::From<AsRef<Path>>` is now `SampleMethod::From<Into<ImageSource>>`
+- `Example::From<AsRef<Path>>` is now `Example::From<Into<ImageSource>>`
+
 ### Fixed
 - Disabled unused `rand` default features (OS random number generator)
 

@@ -21,6 +21,111 @@ use texture_synthesis as ts;
 // You would copy `JKc2MqWo1iNWeJ856Ty6+a1M` and paste it over the hash for `single_example` to
 // update the hash
 
+use image::{imageops, DynamicImage, FilterType, GenericImageView, GrayImage, Pixel, RgbaImage};
+use img_hash::HashImage;
+const FILTER_TYPE: FilterType = FilterType::Nearest;
+
+struct MyPrecious<T>(T);
+
+impl HashImage for MyPrecious<DynamicImage> {
+    type Grayscale = MyPrecious<GrayImage>;
+
+    fn dimensions(&self) -> (u32, u32) {
+        <DynamicImage as GenericImageView>::dimensions(&self.0)
+    }
+
+    fn resize(&self, width: u32, height: u32) -> Self {
+        Self(self.0.resize(width, height, FILTER_TYPE))
+    }
+
+    fn grayscale(&self) -> Self::Grayscale {
+        MyPrecious(imageops::grayscale(&self.0))
+    }
+
+    fn to_bytes(self) -> Vec<u8> {
+        self.0.raw_pixels()
+    }
+
+    fn channel_count() -> u8 {
+        <<DynamicImage as GenericImageView>::Pixel as Pixel>::CHANNEL_COUNT
+    }
+
+    fn foreach_pixel<F>(&self, mut iter_fn: F)
+    where
+        F: FnMut(u32, u32, &[u8]),
+    {
+        for (x, y, px) in self.0.pixels() {
+            iter_fn(x, y, px.channels());
+        }
+    }
+}
+
+impl HashImage for MyPrecious<GrayImage> {
+    type Grayscale = MyPrecious<GrayImage>;
+
+    fn dimensions(&self) -> (u32, u32) {
+        <GrayImage as GenericImageView>::dimensions(&self.0)
+    }
+
+    fn resize(&self, width: u32, height: u32) -> Self {
+        Self(imageops::resize(&self.0, width, height, FILTER_TYPE))
+    }
+
+    fn grayscale(&self) -> Self::Grayscale {
+        Self(imageops::grayscale(&self.0))
+    }
+
+    fn to_bytes(self) -> Vec<u8> {
+        self.0.into_raw()
+    }
+
+    fn channel_count() -> u8 {
+        <<GrayImage as GenericImageView>::Pixel as Pixel>::CHANNEL_COUNT
+    }
+
+    fn foreach_pixel<F>(&self, mut iter_fn: F)
+    where
+        F: FnMut(u32, u32, &[u8]),
+    {
+        for (x, y, px) in self.0.enumerate_pixels() {
+            iter_fn(x, y, px.channels());
+        }
+    }
+}
+
+impl HashImage for MyPrecious<RgbaImage> {
+    type Grayscale = MyPrecious<GrayImage>;
+
+    fn dimensions(&self) -> (u32, u32) {
+        <RgbaImage as GenericImageView>::dimensions(&self.0)
+    }
+
+    fn resize(&self, width: u32, height: u32) -> Self {
+        Self(imageops::resize(&self.0, width, height, FILTER_TYPE))
+    }
+
+    fn grayscale(&self) -> Self::Grayscale {
+        MyPrecious(imageops::grayscale(&self.0))
+    }
+
+    fn to_bytes(self) -> Vec<u8> {
+        self.0.into_raw()
+    }
+
+    fn channel_count() -> u8 {
+        <<RgbaImage as GenericImageView>::Pixel as Pixel>::CHANNEL_COUNT
+    }
+
+    fn foreach_pixel<F>(&self, mut iter_fn: F)
+    where
+        F: FnMut(u32, u32, &[u8]),
+    {
+        for (x, y, px) in self.0.enumerate_pixels() {
+            iter_fn(x, y, px.channels());
+        }
+    }
+}
+
 macro_rules! diff_hash {
     // $name - The name of the test
     // $expected - A base64 encoded string of our expected image hash
@@ -40,7 +145,7 @@ macro_rules! diff_hash {
                 .run(None);
 
             let gen_img = generated.into_image();
-            let gen_hash = ImageHash::hash(&gen_img, 8, HashType::DoubleGradient);
+            let gen_hash = ImageHash::hash(&MyPrecious(gen_img), 8, HashType::DoubleGradient);
 
             if gen_hash != expected_hash {
                 let distance = expected_hash.dist_ratio(&gen_hash);

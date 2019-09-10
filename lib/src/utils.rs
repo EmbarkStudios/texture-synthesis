@@ -14,6 +14,12 @@ pub enum ImageSource<'a> {
     Image(image::DynamicImage),
 }
 
+impl<'a> From<image::DynamicImage> for ImageSource<'a> {
+    fn from(img: image::DynamicImage) -> Self {
+        ImageSource::Image(img)
+    }
+}
+
 impl<'a, S> From<&'a S> for ImageSource<'a>
 where
     S: AsRef<Path> + 'a,

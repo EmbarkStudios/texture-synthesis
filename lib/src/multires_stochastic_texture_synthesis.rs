@@ -143,10 +143,10 @@ impl ColorPattern {
 }
 
 pub struct Generator {
-    pub color_map: image::RgbaImage,
+    pub(crate) color_map: image::RgbaImage,
     coord_map: Vec<(Coord2D, MapId)>, //list of samples coordinates from example map
     id_map: Vec<(PatchId, MapId)>,    // list of all id maps of our generated image
-    pub output_size: (u32, u32),      // size of the generated image
+    pub(crate) output_size: (u32, u32), // size of the generated image
     unresolved: Mutex<Vec<CoordFlat>>, //for us to pick from
     resolved: RwLock<Vec<(CoordFlat, Score)>>, //a list of resolved coordinates in our canvas and their scores
     rtree: RwLock<RTree<[i32; 2]>>,            //R* tree
@@ -155,7 +155,7 @@ pub struct Generator {
 }
 
 impl Generator {
-    pub fn new(size: (u32, u32)) -> Self {
+    pub(crate) fn new(size: (u32, u32)) -> Self {
         let s = (size.0 as usize) * (size.1 as usize);
         let unresolved: Vec<CoordFlat> = (0..(s as u32)).map(CoordFlat).collect();
         Self {
@@ -171,7 +171,7 @@ impl Generator {
         }
     }
 
-    pub fn new_from_inpaint(
+    pub(crate) fn new_from_inpaint(
         size: (u32, u32),
         inpaint_map: image::RgbaImage,
         color_map: image::RgbaImage,
@@ -617,6 +617,7 @@ impl Generator {
         guides_pyramid: &Option<GuidesPyramidStruct>,
         valid_samples: &[SamplingMethod],
         is_tiling_mode: bool,
+        max_thread_count: Option<u32>,
     ) {
         let total_pixels_to_resolve = self.unresolved.lock().unwrap().len();
         let mut pyramid_level = 0;

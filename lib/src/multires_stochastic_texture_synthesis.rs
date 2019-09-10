@@ -11,23 +11,25 @@ use modulo::Mod;
 pub struct GeneratorParams {
     /// How many neighboring pixels each pixel is aware of during the generation
     /// (bigger number -> more global structures are captured).
-    pub nearest_neighbors: u32,
+    pub(crate) nearest_neighbors: u32,
     /// How many random locations will be considered during a pixel resolution
     /// apart from its immediate neighbors (if unsure, keep same as k-neighbors)
-    pub random_sample_locations: u64,
+    pub(crate) random_sample_locations: u64,
     /// The distribution dispersion used for picking best candidate (controls
     /// the distribution 'tail flatness'). Values close to 0.0 will produce
     /// 'harsh' borders between generated 'chunks'. Values  closer to 1.0 will
     /// produce a smoother gradient on those borders.
-    pub cauchy_dispersion: f32,
+    pub(crate) cauchy_dispersion: f32,
     /// The percentage of pixels to be backtracked during each p_stage. Range (0,1).
-    pub p: f32,
+    pub(crate) p: f32,
     /// Controls the number of backtracking stages. Backtracking prevents 'garbage' generation
-    pub p_stages: i32,
+    pub(crate) p_stages: i32,
     /// random seed
-    pub seed: u64,
+    pub(crate) seed: u64,
     /// controls the trade-off between guide and example map
-    pub alpha: f32,
+    pub(crate) alpha: f32,
+    pub(crate) max_thread_count: usize,
+    pub(crate) tiling_mode: bool,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -143,10 +145,10 @@ impl ColorPattern {
 }
 
 pub struct Generator {
-    pub color_map: image::RgbaImage,
+    pub(crate) color_map: image::RgbaImage,
     coord_map: Vec<(Coord2D, MapId)>, //list of samples coordinates from example map
     id_map: Vec<(PatchId, MapId)>,    // list of all id maps of our generated image
-    pub output_size: (u32, u32),      // size of the generated image
+    pub(crate) output_size: (u32, u32), // size of the generated image
     unresolved: Mutex<Vec<CoordFlat>>, //for us to pick from
     resolved: RwLock<Vec<(CoordFlat, Score)>>, //a list of resolved coordinates in our canvas and their scores
     rtree: RwLock<RTree<[i32; 2]>>,            //R* tree
@@ -155,7 +157,7 @@ pub struct Generator {
 }
 
 impl Generator {
-    pub fn new(size: (u32, u32)) -> Self {
+    pub(crate) fn new(size: (u32, u32)) -> Self {
         let s = (size.0 as usize) * (size.1 as usize);
         let unresolved: Vec<CoordFlat> = (0..(s as u32)).map(CoordFlat).collect();
         Self {
@@ -171,7 +173,7 @@ impl Generator {
         }
     }
 
-    pub fn new_from_inpaint(
+    pub(crate) fn new_from_inpaint(
         size: (u32, u32),
         inpaint_map: image::RgbaImage,
         color_map: image::RgbaImage,
@@ -394,8 +396,7 @@ impl Generator {
         k_neighs_dist.iter().map(|d| d / avg).collect()
     }
 
-    #[allow(dead_code)]
-    pub fn resolve_random_batch(
+    pub(crate) fn resolve_random_batch(
         &mut self,
         steps: usize,
         example_maps: &[&image::RgbaImage],
@@ -414,47 +415,26 @@ impl Generator {
         self.locked_resolved += steps; //lock these pixels from being re-resolved
     }
 
-    //copy from single example
-    #[allow(dead_code)]
-    fn copy_random_from_example(
-        &mut self,
-        steps: usize,
-        example_map: &image::RgbaImage,
-        seed: u64,
-    ) {
-        for _ in 0..steps {
-            if let Some(ref coord_flat) = self.pick_random_unresolved(seed) {
-                let coord_2d = coord_flat.to_2d(self.output_size);
-                self.update(
-                    coord_2d,
-                    (coord_2d, MapId(0)),
-                    &[example_map],
-                    true,
-                    Score(1.0),
-                    (PatchId(coord_flat.0), MapId(0)),
-                    false,
-                ); //NOTE: giving score 1.0 which is absolutely imaginery since it it a random init
-            }
-        }
-    }
-
     fn resolve_at_random(&self, my_coord: Coord2D, example_maps: &[&image::RgbaImage], seed: u64) {
         let rand_map: u32 = Pcg32::seed_from_u64(seed).gen_range(0, example_maps.len()) as u32;
         let dims = example_maps[rand_map as usize].dimensions();
         let rand_x: u32 = Pcg32::seed_from_u64(seed).gen_range(0, dims.0);
         let rand_y: u32 = Pcg32::seed_from_u64(seed).gen_range(0, dims.1);
+
         self.update(
             my_coord,
             (Coord2D::from(rand_x, rand_y), MapId(rand_map)),
             example_maps,
             true,
+            // NOTE: giving score 0.0 which is absolutely imaginery since we're randomly
+            // initializing
             Score(0.0),
             (
                 PatchId(my_coord.to_flat(self.output_size).0),
                 MapId(rand_map),
             ),
             false,
-        ); //NOTE: giving score 0.0 which is absolutely imaginery since it it a random init
+        );
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -638,7 +618,6 @@ impl Generator {
         mut progress: Option<Box<dyn crate::GeneratorProgress>>,
         guides_pyramid: &Option<GuidesPyramidStruct>,
         valid_samples: &[SamplingMethod],
-        is_tiling_mode: bool,
     ) {
         let total_pixels_to_resolve = self.unresolved.lock().unwrap().len();
         let mut pyramid_level = 0;
@@ -656,7 +635,10 @@ impl Generator {
             atp
         };
 
+        let is_tiling_mode = params.tiling_mode;
+
         let mut total_processed_pixels = 0;
+        let max_workers = params.max_thread_count;
 
         for p_stage in (0..=params.p_stages).rev() {
             //get maps from current pyramid level (for now it will be p-stage dependant)
@@ -685,11 +667,7 @@ impl Generator {
             let redo_count = self.resolved.get_mut().unwrap().len() - self.locked_resolved;
 
             // Start with serial execution for the first few pixels, then go wide
-            let n_workers = if redo_count < 1000 {
-                1
-            } else {
-                num_cpus::get()
-            };
+            let n_workers = if redo_count < 1000 { 1 } else { max_workers };
 
             //calculate the guidance alpha
             let adaptive_alpha = if guides.is_some() && p_stage > 0 {

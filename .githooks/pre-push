@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+# Run rustfmt and fail if there is a diff
+cargo fmt -- --check

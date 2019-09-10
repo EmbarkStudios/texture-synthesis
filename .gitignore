@@ -1,5 +1,6 @@
 /target
 cli/target
+lib/target
 **/*.rs.bk
 Cargo.lock
 /out

@@ -33,6 +33,17 @@ default-features = false
 features = []
 
 [dependencies.image]
-version = "0.22.1"
+version = "0.22.2"
 default-features = false
 features = ["jpeg", "png_codec", "bmp"]
+
+[dev-dependencies]
+criterion = "0.3.0"
+img_hash = { version = "2.1.0", default-features = false }
+
+[lib]
+bench = false
+
+[[bench]]
+name = "all-the-things"
+harness = false

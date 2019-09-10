@@ -971,8 +971,9 @@ fn find_best_match<'a>(
 
     let distance_gaussians: Vec<f32> = k_distances
         .iter()
-        .map(|d| *d as f32)
-        .map(|d| f32::exp(-1f32 * d))
+        .copied()
+        .map(|d| f64::exp(-1.0f64 * d))
+        .map(|d| d as f32)
         .collect();
 
     for i in 0..candidates_patterns.len() {
@@ -1036,8 +1037,8 @@ impl PrerenderedU8Function {
     pub fn new<F: Fn(u8, u8) -> f32>(function: F) -> PrerenderedU8Function {
         let mut data = [0f32; 65536];
 
-        for a in 0..255u8 {
-            for b in 0..255u8 {
+        for a in 0..=255u8 {
+            for b in 0..=255u8 {
                 data[a as usize * 256usize + b as usize] = function(a, b);
             }
         }

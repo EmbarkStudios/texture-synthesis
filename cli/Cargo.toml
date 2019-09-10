@@ -19,6 +19,7 @@ keywords = ["texture", "synthesis", "procedural", "cli"]
 [[bin]]
 name = "texture-synthesis"
 path = "src/main.rs"
+bench = false
 
 [dependencies]
 # We unfortunately can't use clicolors-control which is used by indicatif

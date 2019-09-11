@@ -636,11 +636,7 @@ impl Generator {
         let mut pyramid_level = 0;
 
         let stage_pixels_to_resolve = |p_stage: i32| {
-            if p_stage >= 0 {
-                (params.p.powf(p_stage as f32) * (total_pixels_to_resolve as f32)) as usize
-            } else {
-                total_pixels_to_resolve
-            }
+            (params.p.powf(p_stage as f32) * (total_pixels_to_resolve as f32)) as usize
         };
 
         let actual_total_pixels_to_resolve =
@@ -673,12 +669,7 @@ impl Generator {
                 u64::from(Pcg32::seed_from_u64(params.seed + p_stage as u64).gen::<u32>());
 
             //how many pixels do we need to resolve in this stage
-            let pixels_to_resolve = if p_stage >= 0 {
-                (params.p.powf(p_stage as f32) * (total_pixels_to_resolve as f32)) as usize
-            } else {
-                total_pixels_to_resolve
-            };
-
+            let pixels_to_resolve = stage_pixels_to_resolve(p_stage);
             let redo_count = self.resolved.get_mut().unwrap().len() - self.locked_resolved;
 
             // Start with serial execution for the first few pixels, then go wide

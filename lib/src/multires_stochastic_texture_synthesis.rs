@@ -947,12 +947,14 @@ fn k_neighs_to_color_pattern<Iter: ExactSizeIterator<Item = (SignedCoord2D, MapI
     }
 }
 
+#[inline]
 fn metric_cauchy(a: u8, b: u8, sig2: f32) -> f32 {
     let mut x2 = (f32::from(a) - f32::from(b)) / 255.0; //normalize the colors to be between 0-1
     x2 = x2 * x2;
     (1.0 + x2 / sig2).ln()
 }
 
+#[inline]
 fn metric_l2(a: u8, b: u8) -> f32 {
     let x = (f32::from(a) - f32::from(b)) / 255.0;
     x * x
@@ -1049,6 +1051,7 @@ impl PrerenderedU8Function {
         PrerenderedU8Function { data }
     }
 
+    #[inline]
     pub fn get(&self, a: u8, b: u8) -> f32 {
         self.data[a as usize * 256usize + b as usize]
     }

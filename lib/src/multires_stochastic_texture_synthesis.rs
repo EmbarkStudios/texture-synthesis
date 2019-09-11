@@ -258,6 +258,19 @@ impl Generator {
         }
     }
 
+    fn force_flush_resolved(&self, is_tiling_mode: bool) {
+        self.flush_resolved(
+            &mut *self.rtree.write().unwrap(),
+            &self
+                .update_queue
+                .lock()
+                .unwrap()
+                .drain(..)
+                .collect::<Vec<_>>(),
+            is_tiling_mode,
+        );
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn update(
         &self,
@@ -622,18 +635,16 @@ impl Generator {
         let total_pixels_to_resolve = self.unresolved.lock().unwrap().len();
         let mut pyramid_level = 0;
 
-        let actual_total_pixels_to_resolve = {
-            let mut atp = 0;
-            for p_stage in (-1..=params.p_stages).rev() {
-                atp += if p_stage >= 0 {
-                    (params.p.powf(p_stage as f32) * (total_pixels_to_resolve as f32)) as usize
-                } else {
-                    total_pixels_to_resolve
-                };
+        let stage_pixels_to_resolve = |p_stage: i32| {
+            if p_stage >= 0 {
+                (params.p.powf(p_stage as f32) * (total_pixels_to_resolve as f32)) as usize
+            } else {
+                total_pixels_to_resolve
             }
-
-            atp
         };
+
+        let actual_total_pixels_to_resolve =
+            (0..=params.p_stages).map(stage_pixels_to_resolve).sum();
 
         let is_tiling_mode = params.tiling_mode;
 
@@ -871,9 +882,7 @@ impl Generator {
                     loop {
                         let stage_progress = processed_pixel_count.load(Ordering::Relaxed);
 
-                        if stage_progress >= pixels_to_resolve - n_workers
-                            && remaining_threads.load(Ordering::Relaxed) == 0
-                        {
+                        if remaining_threads.load(Ordering::Relaxed) == 0 {
                             break;
                         }
 
@@ -903,6 +912,9 @@ impl Generator {
                 }
             })
             .unwrap();
+
+            // Some items might still be pending a resolve flush. Do it now before we start the next stage.
+            self.force_flush_resolved(is_tiling_mode);
         }
     }
 }

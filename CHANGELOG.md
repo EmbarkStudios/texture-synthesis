@@ -18,6 +18,7 @@ via `SessionBuilder::max_thread_count`
 - `Example::From<AsRef<Path>>` is now `Example::From<Into<ImageSource>>`
 
 ### Fixed
+- [PR#14](https://github.com/EmbarkStudios/texture-synthesis/pull/14) Vastly improve performance, all benchmarks are sped up from between **1.03** to **1.96**, almost twice as fast! Thanks [@austinjones](https://github.com/austinjones)!
 - Disabled unused `rand` default features (OS random number generator)
 
 ## [0.4.2] - 2019-09-05

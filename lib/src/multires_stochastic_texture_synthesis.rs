@@ -786,7 +786,7 @@ impl Generator {
                                 // 3.1 get patterns for color maps
                                 for (cand_i, cand) in candidates.iter().enumerate() {
                                     k_neighs_to_color_pattern(
-                                        cand.k_neighs.iter().cloned(),
+                                        &cand.k_neighs,
                                         image::Rgb([0, 0, 0]),
                                         &example_maps,
                                         &mut candidates_patterns[cand_i],
@@ -797,7 +797,7 @@ impl Generator {
                                 let candidates_patterns = &candidates_patterns[0..candidates.len()];
 
                                 k_neighs_to_color_pattern(
-                                    k_neighs_w_map_id.iter().cloned(), //feed into the function with always 0 index of the sample map
+                                    &k_neighs_w_map_id, //feed into the function with always 0 index of the sample map
                                     image::Rgb([0, 0, 0]),
                                     &[&self.color_map],
                                     &mut my_pattern,
@@ -809,7 +809,7 @@ impl Generator {
                                     //populate guidance patterns for candidates
                                     for (cand_i, cand) in candidates.iter().enumerate() {
                                         k_neighs_to_color_pattern(
-                                            cand.k_neighs.iter().cloned(),
+                                            &cand.k_neighs,
                                             image::Rgb([0, 0, 0]),
                                             &(in_guides.example_guides.iter().collect::<Vec<_>>()),
                                             &mut candidates_guide_patterns[cand_i],
@@ -817,7 +817,7 @@ impl Generator {
                                         );
                                         //get example pattern to compare to
                                         k_neighs_to_color_pattern(
-                                            k_neighs_w_map_id.iter().cloned(),
+                                            &k_neighs_w_map_id,
                                             image::Rgb([0, 0, 0]),
                                             &[&in_guides.target_guide],
                                             &mut my_guide_pattern,
@@ -921,8 +921,8 @@ impl Generator {
     }
 }
 
-fn k_neighs_to_color_pattern<Iter: ExactSizeIterator<Item = (SignedCoord2D, MapId)>>(
-    k_neighs: Iter,
+fn k_neighs_to_color_pattern(
+    k_neighs: &[(SignedCoord2D, MapId)],
     outside_color: image::Rgb<u8>,
     example_maps: &[&image::RgbaImage],
     pattern: &mut ColorPattern,
@@ -935,10 +935,10 @@ fn k_neighs_to_color_pattern<Iter: ExactSizeIterator<Item = (SignedCoord2D, MapI
         let coord = if is_wrap_mode {
             n_coord.wrap(example_maps[0].dimensions())
         } else {
-            n_coord
+            *n_coord
         };
         //check if he haven't gone outside the possible bounds
-        if check_coord_validity(coord, n_map, example_maps, &SamplingMethod::All) {
+        if check_coord_validity(coord, *n_map, example_maps, &SamplingMethod::All) {
             let pixel = *(example_maps[n_map.0 as usize]).get_pixel(coord.x as u32, coord.y as u32);
             pattern.0[i] = pixel[0];
             i += 1;

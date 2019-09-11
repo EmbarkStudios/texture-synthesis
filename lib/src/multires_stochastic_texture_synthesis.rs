@@ -637,6 +637,10 @@ impl Generator {
 
         let is_tiling_mode = params.tiling_mode;
 
+        let cauchy_precomputed = PrerenderedU8Function::new(|a, b| {
+            metric_cauchy(a, b, params.cauchy_dispersion * params.cauchy_dispersion)
+        });
+        let l2_precomputed = PrerenderedU8Function::new(metric_l2);
         let mut total_processed_pixels = 0;
         let max_workers = params.max_thread_count;
 
@@ -677,6 +681,13 @@ impl Generator {
             } else {
                 0.0 //only care for content, not guidance
             };
+
+            let guide_cost_precomputed =
+                PrerenderedU8Function::new(|a, b| adaptive_alpha * l2_precomputed.get(a, b));
+
+            let my_inverse_alpha_cost_precomputed = PrerenderedU8Function::new(|a, b| {
+                (1.0 - adaptive_alpha) * cauchy_precomputed.get(a, b)
+            });
 
             // Keep track of how many items have been processed. Goes up to `pixels_to_resolve`
             let processed_pixel_count = AtomicUsize::new(0);
@@ -809,6 +820,16 @@ impl Generator {
                                 let candidates_guide_patterns =
                                     &candidates_guide_patterns[0..candidates.len()];
 
+                                let my_cost = if guidance_bool {
+                                    &my_inverse_alpha_cost_precomputed
+                                } else {
+                                    &cauchy_precomputed
+                                };
+                                let guide_cost = if guidance_bool {
+                                    Some(&guide_cost_precomputed)
+                                } else {
+                                    None
+                                };
                                 // 4. find best match based on the candidate patterns
                                 let (best_match, score) = find_best_match(
                                     &candidates,
@@ -817,9 +838,8 @@ impl Generator {
                                     &my_guide_pattern,
                                     &candidates_guide_patterns,
                                     &k_neighs_dist,
-                                    guidance_bool,
-                                    adaptive_alpha,
-                                    params.cauchy_dispersion,
+                                    &my_cost,
+                                    guide_cost,
                                 );
 
                                 let best_match_coord = best_match.coord.0.to_unsigned();
@@ -943,12 +963,18 @@ fn find_best_match<'a>(
     my_guide_pattern: &ColorPattern,
     candidates_guide_patterns: &[ColorPattern],
     k_distances: &[f64], //weight by distance
-    use_guidance: bool,
-    guide_alpha: f32,
-    cauchy_dispersion: f32,
+    my_cost: &PrerenderedU8Function,
+    guide_cost: Option<&PrerenderedU8Function>,
 ) -> (&'a CandidateStruct, Score) {
     let mut best_match = 0;
     let mut lowest_cost = std::f32::MAX;
+
+    let distance_gaussians: Vec<f32> = k_distances
+        .iter()
+        .copied()
+        .map(|d| f64::exp(-1.0f64 * d))
+        .map(|d| d as f32)
+        .collect();
 
     for i in 0..candidates_patterns.len() {
         if let Some(cost) = better_match(
@@ -956,10 +982,9 @@ fn find_best_match<'a>(
             &candidates_patterns[i],
             &my_guide_pattern,
             &candidates_guide_patterns[i],
-            k_distances,
-            use_guidance,
-            guide_alpha,
-            cauchy_dispersion,
+            distance_gaussians.as_slice(),
+            my_cost,
+            guide_cost,
             lowest_cost,
         ) {
             lowest_cost = cost;
@@ -976,34 +1001,25 @@ fn better_match(
     candidate_pattern: &ColorPattern,
     my_guide_pattern: &ColorPattern,
     candidate_guide_pattern: &ColorPattern,
-    distances: &[f64], //weight by distance
-    use_guidance: bool,
-    mut guide_alpha: f32,
-    dispersion: f32,
+    distance_gaussians: &[f32], //weight by distance
+    my_cost: &PrerenderedU8Function,
+    guide_cost: Option<&PrerenderedU8Function>,
     current_best: f32,
 ) -> Option<f32> {
-    let sig2 = dispersion * dispersion;
-
     let mut score: f32 = 0.0; //minimize score
-    let variance = 0.5;
 
     #[allow(clippy::needless_range_loop)]
     for i in 0..my_pattern.0.len() {
-        let dist_gaussian = (-0.5 * (distances[i] / variance)).exp() as f32;
+        let dist_gaussian = distance_gaussians[i];
 
         //take into account the guidance if needed
-        if use_guidance {
-            score += guide_alpha
-                * metric_l2(my_guide_pattern.0[i], candidate_guide_pattern.0[i])
-                * dist_gaussian;
-        } else {
-            guide_alpha = 0.0;
+        if let Some(guide_cost_fn) = guide_cost {
+            // these are precomputed
+            score += dist_gaussian
+                * guide_cost_fn.get(my_guide_pattern.0[i], candidate_guide_pattern.0[i]);
         }
 
-        //color map comparisons w cauchy
-        score += (1.0 - guide_alpha)
-            * metric_cauchy(my_pattern.0[i], candidate_pattern.0[i], sig2)
-            * dist_gaussian;
+        score += dist_gaussian * my_cost.get(my_pattern.0[i], candidate_pattern.0[i]);
 
         if score >= current_best {
             return None;
@@ -1011,6 +1027,28 @@ fn better_match(
     }
 
     Some(score)
+}
+
+struct PrerenderedU8Function {
+    data: [f32; 65536],
+}
+
+impl PrerenderedU8Function {
+    pub fn new<F: Fn(u8, u8) -> f32>(function: F) -> PrerenderedU8Function {
+        let mut data = [0f32; 65536];
+
+        for a in 0..=255u8 {
+            for b in 0..=255u8 {
+                data[a as usize * 256usize + b as usize] = function(a, b);
+            }
+        }
+
+        PrerenderedU8Function { data }
+    }
+
+    pub fn get(&self, a: u8, b: u8) -> f32 {
+        self.data[a as usize * 256usize + b as usize]
+    }
 }
 
 fn check_coord_validity(

@@ -5,7 +5,6 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, RwLock};
 
 use crate::{img_pyramid::*, SamplingMethod};
-use modulo::Mod;
 
 #[derive(Debug)]
 pub struct GeneratorParams {
@@ -71,6 +70,16 @@ impl GuidesPyramidStruct {
     }
 }
 
+#[inline]
+fn modulo(a: i32, b: i32) -> i32 {
+    let result = a % b;
+    if result < 0 {
+        result + b
+    } else {
+        result
+    }
+}
+
 // for k-neighbors
 #[derive(Clone, Copy, Debug, Default)]
 struct SignedCoord2D {
@@ -79,18 +88,19 @@ struct SignedCoord2D {
 }
 
 impl SignedCoord2D {
-    pub fn from(x: i32, y: i32) -> Self {
+    fn from(x: i32, y: i32) -> Self {
         Self { x, y }
     }
 
-    pub fn to_unsigned(self) -> Coord2D {
+    fn to_unsigned(self) -> Coord2D {
         Coord2D::from(self.x as u32, self.y as u32)
     }
 
-    pub fn wrap(self, (dimx, dimy): (u32, u32)) -> SignedCoord2D {
+    #[inline]
+    fn wrap(self, (dimx, dimy): (u32, u32)) -> SignedCoord2D {
         let mut c = self;
-        c.x = c.x.modulo(dimx as i32);
-        c.y = c.y.modulo(dimy as i32);
+        c.x = modulo(c.x, dimx as i32);
+        c.y = modulo(c.y, dimy as i32);
         c
     }
 }

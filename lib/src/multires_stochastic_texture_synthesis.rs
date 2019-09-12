@@ -1033,12 +1033,12 @@ fn better_match(
 }
 
 struct PrerenderedU8Function {
-    data: [f32; 65536],
+    data: Vec<f32>,
 }
 
 impl PrerenderedU8Function {
     pub fn new<F: Fn(u8, u8) -> f32>(function: F) -> PrerenderedU8Function {
-        let mut data = [0f32; 65536];
+        let mut data = vec![0f32; 65536];
 
         for a in 0..=255u8 {
             for b in 0..=255u8 {

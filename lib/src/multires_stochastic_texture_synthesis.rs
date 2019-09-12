@@ -97,10 +97,10 @@ impl SignedCoord2D {
     }
 
     #[inline]
-    fn wrap(self, (dimx, dimy): (u32, u32)) -> SignedCoord2D {
+    fn wrap(self, (dimx, dimy): (i32, i32)) -> SignedCoord2D {
         let mut c = self;
-        c.x = modulo(c.x, dimx as i32);
-        c.y = modulo(c.y, dimy as i32);
+        c.x = modulo(c.x, dimx);
+        c.y = modulo(c.y, dimy);
         c
     }
 }
@@ -112,15 +112,15 @@ struct Coord2D {
 }
 
 impl Coord2D {
-    pub fn from(x: u32, y: u32) -> Self {
+    fn from(x: u32, y: u32) -> Self {
         Self { x, y }
     }
 
-    pub fn to_flat(self, dims: (u32, u32)) -> CoordFlat {
+    fn to_flat(self, dims: (u32, u32)) -> CoordFlat {
         CoordFlat(dims.0 * self.y + self.x)
     }
 
-    pub fn to_signed(self) -> SignedCoord2D {
+    fn to_signed(self) -> SignedCoord2D {
         SignedCoord2D {
             x: self.x as i32,
             y: self.y as i32,
@@ -474,6 +474,8 @@ impl Generator {
         let mut candidate_count = 0;
         let unresolved_coord = unresolved_coord.to_signed();
 
+        let wrap_dim = (self.output_size.0 as i32, self.output_size.1 as i32);
+
         //neighborhood based candidates
         for neigh_coord in k_neighs {
             //calculate the shift between the center coord and its found neighbor
@@ -484,7 +486,7 @@ impl Generator {
 
             //find center coord original location in the example map
             let n_flat_coord = neigh_coord
-                .wrap(self.output_size)
+                .wrap(wrap_dim)
                 .to_unsigned()
                 .to_flat(self.output_size)
                 .0 as usize;
@@ -533,14 +535,14 @@ impl Generator {
         //random candidates
         for _ in 0..m {
             let rand_map = (rng.gen_range(0, example_maps.len())) as u32;
-            let mut done = false;
+            let dims = example_maps[rand_map as usize].dimensions();
             let mut rand_x: i32;
             let mut rand_y: i32;
-            let mut candidate_coord = SignedCoord2D::from(0, 0);
+            let mut candidate_coord;
             //generate a random valid candidate
-            while !done {
-                rand_x = rng.gen_range(0, example_maps[rand_map as usize].dimensions().0) as i32;
-                rand_y = rng.gen_range(0, example_maps[rand_map as usize].dimensions().1) as i32;
+            loop {
+                rand_x = rng.gen_range(0, dims.0) as i32;
+                rand_y = rng.gen_range(0, dims.1) as i32;
                 candidate_coord = SignedCoord2D::from(rand_x, rand_y);
                 if check_coord_validity(
                     candidate_coord,
@@ -548,7 +550,7 @@ impl Generator {
                     &example_maps,
                     &valid_samples_mask[rand_map as usize],
                 ) {
-                    done = true;
+                    break;
                 }
             }
             //for patch id (since we are not copying from a generated patch anymore), we take the pixel location in the example map
@@ -556,7 +558,10 @@ impl Generator {
             let patch_id = PatchId(
                 candidate_coord
                     .to_unsigned()
-                    .to_flat(example_maps[rand_map as usize].dimensions())
+                    .to_flat((
+                        dims.0 as u32,
+                        dims.1 as u32,
+                    ))
                     .0,
             );
             //lets construct the full neighborhood pattern
@@ -645,7 +650,7 @@ impl Generator {
         }
     }
 
-    pub fn main_resolve_loop(
+    pub(crate) fn main_resolve_loop(
         &mut self,
         params: &GeneratorParams,
         example_maps_pyramid: &[ImagePyramid],
@@ -815,8 +820,8 @@ impl Generator {
                                 );
 
                                 // 3.2 get pattern for guide map if we have them
-                                let guidance_bool = if let Some(ref in_guides) = guides {
-                                    //populate guidance patterns for candidates
+                                let (my_cost, guide_cost) = if let Some(ref in_guides) = guides {
+                                    // populate guidance patterns for candidates
                                     for (cand_i, cand) in candidates.iter().enumerate() {
                                         k_neighs_to_color_pattern(
                                             &cand.k_neighs,
@@ -834,25 +839,18 @@ impl Generator {
                                             is_tiling_mode,
                                         );
                                     }
-                                    //mark that we have guidance
-                                    true
+
+                                    (
+                                        &my_inverse_alpha_cost_precomputed,
+                                        Some(&guide_cost_precomputed),
+                                    )
                                 } else {
-                                    false
+                                    (&cauchy_precomputed, None)
                                 };
 
                                 let candidates_guide_patterns =
                                     &candidates_guide_patterns[0..candidates.len()];
 
-                                let my_cost = if guidance_bool {
-                                    &my_inverse_alpha_cost_precomputed
-                                } else {
-                                    &cauchy_precomputed
-                                };
-                                let guide_cost = if guidance_bool {
-                                    Some(&guide_cost_precomputed)
-                                } else {
-                                    None
-                                };
                                 // 4. find best match based on the candidate patterns
                                 let (best_match, score) = find_best_match(
                                     &candidates,
@@ -941,9 +939,11 @@ fn k_neighs_to_color_pattern(
     pattern.0.resize(k_neighs.len() * 3, 0);
     let mut i = 0;
 
+    let wrap_dim = (example_maps[0].dimensions().0 as i32, example_maps[0].dimensions().1 as i32);
+
     for (n_coord, n_map) in k_neighs {
         let coord = if is_wrap_mode {
-            n_coord.wrap(example_maps[0].dimensions())
+            n_coord.wrap(wrap_dim)
         } else {
             *n_coord
         };

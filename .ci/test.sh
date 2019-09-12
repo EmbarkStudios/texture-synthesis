@@ -34,13 +34,13 @@ travis_fold end "cargo.fetch"
 # building and running the tests
 travis_fold start "cargo.build"
     travis_time_start
-        cargo test --no-run --target $TARGET --all-features
+        cargo test --release --no-run --target $TARGET --all-features
     travis_time_finish
 travis_fold end "cargo.build"
 
 # Run the actual tests
 travis_fold start "cargo.test"
     travis_time_start
-        cargo test --target $TARGET --all-features
+        cargo test --release --target $TARGET --all-features
     travis_time_finish
 travis_fold end "cargo.test"

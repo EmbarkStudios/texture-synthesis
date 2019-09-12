@@ -604,8 +604,8 @@ impl<'a> SessionBuilder<'a> {
 
         // Initialize generator based on availability of an inpaint_mask.
         let generator = match inpaint {
-            None => multires_stochastic_texture_synthesis::Generator::new(self.params.output_size),
-            Some(inpaint) => multires_stochastic_texture_synthesis::Generator::new_from_inpaint(
+            None => Generator::new(self.params.output_size),
+            Some(inpaint) => Generator::new_from_inpaint(
                 self.params.output_size,
                 inpaint.inpaint_mask,
                 inpaint.color_map,
@@ -732,7 +732,7 @@ pub struct Session {
     examples: Vec<ImagePyramid>,
     guides: Option<GuidesPyramidStruct>,
     sampling_methods: Vec<SamplingMethod>,
-    generator: multires_stochastic_texture_synthesis::Generator,
+    generator: Generator,
     params: Parameters,
 }
 

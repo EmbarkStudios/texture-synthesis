@@ -258,6 +258,19 @@ impl Generator {
         }
     }
 
+    fn force_flush_resolved(&self, is_tiling_mode: bool) {
+        self.flush_resolved(
+            &mut *self.rtree.write().unwrap(),
+            &self
+                .update_queue
+                .lock()
+                .unwrap()
+                .drain(..)
+                .collect::<Vec<_>>(),
+            is_tiling_mode,
+        );
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn update(
         &self,
@@ -622,18 +635,12 @@ impl Generator {
         let total_pixels_to_resolve = self.unresolved.lock().unwrap().len();
         let mut pyramid_level = 0;
 
-        let actual_total_pixels_to_resolve = {
-            let mut atp = 0;
-            for p_stage in (-1..=params.p_stages).rev() {
-                atp += if p_stage >= 0 {
-                    (params.p.powf(p_stage as f32) * (total_pixels_to_resolve as f32)) as usize
-                } else {
-                    total_pixels_to_resolve
-                };
-            }
-
-            atp
+        let stage_pixels_to_resolve = |p_stage: i32| {
+            (params.p.powf(p_stage as f32) * (total_pixels_to_resolve as f32)) as usize
         };
+
+        let actual_total_pixels_to_resolve =
+            (0..=params.p_stages).map(stage_pixels_to_resolve).sum();
 
         let is_tiling_mode = params.tiling_mode;
 
@@ -662,12 +669,7 @@ impl Generator {
                 u64::from(Pcg32::seed_from_u64(params.seed + p_stage as u64).gen::<u32>());
 
             //how many pixels do we need to resolve in this stage
-            let pixels_to_resolve = if p_stage >= 0 {
-                (params.p.powf(p_stage as f32) * (total_pixels_to_resolve as f32)) as usize
-            } else {
-                total_pixels_to_resolve
-            };
-
+            let pixels_to_resolve = stage_pixels_to_resolve(p_stage);
             let redo_count = self.resolved.get_mut().unwrap().len() - self.locked_resolved;
 
             // Start with serial execution for the first few pixels, then go wide
@@ -871,9 +873,7 @@ impl Generator {
                     loop {
                         let stage_progress = processed_pixel_count.load(Ordering::Relaxed);
 
-                        if stage_progress >= pixels_to_resolve - n_workers
-                            && remaining_threads.load(Ordering::Relaxed) == 0
-                        {
+                        if remaining_threads.load(Ordering::Relaxed) == 0 {
                             break;
                         }
 
@@ -903,6 +903,9 @@ impl Generator {
                 }
             })
             .unwrap();
+
+            // Some items might still be pending a resolve flush. Do it now before we start the next stage.
+            self.force_flush_resolved(is_tiling_mode);
         }
     }
 }

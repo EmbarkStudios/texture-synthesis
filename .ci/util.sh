@@ -29,6 +29,18 @@ function sub_export() {
     critcmp --target-dir "$target_dir" --export "$1" > "$root/lib/benches/${2:-$1}.json"
 }
 
+function sub_run_examples() {
+    prefix=${1:-0}
+
+    cargo build --release
+    target/release/texture-synthesis --out out/"${prefix}"1.jpg generate imgs/1.jpg
+    target/release/texture-synthesis --rand-init 10 --seed 211 --in-size 300 -o out/"${prefix}"2.png generate imgs/multiexample/1.jpg imgs/multiexample/2.jpg imgs/multiexample/3.jpg imgs/multiexample/4.jpg
+    target/release/texture-synthesis -o out/"${prefix}"3.png generate --target-guide imgs/masks/2_target.jpg --guides imgs/masks/2_example.jpg -- imgs/2.jpg
+    target/release/texture-synthesis -o out/"${prefix}"4.png transfer-style --style imgs/multiexample/4.jpg --guide imgs/tom.jpg
+    target/release/texture-synthesis --in-size 400 --out-size 400 --inpaint imgs/masks/3_inpaint.jpg -o out/"${prefix}"5.png generate imgs/3.jpg
+    target/release/texture-synthesis --inpaint imgs/masks/1_tile.jpg --in-size 400 --out-size 400 --tiling -o out/"${prefix}"6.bmp generate imgs/1.jpg
+}
+
 subcommand=$1
 case $subcommand in
     "" | "-h" | "--help")

@@ -141,16 +141,15 @@ struct Opt {
         parse(try_from_str = parse_size)
     )]
     out_size: (u32, u32),
-    /// The format to save the generated image as.
-    ///
-    /// NOTE: this will only apply when stdout is specified via `-o -`, otherwise the image
-    /// format is determined by the file extension of the path provided to `-o`
+    /// Output format detection when writing to a file is based on the extension, but when
+    /// writing to stdout by passing `-` you must specify the format if you want something
+    /// other than the default.
     #[structopt(
         long,
         default_value = "png",
         parse(try_from_str = parse_img_fmt)
     )]
-    out_fmt: ImgFmt,
+    stdout_fmt: ImgFmt,
     /// Resize input example map(s), in `width x height`, or a single number for both dimensions
     #[structopt(long, parse(try_from_str = parse_size))]
     in_size: Option<(u32, u32)>,
@@ -190,12 +189,14 @@ fn main() {
 fn real_main() -> Result<(), Error> {
     let args = Opt::from_args();
 
-    // Check that the extension for the path supplied by the user is one of the ones we support
+    // Check that the output format or extension for the path supplied by the user is one of the ones we support
     {
-        match args.output_path.extension().and_then(|ext| ext.to_str()) {
-            Some("png") | Some("jpg") | Some("bmp") => {}
-            None => {}
-            Some(other) => return Err(Error::UnsupportedOutputFormat(other.to_owned())),
+        if args.output_path.to_str() != Some("-") {
+            match args.output_path.extension().and_then(|ext| ext.to_str()) {
+                Some("png") | Some("jpg") | Some("bmp") => {}
+                Some(other) => return Err(Error::UnsupportedOutputFormat(other.to_owned())),
+                None => return Err(Error::UnsupportedOutputFormat(String::new())),
+            }
         }
     }
 
@@ -304,12 +305,8 @@ fn real_main() -> Result<(), Error> {
     if args.output_path.to_str() == Some("-") {
         let out = std::io::stdout();
         let mut out = out.lock();
-        generated.write(&mut out, args.out_fmt)?;
+        generated.write(&mut out, args.stdout_fmt)?;
     } else {
-        // This won't respect the output format specified by the user,
-        // only the extension on the path they specify, but that makes
-        // more sense, and is probably better than detecting and emitting
-        // an error
         generated.save(&args.output_path)?;
     }
 

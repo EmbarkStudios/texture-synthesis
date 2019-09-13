@@ -170,6 +170,7 @@ pub enum SampleMethod<'a> {
 }
 
 impl<'a> SampleMethod<'a> {
+    #[inline]
     fn is_ignore(&self) -> bool {
         match self {
             Self::Ignore => true,
@@ -195,6 +196,7 @@ pub enum SamplingMethod {
 }
 
 impl SamplingMethod {
+    #[inline]
     fn is_ignore(&self) -> bool {
         match self {
             Self::Ignore => true,
@@ -604,8 +606,8 @@ impl<'a> SessionBuilder<'a> {
 
         // Initialize generator based on availability of an inpaint_mask.
         let generator = match inpaint {
-            None => multires_stochastic_texture_synthesis::Generator::new(self.params.output_size),
-            Some(inpaint) => multires_stochastic_texture_synthesis::Generator::new_from_inpaint(
+            None => Generator::new(self.params.output_size),
+            Some(inpaint) => Generator::new_from_inpaint(
                 self.params.output_size,
                 inpaint.inpaint_mask,
                 inpaint.color_map,
@@ -732,7 +734,7 @@ pub struct Session {
     examples: Vec<ImagePyramid>,
     guides: Option<GuidesPyramidStruct>,
     sampling_methods: Vec<SamplingMethod>,
-    generator: multires_stochastic_texture_synthesis::Generator,
+    generator: Generator,
     params: Parameters,
 }
 
@@ -752,14 +754,14 @@ impl Session {
         // generator with the same inputs
         if let Some(count) = self.params.random_resolve {
             let lvl = self.examples[0].pyramid.len();
-            let imgs: Vec<image::RgbaImage> = self
+            let imgs: Vec<_> = self
                 .examples
                 .iter()
-                .map(|a| a.pyramid[lvl - 1].clone()) //take the blurriest image
+                .map(|a| ImageBuffer::from(&a.pyramid[lvl - 1])) //take the blurriest image
                 .collect();
-            let imgs_ref = imgs.iter().collect::<Vec<_>>();
+
             self.generator
-                .resolve_random_batch(count as usize, &imgs_ref, self.params.seed);
+                .resolve_random_batch(count as usize, &imgs, self.params.seed);
         }
 
         // run generator

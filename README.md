@@ -44,7 +44,7 @@ fn main() -> Result<(), ts::Error> {
 
 #### CLI
 
-`cargo run --release -- --out out/01.jpg generate -- imgs/1.jpg`
+`cargo run --release -- --out out/01.jpg generate imgs/1.jpg`
 
 You should get the following result with the images provided in this repo:
 <img src="https://i.imgur.com/8p6nVYl.jpg" width="600" height="364">
@@ -93,7 +93,7 @@ fn main() -> Result<(), ts::Error> {
 
 #### CLI
 
-`cargo run --release -- --rand-init 10 --seed 211 --in-size 300 -o out/02.png --debug-out-dir out generate -- imgs/multiexample/1.jpg imgs/multiexample/2.jpg imgs/multiexample/3.jpg imgs/multiexample/4.jpg`
+`cargo run --release -- --rand-init 10 --seed 211 --in-size 300 -o out/02.png --debug-out-dir out generate imgs/multiexample/1.jpg imgs/multiexample/2.jpg imgs/multiexample/3.jpg imgs/multiexample/4.jpg`
 
 You should get the following result with the images provided in this repo:
 <img src="https://i.imgur.com/tbz5d57.jpg" width="600" height="364">
@@ -129,6 +129,9 @@ fn main() -> Result<(), ts::Error> {
 #### CLI
 
 `cargo run --release -- -o out/03.png generate --target-guide imgs/masks/2_target.jpg --guides imgs/masks/2_example.jpg -- imgs/2.jpg`
+
+**NOTE:** Note the use of `--` to delimit the path to the example `imgs/2.jpg`, if you don't specify `--`, the path
+to the example will be used as another guide path and there won't be any examples.
 
 You should get the following result with the images provided in this repo:
 <img src="https://i.imgur.com/arTCi2f.jpg" width="600" height="364">
@@ -211,7 +214,7 @@ fn main() -> Result<(), ts::Error> {
 
 #### CLI
 
-`cargo run --release -- --in-size 400 --out-size 400 --inpaint imgs/masks/3_inpaint.jpg -o out/05.png generate -- imgs/3.jpg`
+`cargo run --release -- --in-size 400 --out-size 400 --inpaint imgs/masks/3_inpaint.jpg -o out/05.png generate imgs/3.jpg`
 
 You should get the following result with the images provided in this repo:
 <img src="https://i.imgur.com/WZm2HHL.jpg" width="600" height="364">
@@ -251,7 +254,7 @@ fn main() -> Result<(), ts::Error> {
 
 #### CLI
 
-`cargo run --release -- --inpaint imgs/masks/1_tile.jpg --in-size 400 --out-size 400 --tiling -o out/06.bmp generate -- imgs/1.jpg`
+`cargo run --release -- --inpaint imgs/masks/1_tile.jpg --in-size 400 --out-size 400 --tiling -o out/06.bmp generate imgs/1.jpg`
 
 You should get the following result with the images provided in this repo:
 <img src="https://i.imgur.com/foSlREz.jpg" width="600" height="364">

@@ -16,8 +16,10 @@ via `SessionBuilder::max_thread_count`
 ### Changed
 - `SampleMethod::From<AsRef<Path>>` is now `SampleMethod::From<Into<ImageSource>>`
 - `Example::From<AsRef<Path>>` is now `Example::From<Into<ImageSource>>`
+- CLI: Renamed the `--out-fmt` arg to `--stdout-fmt` to indicate it only works when using stdout via `--out -`
 
 ### Fixed
+- [PR#14](https://github.com/EmbarkStudios/texture-synthesis/pull/14) Vastly improve performance, all benchmarks are sped up from between **1.03** to **1.96**, almost twice as fast! Thanks [@austinjones](https://github.com/austinjones)!
 - Disabled unused `rand` default features (OS random number generator)
 
 ## [0.4.2] - 2019-09-05

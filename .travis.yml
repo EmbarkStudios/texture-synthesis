@@ -2,9 +2,9 @@ language: rust
 
 stages:
 - test
-# Deploy stage on runs on a valid semver tag, regardless of branch
+# Deploy stage on runs on a valid semver tag
 - name: deploy
-  if: tag =~ /^\d+\.\d+\.\d+.*$/
+  if: branch = master AND tag =~ /^\d+\.\d+\.\d+.*$/
 
 env:
   global:

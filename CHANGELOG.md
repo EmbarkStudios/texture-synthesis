@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.5.0] - 2019-09-13
 ### Added
 - You can now specify the maximum number of threads that can be used at any one time
 via `SessionBuilder::max_thread_count`
@@ -88,7 +90,8 @@ callers
 ### Added
 - Initial add of `texture-synthesis`
 
-[Unreleased]: https://github.com/EmbarkStudios/texture-synthesis/compare/0.4.2...HEAD
+[Unreleased]: https://github.com/EmbarkStudios/texture-synthesis/compare/0.5.0...HEAD
+[0.5.0]: https://github.com/EmbarkStudios/texture-synthesis/compare/0.4.2...0.5.0
 [0.4.2]: https://github.com/EmbarkStudios/texture-synthesis/compare/0.4.1...0.4.2
 [0.4.1]: https://github.com/EmbarkStudios/texture-synthesis/compare/0.4.0...0.4.1
 [0.4.0]: https://github.com/EmbarkStudios/texture-synthesis/compare/0.3.0...0.4.0

@@ -839,7 +839,7 @@ impl Generator {
                                 for (cand_i, cand) in candidates.iter().enumerate() {
                                     k_neighs_to_color_pattern(
                                         &cand.k_neighs,
-                                        image::Rgb([0, 0, 0]),
+                                        image::Rgba([0, 0, 0, 255]),
                                         &example_maps,
                                         &mut candidates_patterns[cand_i],
                                         false,
@@ -850,7 +850,7 @@ impl Generator {
 
                                 k_neighs_to_color_pattern(
                                     &k_neighs_w_map_id, //feed into the function with always 0 index of the sample map
-                                    image::Rgb([0, 0, 0]),
+                                    image::Rgba([0, 0, 0, 255]),
                                     out_color_map,
                                     &mut my_pattern,
                                     is_tiling_mode,
@@ -862,7 +862,7 @@ impl Generator {
                                     for (cand_i, cand) in candidates.iter().enumerate() {
                                         k_neighs_to_color_pattern(
                                             &cand.k_neighs,
-                                            image::Rgb([0, 0, 0]),
+                                            image::Rgba([0, 0, 0, 255]),
                                             &in_guides.example_guides,
                                             &mut candidates_guide_patterns[cand_i],
                                             false,
@@ -871,7 +871,7 @@ impl Generator {
                                         //get example pattern to compare to
                                         k_neighs_to_color_pattern(
                                             &k_neighs_w_map_id,
-                                            image::Rgb([0, 0, 0]),
+                                            image::Rgba([0, 0, 0, 255]),
                                             &[in_guides.target_guide.clone()],
                                             &mut my_guide_pattern,
                                             is_tiling_mode,
@@ -969,12 +969,12 @@ impl Generator {
 
 fn k_neighs_to_color_pattern(
     k_neighs: &[(SignedCoord2D, MapId)],
-    outside_color: image::Rgb<u8>,
+    outside_color: image::Rgba<u8>,
     source_maps: &[ImageBuffer<'_>],
     pattern: &mut ColorPattern,
     is_wrap_mode: bool,
 ) {
-    pattern.0.resize(k_neighs.len() * 3, 0);
+    pattern.0.resize(k_neighs.len() * 4, 0);
     let mut i = 0;
 
     let wrap_dim = (
@@ -989,14 +989,14 @@ fn k_neighs_to_color_pattern(
             *n_coord
         };
 
-        let end = i + 3;
+        let end = i + 4;
 
         //check if he haven't gone outside the possible bounds
         if source_maps[n_map.0 as usize].is_in_bounds(coord) {
             pattern.0[i..end].copy_from_slice(
                 &(source_maps[n_map.0 as usize])
                     .get_pixel(coord.x as u32, coord.y as u32)
-                    .0[..3],
+                    .0[..4],
             )
         } else {
             // if we have gone out of bounds, then just fill as outside color

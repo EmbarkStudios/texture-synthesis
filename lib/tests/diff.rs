@@ -178,7 +178,7 @@ diff_hash!(multi_example, "JFCWyK1a4vJ1eWNTQkPOmdy2", {
         .output_size(100, 100)
 });
 
-diff_hash!(guided, "JBQFEgoXm5KCiWZUfHHBhyYK", {
+diff_hash!(guided, "JBQFEQoXm5CCiWZUfHHBhweK", {
     ts::Session::builder()
         .add_example(
             ts::Example::builder(&"../imgs/2.jpg").with_guide(&"../imgs/masks/2_example.jpg"),
@@ -205,7 +205,7 @@ diff_hash!(inpaint, "JNG1tl5SaIkqauco1NEmtikk", {
         .output_size(100, 100)
 });
 
-diff_hash!(tiling, "JNSV0UiMaMzh2KotmlwojR2K", {
+diff_hash!(tiling, "JFSVUUmMaMzhWSttmlwojR1q", {
     ts::Session::builder()
         .inpaint_example(
             &"../imgs/masks/1_tile.jpg",

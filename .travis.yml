@@ -44,16 +44,6 @@ matrix:
     os: linux
     script: .ci/lint.sh
 
-  # We do the exact same checks on the beta channel, as both
-  # rustfmt and clippy can change their behavior between releases
-  # and introduce new diffs/lints compared to stable
-  - name: "beta lint"
-    stage: test
-    rust: beta
-    os: linux
-    script: .ci/lint.sh
-    if: branch = master AND tag IS blank
-
   #  _______        _   
   # |__   __|      | |  
   #    | | ___  ___| |_ 
@@ -71,13 +61,6 @@ matrix:
     rust: stable
     os: linux
     script: .ci/test.sh
-
-  - name: "beta test linux"
-    stage: test
-    rust: beta
-    os: linux
-    script: .ci/test.sh
-    if: branch = master AND tag IS blank
 
   - name: "stable test osx"
     rust: stable

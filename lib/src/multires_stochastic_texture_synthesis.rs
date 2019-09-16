@@ -454,7 +454,7 @@ impl Generator {
         //divide by avg
         let avg: f64 = k_neighs_dist.iter().sum::<f64>() / (k_neighs_dist.len() as f64);
 
-        k_neighs_dist.iter_mut().for_each(|d| *d = *d / avg);
+        k_neighs_dist.iter_mut().for_each(|d| *d /= avg);
         k_neighs_dist
     }
 

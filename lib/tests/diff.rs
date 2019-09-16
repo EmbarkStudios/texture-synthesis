@@ -157,14 +157,14 @@ macro_rules! diff_hash {
     };
 }
 
-diff_hash!(single_example, "JJNX6uGdGGnFx6j2Lm3ate6W", {
+diff_hash!(single_example, "JKc2MqWo1iNWeJ856Ty6+a1M", {
     ts::Session::builder()
         .add_example(&"../imgs/1.jpg")
         .seed(120)
         .output_size(100, 100)
 });
 
-diff_hash!(multi_example, "JC1qdVWNazxSMUzrrm5zfVrK", {
+diff_hash!(multi_example, "JFCWyK1a4vJ1eWNTQkPOmdy2", {
     ts::Session::builder()
         .add_examples(&[
             &"../imgs/multiexample/1.jpg",
@@ -178,7 +178,7 @@ diff_hash!(multi_example, "JC1qdVWNazxSMUzrrm5zfVrK", {
         .output_size(100, 100)
 });
 
-diff_hash!(guided, "JFaCExMXjofDKVVYWLBhRQUE", {
+diff_hash!(guided, "JBQFEQoXm5CCiWZUfHHBhweK", {
     ts::Session::builder()
         .add_example(
             ts::Example::builder(&"../imgs/2.jpg").with_guide(&"../imgs/masks/2_example.jpg"),
@@ -187,14 +187,14 @@ diff_hash!(guided, "JFaCExMXjofDKVVYWLBhRQUE", {
         .output_size(100, 100)
 });
 
-diff_hash!(style_transfer, "JFERMTUjG6OVpHGeL6ZpWd76", {
+diff_hash!(style_transfer, "JEMRDSUzJ4uhpHMes1Onenz0", {
     ts::Session::builder()
         .add_example(&"../imgs/multiexample/4.jpg")
         .load_target_guide(&"../imgs/tom.jpg")
         .output_size(100, 100)
 });
 
-diff_hash!(inpaint, "JNG1tkpSWMkqaucsxHEulykk", {
+diff_hash!(inpaint, "JNG1tl5SaIkqauco1NEmtikk", {
     ts::Session::builder()
         .inpaint_example(
             &"../imgs/masks/3_inpaint.jpg",
@@ -205,7 +205,7 @@ diff_hash!(inpaint, "JNG1tkpSWMkqaucsxHEulykk", {
         .output_size(100, 100)
 });
 
-diff_hash!(tiling, "JGZ10cmNaExhqYqtmlworRXS", {
+diff_hash!(tiling, "JFSVUUmMaMzhWSttmlwojR1q", {
     ts::Session::builder()
         .inpaint_example(
             &"../imgs/masks/1_tile.jpg",

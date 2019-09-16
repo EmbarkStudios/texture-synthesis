@@ -442,17 +442,20 @@ impl Generator {
     fn get_distances_to_k_neighs(&self, coord: Coord2D, k_neighs_2d: &[SignedCoord2D]) -> Vec<f64> {
         let (dimx, dimy) = (f64::from(self.output_size.0), f64::from(self.output_size.1));
         let (x2, y2) = (f64::from(coord.x) / dimx, f64::from(coord.y) / dimy);
-        //since we will have 3 channels per pixel, duplicate 3 times each
-        let mut k_neighs_dist: Vec<f64> = Vec::new();
+        let mut k_neighs_dist: Vec<f64> = Vec::with_capacity(k_neighs_2d.len() * 4);
+
         for coord in k_neighs_2d.iter() {
             let (x1, y1) = ((f64::from(coord.x)) / dimx, (f64::from(coord.y)) / dimy);
             let dist = (x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2);
-            k_neighs_dist.extend_from_slice(&[dist, dist, dist]);
+            // Duplicate the distance for each of our 4 channels
+            k_neighs_dist.extend_from_slice(&[dist, dist, dist, dist]);
         }
+
         //divide by avg
         let avg: f64 = k_neighs_dist.iter().sum::<f64>() / (k_neighs_dist.len() as f64);
 
-        k_neighs_dist.iter().map(|d| d / avg).collect()
+        k_neighs_dist.iter_mut().for_each(|d| *d = *d / avg);
+        k_neighs_dist
     }
 
     pub(crate) fn resolve_random_batch(

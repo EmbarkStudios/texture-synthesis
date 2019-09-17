@@ -1,8 +1,8 @@
+use parking_lot::{Mutex, RwLock};
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg32;
 use rstar::RTree;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Mutex, RwLock};
 
 use crate::{img_pyramid::*, SamplingMethod};
 
@@ -276,7 +276,7 @@ impl Generator {
         update_queue: &[([i32; 2], CoordFlat, Score)],
         is_tiling_mode: bool,
     ) {
-        let mut resolved = self.resolved.write().unwrap();
+        let mut resolved = self.resolved.write();
 
         for (a, b, score) in update_queue.iter() {
             rtree.insert(*a);
@@ -306,13 +306,8 @@ impl Generator {
 
     fn force_flush_resolved(&self, is_tiling_mode: bool) {
         self.flush_resolved(
-            &mut *self.rtree.write().unwrap(),
-            &self
-                .update_queue
-                .lock()
-                .unwrap()
-                .drain(..)
-                .collect::<Vec<_>>(),
+            &mut *self.rtree.write(),
+            &self.update_queue.lock().drain(..).collect::<Vec<_>>(),
             is_tiling_mode,
         );
     }
@@ -353,7 +348,7 @@ impl Generator {
             const FORCE_FLUSH_THRESHOLD: usize = 32;
 
             let force_flush_items: Option<Vec<_>> = {
-                let mut update_queue = self.update_queue.lock().unwrap();
+                let mut update_queue = self.update_queue.lock();
 
                 // Don't immediately resolve the pixel. Instead, add it to a list, to be resolved at the right time.
                 update_queue.push((
@@ -373,17 +368,12 @@ impl Generator {
             };
 
             if let Some(force_flush_items) = force_flush_items {
-                self.flush_resolved(
-                    &mut *self.rtree.write().unwrap(),
-                    &force_flush_items,
-                    is_tiling_mode,
-                );
+                self.flush_resolved(&mut *self.rtree.write(), &force_flush_items, is_tiling_mode);
             } else {
                 // Otherwise, check if we can get a lock on the rtree, and only then flush the list.
                 // The rtree lock has moderate contention, so we might not get it this time around.
-                if let Ok(ref mut rtree) = self.rtree.try_write() {
-                    let update_queue: Vec<_> =
-                        self.update_queue.lock().unwrap().drain(..).collect();
+                if let Some(ref mut rtree) = self.rtree.try_write() {
+                    let update_queue: Vec<_> = self.update_queue.lock().drain(..).collect();
 
                     self.flush_resolved(&mut *rtree, &update_queue, is_tiling_mode);
                 }
@@ -393,7 +383,7 @@ impl Generator {
 
     //returns flat coord
     fn pick_random_unresolved(&self, seed: u64) -> Option<CoordFlat> {
-        let mut unresolved = self.unresolved.lock().unwrap();
+        let mut unresolved = self.unresolved.lock();
 
         if unresolved.len() == 0 {
             None //return fail
@@ -410,7 +400,7 @@ impl Generator {
         k_neighs_2d: &mut Vec<SignedCoord2D>,
     ) -> bool {
         {
-            let resolved = self.resolved.read().unwrap();
+            let resolved = self.resolved.read();
 
             //check how many resolved neighbors we have
             let total_resolved = resolved.len() as u32;
@@ -431,7 +421,6 @@ impl Generator {
         k_neighs_2d.extend(
             self.rtree
                 .read()
-                .unwrap()
                 .nearest_neighbor_iter(&[coord.x as i32, coord.y as i32])
                 .take(k as usize)
                 .map(|a| SignedCoord2D::from((*a)[0], (*a)[1])),
@@ -660,7 +649,7 @@ impl Generator {
     pub fn get_uncertainty_map(&self) -> image::RgbaImage {
         let mut uncertainty_map = image::RgbaImage::new(self.output_size.0, self.output_size.1);
 
-        for (flat_coord, score) in self.resolved.read().unwrap().iter() {
+        for (flat_coord, score) in self.resolved.read().iter() {
             //get coord
             let coord = flat_coord.to_2d(self.output_size);
             //get value normalized
@@ -678,7 +667,7 @@ impl Generator {
 
     //replace every resolved pixel with a pixel from a new level
     fn next_pyramid_level(&mut self, example_maps: &[ImageBuffer<'_>]) {
-        for (coord_flat, _) in self.resolved.read().unwrap().iter() {
+        for (coord_flat, _) in self.resolved.read().iter() {
             let resolved_2d = coord_flat.to_2d(self.output_size);
             let (example_map_coord, example_map_id) = self.coord_map[coord_flat.0 as usize]; //so where the current pixel came from
 
@@ -696,7 +685,7 @@ impl Generator {
         guides_pyramid: &Option<GuidesPyramidStruct>,
         valid_samples: &[SamplingMethod],
     ) {
-        let total_pixels_to_resolve = self.unresolved.lock().unwrap().len();
+        let total_pixels_to_resolve = self.unresolved.lock().len();
         let mut pyramid_level = 0;
 
         let stage_pixels_to_resolve = |p_stage: i32| {
@@ -734,14 +723,14 @@ impl Generator {
 
             //how many pixels do we need to resolve in this stage
             let pixels_to_resolve = stage_pixels_to_resolve(p_stage);
-            let redo_count = self.resolved.get_mut().unwrap().len() - self.locked_resolved;
+            let redo_count = self.resolved.get_mut().len() - self.locked_resolved;
 
             // Start with serial execution for the first few pixels, then go wide
             let n_workers = if redo_count < 1000 { 1 } else { max_workers };
 
             //calculate the guidance alpha
             let adaptive_alpha = if guides.is_some() && p_stage > 0 {
-                let total_resolved = self.resolved.read().unwrap().len() as f32;
+                let total_resolved = self.resolved.read().len() as f32;
                 (params.alpha * (1.0 - (total_resolved / (total_pixels_to_resolve as f32))))
                     .powf(3.0)
             } else {
@@ -797,7 +786,7 @@ impl Generator {
                             // 1. Get a pixel to resolve. Check if we have already resolved pixel i; if yes, resolve again; if no, pick a new one
                             let next_unresolved = if i < redo_count {
                                 update_resolved_list = false;
-                                self.resolved.read().unwrap()[i + self.locked_resolved].0
+                                self.resolved.read()[i + self.locked_resolved].0
                             } else {
                                 update_resolved_list = true;
                                 if let Some(pixel) = self.pick_random_unresolved(loop_seed) {

@@ -21,6 +21,7 @@ exclude = ["/imgs"]
 
 [dependencies]
 crossbeam-utils = "0.6"
+parking_lot = "0.9"
 num_cpus = "1.10.1"
 rand = { version = "0.7.0", default-features = false } # avoid bringing in OS random gen that we don't use
 rand_pcg = "0.2.0"

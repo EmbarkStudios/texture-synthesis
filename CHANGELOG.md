@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added support for the alpha channel during generation, which was previously ignored
 
+### Changed
+- `SessionBuilder::inpaint_example` now requires a size be provided by which all inputs will be
+resized, as well setting the output image size. Previously, you had to manually specify matching
+`output_size` and `resize_input` otherwise you would get a parameter validation error.
+- All public methods/functions that took a size either as 2 u32's, or a tuple of them, now use
+a simple `Dims` struct for clarity.
+
 ### Fixed
 - [PR#36](https://github.com/EmbarkStudios/texture-synthesis/pull/36) Fixed undefined behavior in `Generator::update`. Thanks for reporting, [@ralfbiedert](https://github.com/ralfbiedert)!
 

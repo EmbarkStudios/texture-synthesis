@@ -1,5 +1,6 @@
 use img_hash::{HashType, ImageHash};
 use texture_synthesis as ts;
+use ts::Dims;
 
 // The tests below each run the different example code we have and
 // compare the image hash against a "known good" hash. The test
@@ -161,7 +162,7 @@ diff_hash!(single_example, "JKc2MqWo1iNWeJ856Ty6+a1M", {
     ts::Session::builder()
         .add_example(&"../imgs/1.jpg")
         .seed(120)
-        .output_size(100, 100)
+        .output_size(Dims::square(100))
 });
 
 diff_hash!(multi_example, "JFCWyK1a4vJ1eWNTQkPOmdy2", {
@@ -172,10 +173,10 @@ diff_hash!(multi_example, "JFCWyK1a4vJ1eWNTQkPOmdy2", {
             &"../imgs/multiexample/3.jpg",
             &"../imgs/multiexample/4.jpg",
         ])
-        .resize_input(100, 100)
+        .resize_input(Dims::square(100))
         .random_init(10)
         .seed(211)
-        .output_size(100, 100)
+        .output_size(Dims::square(100))
 });
 
 diff_hash!(guided, "JBQFEQoXm5CCiWZUfHHBhweK", {
@@ -184,14 +185,14 @@ diff_hash!(guided, "JBQFEQoXm5CCiWZUfHHBhweK", {
             ts::Example::builder(&"../imgs/2.jpg").with_guide(&"../imgs/masks/2_example.jpg"),
         )
         .load_target_guide(&"../imgs/masks/2_target.jpg")
-        .output_size(100, 100)
+        .output_size(Dims::square(100))
 });
 
 diff_hash!(style_transfer, "JEMRDSUzJ4uhpHMes1Onenz0", {
     ts::Session::builder()
         .add_example(&"../imgs/multiexample/4.jpg")
         .load_target_guide(&"../imgs/tom.jpg")
-        .output_size(100, 100)
+        .output_size(Dims::square(100))
 });
 
 diff_hash!(inpaint, "JNG1tl5SaIkqauco1NEmtikk", {

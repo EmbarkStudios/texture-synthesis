@@ -55,6 +55,24 @@ pub use utils::ImageSource;
 
 pub use errors::Error;
 
+#[derive(Copy, Clone)]
+pub struct Dims {
+    pub width: u32,
+    pub height: u32,
+}
+
+impl Dims {
+    pub fn square(size: u32) -> Self {
+        Self {
+            width: size,
+            height: size,
+        }
+    }
+    pub fn new(width: u32, height: u32) -> Self {
+        Self { width, height }
+    }
+}
+
 struct Parameters {
     tiling_mode: bool,
     nearest_neighbors: u32,
@@ -62,8 +80,8 @@ struct Parameters {
     cauchy_dispersion: f32,
     backtrack_percent: f32,
     backtrack_stages: u32,
-    resize_input: Option<(u32, u32)>,
-    output_size: (u32, u32),
+    resize_input: Option<Dims>,
+    output_size: Dims,
     guide_alpha: f32,
     random_resolve: Option<u64>,
     max_thread_count: Option<usize>,
@@ -80,7 +98,7 @@ impl Default for Parameters {
             backtrack_percent: 0.5,
             backtrack_stages: 5,
             resize_input: None,
-            output_size: (500, 500),
+            output_size: Dims::square(500),
             guide_alpha: 0.8,
             random_resolve: None,
             max_thread_count: None,
@@ -293,7 +311,7 @@ impl<'a> Example<'a> {
     fn resolve(
         self,
         backtracks: u32,
-        resize: Option<(u32, u32)>,
+        resize: Option<Dims>,
         target_guide: &Option<ImagePyramid>,
     ) -> Result<ResolvedExample, Error> {
         let image = ImagePyramid::new(load_image(self.img, resize)?, Some(backtracks));
@@ -438,8 +456,8 @@ impl<'a> SessionBuilder<'a> {
     }
 
     /// Overwrite incoming images sizes
-    pub fn resize_input(mut self, w: u32, h: u32) -> Self {
-        self.params.resize_input = Some((w, h));
+    pub fn resize_input(mut self, dims: Dims) -> Self {
+        self.params.resize_input = Some(dims);
         self
     }
 
@@ -515,8 +533,8 @@ impl<'a> SessionBuilder<'a> {
 
     /// Specify size of the generated image.
     /// Default: 500x500
-    pub fn output_size(mut self, w: u32, h: u32) -> Self {
-        self.params.output_size = (w, h);
+    pub fn output_size(mut self, dims: Dims) -> Self {
+        self.params.output_size = dims;
         self
     }
 
@@ -695,6 +713,8 @@ impl<'a> SessionBuilder<'a> {
             return Err(Error::NoExamples);
         }
 
+        // If we have more than one example guide, then *every* example
+        // needs a guide
         let num_guides = self.examples.iter().filter(|ex| ex.guide.is_some()).count();
         if num_guides != 0 && self.examples.len() != num_guides {
             return Err(Error::ExampleGuideMismatch(

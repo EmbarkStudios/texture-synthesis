@@ -246,7 +246,7 @@ fn real_main() -> Result<(), Error> {
             inpaint_example.set_sample_method(inpaint);
         }
 
-        sb = sb.inpaint_example(inpaint, inpaint_example);
+        sb = sb.inpaint_example(inpaint, inpaint_example, args.out_size);
     }
 
     sb = sb

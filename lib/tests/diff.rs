@@ -196,14 +196,14 @@ diff_hash!(style_transfer, "JEMRDSUzJ4uhpHMes1Onenz0", {
 });
 
 diff_hash!(inpaint, "JNG1tl5SaIkqauco1NEmtikk", {
-    ts::Session::builder()
-        .inpaint_example(
-            &"../imgs/masks/3_inpaint.jpg",
-            ts::Example::builder(&"../imgs/3.jpg")
-                .set_sample_method(&"../imgs/masks/3_inpaint.jpg"),
-        )
-        .resize_input(100, 100)
-        .output_size(100, 100)
+    ts::Session::builder().inpaint_example(
+        &"../imgs/masks/3_inpaint.jpg",
+        ts::Example::builder(&"../imgs/3.jpg").set_sample_method(&"../imgs/masks/3_inpaint.jpg"),
+        Dims {
+            width: 100,
+            height: 100,
+        },
+    )
 });
 
 diff_hash!(tiling, "JFSVUUmMaMzhWSttmlwojR1q", {
@@ -211,8 +211,10 @@ diff_hash!(tiling, "JFSVUUmMaMzhWSttmlwojR1q", {
         .inpaint_example(
             &"../imgs/masks/1_tile.jpg",
             ts::Example::new(&"../imgs/1.jpg"),
+            Dims {
+                width: 100,
+                height: 100,
+            },
         )
-        .resize_input(100, 100)
-        .output_size(100, 100)
         .tiling_mode(true)
 });

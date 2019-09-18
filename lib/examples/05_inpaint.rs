@@ -15,10 +15,8 @@ fn main() -> Result<(), ts::Error> {
                 // would then need at least 1 other example image to actually source from
                 // example.set_sample_method(ts::SampleMethod::Ignore);
                 .set_sample_method(&"imgs/masks/3_inpaint.jpg"),
+            ts::Dims::square(400),
         )
-        // during inpaint, it is important to ensure both input and output are the same size
-        .resize_input(400, 400)
-        .output_size(400, 400)
         .build()?;
 
     let generated = texsynth.run(None);

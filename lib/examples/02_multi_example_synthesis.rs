@@ -13,7 +13,10 @@ fn main() -> Result<(), ts::Error> {
         // we can ensure all of them come with same size
         // that is however optional, the generator doesnt care whether all images are same sizes
         // however, if you have guides or other additional maps, those have to be same size(s) as corresponding example(s)
-        .resize_input(300, 300)
+        .resize_input(ts::Dims {
+            width: 300,
+            height: 300,
+        })
         // randomly initialize first 10 pixels
         .random_init(10)
         .seed(211)

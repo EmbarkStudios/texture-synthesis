@@ -55,6 +55,24 @@ pub use utils::ImageSource;
 
 pub use errors::Error;
 
+#[derive(Copy, Clone)]
+pub struct Dims {
+    pub width: u32,
+    pub height: u32,
+}
+
+impl Dims {
+    pub fn square(size: u32) -> Self {
+        Self {
+            width: size,
+            height: size,
+        }
+    }
+    pub fn new(width: u32, height: u32) -> Self {
+        Self { width, height }
+    }
+}
+
 struct Parameters {
     tiling_mode: bool,
     nearest_neighbors: u32,
@@ -62,8 +80,8 @@ struct Parameters {
     cauchy_dispersion: f32,
     backtrack_percent: f32,
     backtrack_stages: u32,
-    resize_input: Option<(u32, u32)>,
-    output_size: (u32, u32),
+    resize_input: Option<Dims>,
+    output_size: Dims,
     guide_alpha: f32,
     random_resolve: Option<u64>,
     max_thread_count: Option<usize>,
@@ -80,7 +98,7 @@ impl Default for Parameters {
             backtrack_percent: 0.5,
             backtrack_stages: 5,
             resize_input: None,
-            output_size: (500, 500),
+            output_size: Dims::square(500),
             guide_alpha: 0.8,
             random_resolve: None,
             max_thread_count: None,
@@ -293,7 +311,7 @@ impl<'a> Example<'a> {
     fn resolve(
         self,
         backtracks: u32,
-        resize: Option<(u32, u32)>,
+        resize: Option<Dims>,
         target_guide: &Option<ImagePyramid>,
     ) -> Result<ResolvedExample, Error> {
         let image = ImagePyramid::new(load_image(self.img, resize)?, Some(backtracks));
@@ -350,7 +368,7 @@ where
 pub struct SessionBuilder<'a> {
     examples: Vec<Example<'a>>,
     target_guide: Option<ImageSource<'a>>,
-    inpaint_mask: Option<(ImageSource<'a>, usize)>,
+    inpaint_mask: Option<(ImageSource<'a>, usize, Dims)>,
     params: Parameters,
 }
 
@@ -395,7 +413,10 @@ impl<'a> SessionBuilder<'a> {
         self
     }
 
-    /// Inpaints an example.
+    /// Inpaints an example. Due to how inpainting works, a size must also be provided, as
+    /// all examples, as well as the inpaint mask, must be the same size as each other, as
+    /// well as the final output image. Using `resize_input` or `output_size` is ignored
+    /// if this method is called.
     ///
     /// To prevent sampling from the example, you can specify `SamplingMethod::Ignore` with `Example::set_sample_method`.
     ///
@@ -411,7 +432,8 @@ impl<'a> SessionBuilder<'a> {
     ///         // This will prevent sampling from the imgs/2.jpg, note that
     ///         // we *MUST* provide at least one example to source from!
     ///         texture_synthesis::Example::builder(&"imgs/2.jpg")
-    ///             .set_sample_method(texture_synthesis::SampleMethod::Ignore)
+    ///             .set_sample_method(texture_synthesis::SampleMethod::Ignore),
+    ///         texture_synthesis::Dims::square(400)
     ///     )
     ///     .build().expect("failed to build session");
     /// ```
@@ -419,8 +441,9 @@ impl<'a> SessionBuilder<'a> {
         mut self,
         inpaint_mask: I,
         example: E,
+        size: Dims,
     ) -> Self {
-        self.inpaint_mask = Some((inpaint_mask.into(), self.examples.len()));
+        self.inpaint_mask = Some((inpaint_mask.into(), self.examples.len(), size));
         self.examples.push(example.into());
         self
     }
@@ -438,8 +461,8 @@ impl<'a> SessionBuilder<'a> {
     }
 
     /// Overwrite incoming images sizes
-    pub fn resize_input(mut self, w: u32, h: u32) -> Self {
-        self.params.resize_input = Some((w, h));
+    pub fn resize_input(mut self, dims: Dims) -> Self {
+        self.params.resize_input = Some(dims);
         self
     }
 
@@ -515,8 +538,8 @@ impl<'a> SessionBuilder<'a> {
 
     /// Specify size of the generated image.
     /// Default: 500x500
-    pub fn output_size(mut self, w: u32, h: u32) -> Self {
-        self.params.output_size = (w, h);
+    pub fn output_size(mut self, dims: Dims) -> Self {
+        self.params.output_size = dims;
         self
     }
 
@@ -537,9 +560,33 @@ impl<'a> SessionBuilder<'a> {
         self.check_parameters_validity()?;
         self.check_images_validity()?;
 
+        struct InpaintExample {
+            inpaint_mask: image::RgbaImage,
+            color_map: image::RgbaImage,
+            example_index: usize,
+        }
+
+        let (inpaint, out_size, in_size) = match self.inpaint_mask {
+            Some((src, ind, size)) => {
+                let inpaint_mask = load_image(src, Some(size))?;
+                let color_map = load_image(self.examples[ind].img.clone(), Some(size))?;
+
+                (
+                    Some(InpaintExample {
+                        inpaint_mask,
+                        color_map,
+                        example_index: ind,
+                    }),
+                    size,
+                    Some(size),
+                )
+            }
+            None => (None, self.params.output_size, self.params.resize_input),
+        };
+
         let target_guide = match self.target_guide {
             Some(tg) => {
-                let tg_img = load_image(tg, Some(self.params.output_size))?;
+                let tg_img = load_image(tg, Some(out_size))?;
 
                 let num_guides = self.examples.iter().filter(|ex| ex.guide.is_some()).count();
                 let tg_img = if num_guides == 0 {
@@ -556,29 +603,6 @@ impl<'a> SessionBuilder<'a> {
             None => None,
         };
 
-        struct InpaintExample {
-            inpaint_mask: image::RgbaImage,
-            color_map: image::RgbaImage,
-            example_index: usize,
-        }
-
-        let inpaint = match self.inpaint_mask {
-            Some((src, ind)) => {
-                let inpaint_mask = load_image(src, Some(self.params.output_size))?;
-                let color_map = load_image(
-                    self.examples[ind].img.clone(),
-                    Some(self.params.output_size),
-                )?;
-
-                Some(InpaintExample {
-                    inpaint_mask,
-                    color_map,
-                    example_index: ind,
-                })
-            }
-            None => None,
-        };
-
         let example_len = self.examples.len();
 
         let mut examples = Vec::with_capacity(example_len);
@@ -590,11 +614,7 @@ impl<'a> SessionBuilder<'a> {
         let mut methods = Vec::with_capacity(example_len);
 
         for example in self.examples {
-            let resolved = example.resolve(
-                self.params.backtrack_stages,
-                self.params.resize_input,
-                &target_guide,
-            )?;
+            let resolved = example.resolve(self.params.backtrack_stages, in_size, &target_guide)?;
 
             examples.push(resolved.image);
 
@@ -607,9 +627,9 @@ impl<'a> SessionBuilder<'a> {
 
         // Initialize generator based on availability of an inpaint_mask.
         let generator = match inpaint {
-            None => Generator::new(self.params.output_size),
+            None => Generator::new(out_size),
             Some(inpaint) => Generator::new_from_inpaint(
-                self.params.output_size,
+                out_size,
                 inpaint.inpaint_mask,
                 inpaint.color_map,
                 inpaint.example_index,
@@ -669,17 +689,6 @@ impl<'a> SessionBuilder<'a> {
             }
         }
 
-        if self.inpaint_mask.is_some() {
-            let input = self.params.resize_input.unwrap_or_else(|| (0, 0));
-
-            if input.0 != self.params.output_size.0 || input.1 != self.params.output_size.1 {
-                return Err(Error::SizeMismatch(errors::SizeMismatch {
-                    input,
-                    output: self.params.output_size,
-                }));
-            }
-        }
-
         Ok(())
     }
 
@@ -695,6 +704,8 @@ impl<'a> SessionBuilder<'a> {
             return Err(Error::NoExamples);
         }
 
+        // If we have more than one example guide, then *every* example
+        // needs a guide
         let num_guides = self.examples.iter().filter(|ex| ex.guide.is_some()).count();
         if num_guides != 0 && self.examples.len() != num_guides {
             return Err(Error::ExampleGuideMismatch(

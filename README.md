@@ -73,7 +73,10 @@ fn main() -> Result<(), ts::Error> {
         // we can ensure all of them come with same size
         // that is however optional, the generator doesnt care whether all images are same sizes
         // however, if you have guides or other additional maps, those have to be same size(s) as corresponding example(s)
-        .resize_input(300, 300)
+        .resize_input(ts::Dims {
+            width: 300,
+            height: 300,
+        })
         // randomly initialize first 10 pixels
         .random_init(10)
         .seed(211)
@@ -93,7 +96,7 @@ fn main() -> Result<(), ts::Error> {
 
 #### CLI
 
-`cargo run --release -- --rand-init 10 --seed 211 --in-size 300 -o out/02.png --debug-out-dir out generate imgs/multiexample/1.jpg imgs/multiexample/2.jpg imgs/multiexample/3.jpg imgs/multiexample/4.jpg`
+`cargo run --release -- --rand-init 10 --seed 211 --in-size 300x300 -o out/02.png --debug-out-dir out generate imgs/multiexample/1.jpg imgs/multiexample/2.jpg imgs/multiexample/3.jpg imgs/multiexample/4.jpg`
 
 You should get the following result with the images provided in this repo:
 <img src="https://i.imgur.com/tbz5d57.jpg" width="600" height="364">
@@ -199,10 +202,14 @@ fn main() -> Result<(), ts::Error> {
                 // would then need at least 1 other example image to actually source from
                 // example.set_sample_method(ts::SampleMethod::Ignore);
                 .set_sample_method(&"imgs/masks/3_inpaint.jpg"),
+            // Inpaint requires that inputs and outputs be the same size, so it's a required
+            // parameter that overrides both `resize_input` and `output_size`
+            ts::Dims::square(400),
         )
-        // during inpaint, it is important to ensure both input and output are the same size
-        .resize_input(400, 400)
-        .output_size(400, 400)
+        // Ignored
+        .resize_input(ts::Dims::square(200))
+        // Ignored
+        .output_size(ts::Dims::square(100))
         .build()?;
 
     let generated = texsynth.run(None);
@@ -214,7 +221,9 @@ fn main() -> Result<(), ts::Error> {
 
 #### CLI
 
-`cargo run --release -- --in-size 400 --out-size 400 --inpaint imgs/masks/3_inpaint.jpg -o out/05.png generate imgs/3.jpg`
+Note that the `--out-size` parameter determines the size for all inputs and outputs when using inpaint!
+
+`cargo run --release -- --out-size 400 --inpaint imgs/masks/3_inpaint.jpg -o out/05.png generate imgs/3.jpg`
 
 You should get the following result with the images provided in this repo:
 <img src="https://i.imgur.com/WZm2HHL.jpg" width="600" height="364">
@@ -238,10 +247,11 @@ fn main() -> Result<(), ts::Error> {
 
     let texsynth = ts::Session::builder()
         // load a mask that specifies borders of the image we can modify to make it tiling
-        .inpaint_example(&"imgs/masks/1_tile.jpg", ts::Example::new(&"imgs/1.jpg"))
-        //ensure correct sizes
-        .resize_input(400, 400)
-        .output_size(400, 400)
+        .inpaint_example(
+            &"imgs/masks/1_tile.jpg",
+            ts::Example::new(&"imgs/1.jpg"),
+            ts::Dims::square(400),
+        )
         //turn on tiling mode!
         .tiling_mode(true)
         .build()?;
@@ -254,7 +264,7 @@ fn main() -> Result<(), ts::Error> {
 
 #### CLI
 
-`cargo run --release -- --inpaint imgs/masks/1_tile.jpg --in-size 400 --out-size 400 --tiling -o out/06.bmp generate imgs/1.jpg`
+`cargo run --release -- --inpaint imgs/masks/1_tile.jpg --out-size 400 --tiling -o out/06.bmp generate imgs/1.jpg`
 
 You should get the following result with the images provided in this repo:
 <img src="https://i.imgur.com/foSlREz.jpg" width="600" height="364">

@@ -1,4 +1,4 @@
-use crate::Error;
+use crate::{Dims, Error};
 use std::path::Path;
 
 /// Helper type used to pass image data to the Session
@@ -31,7 +31,7 @@ where
 
 pub(crate) fn load_image(
     src: ImageSource<'_>,
-    resize: Option<(u32, u32)>,
+    resize: Option<Dims>,
 ) -> Result<image::RgbaImage, Error> {
     let img = match src {
         ImageSource::Memory(data) => image::load_from_memory(data),
@@ -44,8 +44,13 @@ pub(crate) fn load_image(
         Some(ref size) => {
             use image::GenericImageView;
 
-            if img.width() != size.0 || img.height() != size.1 {
-                image::imageops::resize(&img.to_rgba(), size.0, size.1, image::imageops::CatmullRom)
+            if img.width() != size.width || img.height() != size.height {
+                image::imageops::resize(
+                    &img.to_rgba(),
+                    size.width,
+                    size.height,
+                    image::imageops::CatmullRom,
+                )
             } else {
                 img.to_rgba()
             }
@@ -55,15 +60,15 @@ pub(crate) fn load_image(
 
 pub(crate) fn transform_to_guide_map(
     image: image::RgbaImage,
-    size: Option<(u32, u32)>,
+    size: Option<Dims>,
     blur_sigma: f32,
 ) -> image::RgbaImage {
     use image::GenericImageView;
     let dyn_img = image::DynamicImage::ImageRgba8(image);
 
     if let Some(s) = size {
-        if dyn_img.width() != s.0 || dyn_img.height() != s.1 {
-            dyn_img.resize(s.0, s.1, image::imageops::Triangle);
+        if dyn_img.width() != s.width || dyn_img.height() != s.height {
+            dyn_img.resize(s.width, s.height, image::imageops::Triangle);
         }
     }
 

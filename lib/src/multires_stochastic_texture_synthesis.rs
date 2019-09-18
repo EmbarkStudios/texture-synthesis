@@ -4,7 +4,7 @@ use rstar::RTree;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, RwLock};
 
-use crate::{img_pyramid::*, unsync::*, SamplingMethod};
+use crate::{img_pyramid::*, unsync::*, Dims, SamplingMethod};
 
 #[derive(Debug)]
 pub struct GeneratorParams {
@@ -116,8 +116,8 @@ impl Coord2D {
         Self { x, y }
     }
 
-    fn to_flat(self, dims: (u32, u32)) -> CoordFlat {
-        CoordFlat(dims.0 * self.y + self.x)
+    fn to_flat(self, dims: Dims) -> CoordFlat {
+        CoordFlat(dims.width * self.y + self.x)
     }
 
     fn to_signed(self) -> SignedCoord2D {
@@ -131,9 +131,9 @@ impl Coord2D {
 struct CoordFlat(u32);
 
 impl CoordFlat {
-    fn to_2d(self, dims: (u32, u32)) -> Coord2D {
-        let y = self.0 / dims.0;
-        let x = self.0 - y * dims.0;
+    fn to_2d(self, dims: Dims) -> Coord2D {
+        let y = self.0 / dims.width;
+        let x = self.0 - y * dims.width;
         Coord2D::from(x, y)
     }
 }
@@ -194,7 +194,7 @@ pub struct Generator {
     pub(crate) color_map: UnsyncRgbaImage,
     coord_map: UnsyncVec<(Coord2D, MapId)>, //list of samples coordinates from example map
     id_map: UnsyncVec<(PatchId, MapId)>,    // list of all id maps of our generated image
-    pub(crate) output_size: (u32, u32),     // size of the generated image
+    pub(crate) output_size: Dims,           // size of the generated image
     unresolved: Mutex<Vec<CoordFlat>>,      //for us to pick from
     resolved: RwLock<Vec<(CoordFlat, Score)>>, //a list of resolved coordinates in our canvas and their scores
     rtree: RwLock<RTree<[i32; 2]>>,            //R* tree
@@ -203,11 +203,11 @@ pub struct Generator {
 }
 
 impl Generator {
-    pub(crate) fn new(size: (u32, u32)) -> Self {
-        let s = (size.0 as usize) * (size.1 as usize);
+    pub(crate) fn new(size: Dims) -> Self {
+        let s = (size.width as usize) * (size.height as usize);
         let unresolved: Vec<CoordFlat> = (0..(s as u32)).map(CoordFlat).collect();
         Self {
-            color_map: UnsyncRgbaImage::new(image::RgbaImage::new(size.0, size.1)),
+            color_map: UnsyncRgbaImage::new(image::RgbaImage::new(size.width, size.height)),
             coord_map: UnsyncVec::new(vec![(Coord2D::from(0, 0), MapId(0)); s]),
             id_map: UnsyncVec::new(vec![(PatchId(0), MapId(0)); s]),
             output_size: size,
@@ -220,25 +220,36 @@ impl Generator {
     }
 
     pub(crate) fn new_from_inpaint(
-        size: (u32, u32),
+        size: Dims,
         inpaint_map: image::RgbaImage,
         color_map: image::RgbaImage,
         color_map_index: usize,
     ) -> Self {
-        let inpaint_map = if inpaint_map.width() != size.0 || inpaint_map.height() != size.1 {
-            image::imageops::resize(&inpaint_map, size.0, size.1, image::imageops::Triangle)
-        } else {
-            inpaint_map
-        };
+        let inpaint_map =
+            if inpaint_map.width() != size.width || inpaint_map.height() != size.height {
+                image::imageops::resize(
+                    &inpaint_map,
+                    size.width,
+                    size.height,
+                    image::imageops::Triangle,
+                )
+            } else {
+                inpaint_map
+            };
 
-        let color_map = if color_map.width() != size.0 || color_map.height() != size.1 {
-            image::imageops::resize(&color_map, size.0, size.1, image::imageops::Triangle)
+        let color_map = if color_map.width() != size.width || color_map.height() != size.height {
+            image::imageops::resize(
+                &color_map,
+                size.width,
+                size.height,
+                image::imageops::Triangle,
+            )
         } else {
             color_map
         };
 
         //
-        let s = (size.0 as usize) * (size.1 as usize);
+        let s = (size.width as usize) * (size.height as usize);
         let mut unresolved: Vec<CoordFlat> = Vec::new();
         let mut resolved: Vec<(CoordFlat, Score)> = Vec::new();
         let mut coord_map = vec![(Coord2D::from(0, 0), MapId(0)); s];
@@ -283,21 +294,21 @@ impl Generator {
 
             if is_tiling_mode {
                 //if close to border add additional mirrors
-                let x_l = ((self.output_size.0 as f32) * 0.05) as i32;
-                let x_r = self.output_size.0 as i32 - x_l;
-                let y_b = ((self.output_size.1 as f32) * 0.05) as i32;
-                let y_t = self.output_size.1 as i32 - y_b;
+                let x_l = ((self.output_size.width as f32) * 0.05) as i32;
+                let x_r = self.output_size.width as i32 - x_l;
+                let y_b = ((self.output_size.height as f32) * 0.05) as i32;
+                let y_t = self.output_size.height as i32 - y_b;
 
                 if a[0] < x_l {
-                    rtree.insert([a[0] + (self.output_size.0 as i32), a[1]]); // +x
+                    rtree.insert([a[0] + (self.output_size.width as i32), a[1]]); // +x
                 } else if a[0] > x_r {
-                    rtree.insert([a[0] - (self.output_size.0 as i32), a[1]]); // -x
+                    rtree.insert([a[0] - (self.output_size.width as i32), a[1]]); // -x
                 }
 
                 if a[1] < y_b {
-                    rtree.insert([a[0], a[1] + (self.output_size.1 as i32)]); // +Y
+                    rtree.insert([a[0], a[1] + (self.output_size.height as i32)]); // +Y
                 } else if a[1] > y_t {
-                    rtree.insert([a[0], a[1] - (self.output_size.1 as i32)]); // -Y
+                    rtree.insert([a[0], a[1] - (self.output_size.height as i32)]); // -Y
                 }
             }
             resolved.push((*b, *score));
@@ -439,7 +450,10 @@ impl Generator {
     }
 
     fn get_distances_to_k_neighs(&self, coord: Coord2D, k_neighs_2d: &[SignedCoord2D]) -> Vec<f64> {
-        let (dimx, dimy) = (f64::from(self.output_size.0), f64::from(self.output_size.1));
+        let (dimx, dimy) = (
+            f64::from(self.output_size.width),
+            f64::from(self.output_size.height),
+        );
         let (x2, y2) = (f64::from(coord.x) / dimx, f64::from(coord.y) / dimy);
         let mut k_neighs_dist: Vec<f64> = Vec::with_capacity(k_neighs_2d.len() * 4);
 
@@ -513,7 +527,10 @@ impl Generator {
         let mut candidate_count = 0;
         let unresolved_coord = unresolved_coord.to_signed();
 
-        let wrap_dim = (self.output_size.0 as i32, self.output_size.1 as i32);
+        let wrap_dim = (
+            self.output_size.width as i32,
+            self.output_size.height as i32,
+        );
 
         //neighborhood based candidates
         for neigh_coord in k_neighs {
@@ -575,13 +592,17 @@ impl Generator {
         for _ in 0..m {
             let rand_map = (rng.gen_range(0, example_maps.len())) as u32;
             let dims = example_maps[rand_map as usize].dimensions();
+            let dims = Dims {
+                width: dims.0,
+                height: dims.1,
+            };
             let mut rand_x: i32;
             let mut rand_y: i32;
             let mut candidate_coord;
             //generate a random valid candidate
             loop {
-                rand_x = rng.gen_range(0, dims.0) as i32;
-                rand_y = rng.gen_range(0, dims.1) as i32;
+                rand_x = rng.gen_range(0, dims.width) as i32;
+                rand_y = rng.gen_range(0, dims.height) as i32;
                 candidate_coord = SignedCoord2D::from(rand_x, rand_y);
                 if check_coord_validity(
                     candidate_coord,
@@ -594,12 +615,7 @@ impl Generator {
             }
             //for patch id (since we are not copying from a generated patch anymore), we take the pixel location in the example map
             let map_id = MapId(rand_map);
-            let patch_id = PatchId(
-                candidate_coord
-                    .to_unsigned()
-                    .to_flat((dims.0 as u32, dims.1 as u32))
-                    .0,
-            );
+            let patch_id = PatchId(candidate_coord.to_unsigned().to_flat(dims).0);
             //lets construct the full neighborhood pattern
             candidates_vec[candidate_count]
                 .k_neighs
@@ -629,8 +645,9 @@ impl Generator {
     /// Returns an image of Ids for visualizing the 'copy islands' and map ids of those islands
     pub fn get_id_maps(&self) -> [image::RgbaImage; 2] {
         //init empty image
-        let mut map_id_map = image::RgbaImage::new(self.output_size.0, self.output_size.1);
-        let mut patch_id_map = image::RgbaImage::new(self.output_size.0, self.output_size.1);
+        let mut map_id_map = image::RgbaImage::new(self.output_size.width, self.output_size.height);
+        let mut patch_id_map =
+            image::RgbaImage::new(self.output_size.width, self.output_size.height);
         //populate the image with colors
         for (i, (patch_id, map_id)) in self.id_map.as_ref().iter().enumerate() {
             //get 2d coord
@@ -657,7 +674,8 @@ impl Generator {
     }
 
     pub fn get_uncertainty_map(&self) -> image::RgbaImage {
-        let mut uncertainty_map = image::RgbaImage::new(self.output_size.0, self.output_size.1);
+        let mut uncertainty_map =
+            image::RgbaImage::new(self.output_size.width, self.output_size.height);
 
         for (flat_coord, score) in self.resolved.read().unwrap().iter() {
             //get coord

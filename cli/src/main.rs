@@ -2,18 +2,19 @@ use structopt::StructOpt;
 
 use std::path::PathBuf;
 use texture_synthesis::{
-    image::ImageOutputFormat as ImgFmt, Error, Example, ImageSource, SampleMethod, Session,
+    image::ImageOutputFormat as ImgFmt, Dims, Error, Example, ImageSource, SampleMethod, Session,
 };
 
-fn parse_size(input: &str) -> Result<(u32, u32), std::num::ParseIntError> {
+fn parse_size(input: &str) -> Result<Dims, std::num::ParseIntError> {
     let mut i = input.splitn(2, 'x');
 
-    let x: u32 = i.next().unwrap_or("").parse()?;
-    let y: u32 = match i.next() {
+    let width: u32 = i.next().unwrap_or("").parse()?;
+    let height: u32 = match i.next() {
         Some(num) => num.parse()?,
-        None => x,
+        None => width,
     };
-    Ok((x, y))
+
+    Ok(Dims { width, height })
 }
 
 fn parse_img_fmt(input: &str) -> Result<ImgFmt, String> {
@@ -140,7 +141,7 @@ struct Opt {
         default_value = "500",
         parse(try_from_str = parse_size)
     )]
-    out_size: (u32, u32),
+    out_size: Dims,
     /// Output format detection when writing to a file is based on the extension, but when
     /// writing to stdout by passing `-` you must specify the format if you want something
     /// other than the default.
@@ -152,7 +153,7 @@ struct Opt {
     stdout_fmt: ImgFmt,
     /// Resize input example map(s), in `width x height`, or a single number for both dimensions
     #[structopt(long, parse(try_from_str = parse_size))]
-    in_size: Option<(u32, u32)>,
+    in_size: Option<Dims>,
     /// The path to save the generated image to, the file extensions of the path determines
     /// the image format used. You may use `-` for stdout.
     #[structopt(long = "out", short, parse(from_os_str))]
@@ -245,12 +246,12 @@ fn real_main() -> Result<(), Error> {
             inpaint_example.set_sample_method(inpaint);
         }
 
-        sb = sb.inpaint_example(inpaint, inpaint_example);
+        sb = sb.inpaint_example(inpaint, inpaint_example, args.out_size);
     }
 
     sb = sb
         .add_examples(examples)
-        .output_size(args.out_size.0, args.out_size.1)
+        .output_size(args.out_size)
         .seed(args.tweaks.seed.unwrap_or_default())
         .nearest_neighbors(args.tweaks.k_neighbors)
         .random_sample_locations(args.tweaks.m_rand)
@@ -273,7 +274,7 @@ fn real_main() -> Result<(), Error> {
     }
 
     if let Some(insize) = args.in_size {
-        sb = sb.resize_input(insize.0, insize.1);
+        sb = sb.resize_input(insize);
     }
 
     let session = sb.build()?;
@@ -363,13 +364,13 @@ impl ProgressWindow {
     #[cfg(feature = "progress")]
     fn with_preview(
         mut self,
-        size: (u32, u32),
+        size: Dims,
         update_every: std::time::Duration,
     ) -> Result<Self, Error> {
         let window = Window::new(
             "Texture Synthesis",
-            size.0 as usize,
-            size.1 as usize,
+            size.width as usize,
+            size.height as usize,
             minifb::WindowOptions::default(),
         )
         .unwrap();

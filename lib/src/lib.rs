@@ -48,6 +48,7 @@ use utils::*;
 mod multires_stochastic_texture_synthesis;
 use multires_stochastic_texture_synthesis::*;
 use std::path::Path;
+mod unsync;
 
 pub use image;
 pub use utils::ImageSource;
@@ -117,7 +118,7 @@ impl GeneratedImage {
             std::fs::create_dir_all(&parent_path)?;
         }
 
-        self.inner.color_map.save(&path)?;
+        self.inner.color_map.as_ref().save(&path)?;
         Ok(())
     }
 
@@ -149,13 +150,13 @@ impl GeneratedImage {
 
     /// Returns the generated output image
     pub fn into_image(self) -> image::DynamicImage {
-        image::DynamicImage::ImageRgba8(self.inner.color_map)
+        image::DynamicImage::ImageRgba8(self.inner.color_map.into_inner())
     }
 }
 
 impl AsRef<image::RgbaImage> for GeneratedImage {
     fn as_ref(&self) -> &image::RgbaImage {
-        &self.inner.color_map
+        self.inner.color_map.as_ref()
     }
 }
 

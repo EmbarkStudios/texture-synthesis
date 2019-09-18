@@ -4,7 +4,7 @@ use rstar::RTree;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, RwLock};
 
-use crate::{img_pyramid::*, SamplingMethod};
+use crate::{img_pyramid::*, unsync::*, SamplingMethod};
 
 #[derive(Debug)]
 pub struct GeneratorParams {
@@ -191,11 +191,11 @@ impl<'a> From<&'a image::RgbaImage> for ImageBuffer<'a> {
 }
 
 pub struct Generator {
-    pub(crate) color_map: image::RgbaImage,
-    coord_map: Vec<(Coord2D, MapId)>, //list of samples coordinates from example map
-    id_map: Vec<(PatchId, MapId)>,    // list of all id maps of our generated image
-    pub(crate) output_size: (u32, u32), // size of the generated image
-    unresolved: Mutex<Vec<CoordFlat>>, //for us to pick from
+    pub(crate) color_map: UnsyncRgbaImage,
+    coord_map: UnsyncVec<(Coord2D, MapId)>, //list of samples coordinates from example map
+    id_map: UnsyncVec<(PatchId, MapId)>,    // list of all id maps of our generated image
+    pub(crate) output_size: (u32, u32),     // size of the generated image
+    unresolved: Mutex<Vec<CoordFlat>>,      //for us to pick from
     resolved: RwLock<Vec<(CoordFlat, Score)>>, //a list of resolved coordinates in our canvas and their scores
     rtree: RwLock<RTree<[i32; 2]>>,            //R* tree
     update_queue: Mutex<Vec<([i32; 2], CoordFlat, Score)>>,
@@ -207,9 +207,9 @@ impl Generator {
         let s = (size.0 as usize) * (size.1 as usize);
         let unresolved: Vec<CoordFlat> = (0..(s as u32)).map(CoordFlat).collect();
         Self {
-            color_map: image::RgbaImage::new(size.0, size.1),
-            coord_map: vec![(Coord2D::from(0, 0), MapId(0)); s],
-            id_map: vec![(PatchId(0), MapId(0)); s],
+            color_map: UnsyncRgbaImage::new(image::RgbaImage::new(size.0, size.1)),
+            coord_map: UnsyncVec::new(vec![(Coord2D::from(0, 0), MapId(0)); s]),
+            id_map: UnsyncVec::new(vec![(PatchId(0), MapId(0)); s]),
             output_size: size,
             unresolved: Mutex::new(unresolved),
             resolved: RwLock::new(Vec::new()),
@@ -257,9 +257,9 @@ impl Generator {
 
         let locked_resolved = resolved.len();
         Self {
-            color_map: color_map.clone(),
-            coord_map,
-            id_map: vec![(PatchId(0), MapId(0)); s],
+            color_map: UnsyncRgbaImage::new(color_map.clone()),
+            coord_map: UnsyncVec::new(coord_map),
+            id_map: UnsyncVec::new(vec![(PatchId(0), MapId(0)); s]),
             output_size: size,
             unresolved: Mutex::new(unresolved),
             resolved: RwLock::new(resolved),
@@ -337,17 +337,16 @@ impl Generator {
         // Since `coord_map` and `color_map` also contain 'plain old data', we can set them directly
         // by getting the raw pointers. The subsequent access to `self.resolved` goes through a lock,
         // and ensures correct memory ordering.
-        #[allow(clippy::cast_ref_to_mut)]
         unsafe {
-            *(self.coord_map.as_ptr() as *mut (Coord2D, MapId)).add(flat_coord.0 as usize) =
-                (example_coord, example_map_id);
-
-            *(self.id_map.as_ptr() as *mut (PatchId, MapId)).add(flat_coord.0 as usize) = island_id;
-
-            *(self.color_map.get_pixel(update_coord.x, update_coord.y) as *const image::Rgba<u8>
-                as *mut image::Rgba<u8>) = *example_maps[example_map_id.0 as usize]
-                .get_pixel(example_coord.x, example_coord.y);
+            self.coord_map
+                .assign_at(flat_coord.0 as usize, (example_coord, example_map_id));
+            self.id_map.assign_at(flat_coord.0 as usize, island_id);
         }
+        self.color_map.put_pixel(
+            update_coord.x,
+            update_coord.y,
+            *example_maps[example_map_id.0 as usize].get_pixel(example_coord.x, example_coord.y),
+        );
 
         if update_resolved_list {
             const FORCE_FLUSH_THRESHOLD: usize = 32;
@@ -530,8 +529,8 @@ impl Generator {
                 .to_unsigned()
                 .to_flat(self.output_size)
                 .0 as usize;
-            let (n_original_coord, _) = self.coord_map[n_flat_coord];
-            let (n_patch_id, n_map_id) = self.id_map[n_flat_coord];
+            let (n_original_coord, _) = self.coord_map.as_ref()[n_flat_coord];
+            let (n_patch_id, n_map_id) = self.id_map.as_ref()[n_flat_coord];
             //candidate coord is the original location of the neighbor + neighbor's shift to the center
             let candidate_coord = SignedCoord2D::from(
                 n_original_coord.x as i32 + shift.0,
@@ -633,7 +632,7 @@ impl Generator {
         let mut map_id_map = image::RgbaImage::new(self.output_size.0, self.output_size.1);
         let mut patch_id_map = image::RgbaImage::new(self.output_size.0, self.output_size.1);
         //populate the image with colors
-        for (i, (patch_id, map_id)) in self.id_map.iter().enumerate() {
+        for (i, (patch_id, map_id)) in self.id_map.as_ref().iter().enumerate() {
             //get 2d coord
             let coord = CoordFlat(i as u32).to_2d(self.output_size);
             //get random color based on id
@@ -680,11 +679,15 @@ impl Generator {
     fn next_pyramid_level(&mut self, example_maps: &[ImageBuffer<'_>]) {
         for (coord_flat, _) in self.resolved.read().unwrap().iter() {
             let resolved_2d = coord_flat.to_2d(self.output_size);
-            let (example_map_coord, example_map_id) = self.coord_map[coord_flat.0 as usize]; //so where the current pixel came from
+            let (example_map_coord, example_map_id) =
+                self.coord_map.as_ref()[coord_flat.0 as usize]; //so where the current pixel came from
 
-            self.color_map[(resolved_2d.x, resolved_2d.y)] = *example_maps
-                [example_map_id.0 as usize]
-                .get_pixel(example_map_coord.x, example_map_coord.y);
+            self.color_map.put_pixel(
+                resolved_2d.x,
+                resolved_2d.y,
+                *example_maps[example_map_id.0 as usize]
+                    .get_pixel(example_map_coord.x, example_map_coord.y),
+            );
         }
     }
 
@@ -779,7 +782,7 @@ impl Generator {
                         let mut candidates_guide_patterns: Vec<ColorPattern> = Vec::new();
                         candidates_guide_patterns.resize(max_candidate_count, ColorPattern::new());
 
-                        let out_color_map = &[ImageBuffer::from(&self.color_map)];
+                        let out_color_map = &[ImageBuffer::from(self.color_map.as_ref())];
 
                         loop {
                             // Get the next work item
@@ -944,7 +947,7 @@ impl Generator {
 
                         if pcnt != last_pcnt {
                             progress.update(crate::ProgressUpdate {
-                                image: &self.color_map,
+                                image: self.color_map.as_ref(),
                                 total: crate::ProgressStat {
                                     total: actual_total_pixels_to_resolve,
                                     current: total_processed_pixels + stage_progress,

@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added support for the alpha channel during generation, which was previously ignored
 
+### Fixed
+- [PR#36](https://github.com/EmbarkStudios/texture-synthesis/pull/36) Fixed undefined behavior in `Generator::update`. Thanks for reporting, [@ralfbiedert](https://github.com/ralfbiedert)!
+
 ## [0.5.0] - 2019-09-13
 ### Added
 - You can now specify the maximum number of threads that can be used at any one time

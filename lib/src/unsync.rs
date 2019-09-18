@@ -11,11 +11,11 @@ impl<T: Copy> UnsyncVec<T> {
     }
 
     pub unsafe fn assign_at(&self, idx: usize, value: T) {
-        unsafe { self.0.get().as_mut() }.unwrap()[idx] = value;
+        self.0.get().as_mut().unwrap()[idx] = value;
     }
 
     pub fn as_ref(&self) -> &[T] {
-        unsafe { self.0.get().as_ref() }.unwrap()
+        self.0.get().as_ref().unwrap()
     }
 }
 

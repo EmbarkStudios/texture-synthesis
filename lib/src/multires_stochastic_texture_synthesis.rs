@@ -337,9 +337,11 @@ impl Generator {
         // Since `coord_map` and `color_map` also contain 'plain old data', we can set them directly
         // by getting the raw pointers. The subsequent access to `self.resolved` goes through a lock,
         // and ensures correct memory ordering.
-        self.coord_map
-            .assign_at(flat_coord.0 as usize, (example_coord, example_map_id));
-        self.id_map.assign_at(flat_coord.0 as usize, island_id);
+        unsafe {
+            self.coord_map
+                .assign_at(flat_coord.0 as usize, (example_coord, example_map_id));
+            self.id_map.assign_at(flat_coord.0 as usize, island_id);
+        }
         self.color_map.put_pixel(
             update_coord.x,
             update_coord.y,

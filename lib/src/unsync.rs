@@ -10,7 +10,7 @@ impl<T: Copy> UnsyncVec<T> {
         Self(UnsafeCell::new(v))
     }
 
-    pub fn assign_at(&self, idx: usize, value: T) {
+    pub unsafe fn assign_at(&self, idx: usize, value: T) {
         unsafe { self.0.get().as_mut() }.unwrap()[idx] = value;
     }
 

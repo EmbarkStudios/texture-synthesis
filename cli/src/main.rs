@@ -364,13 +364,13 @@ impl ProgressWindow {
     #[cfg(feature = "progress")]
     fn with_preview(
         mut self,
-        size: (u32, u32),
+        size: Dims,
         update_every: std::time::Duration,
     ) -> Result<Self, Error> {
         let window = Window::new(
             "Texture Synthesis",
-            size.0 as usize,
-            size.1 as usize,
+            size.width as usize,
+            size.height as usize,
             minifb::WindowOptions::default(),
         )
         .unwrap();

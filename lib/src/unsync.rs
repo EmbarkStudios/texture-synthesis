@@ -15,7 +15,7 @@ impl<T: Copy> UnsyncVec<T> {
     }
 
     pub fn as_ref(&self) -> &[T] {
-        self.0.get().as_ref().unwrap()
+        unsafe { self.0.get().as_ref() }.unwrap()
     }
 }
 

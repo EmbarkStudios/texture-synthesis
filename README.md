@@ -12,7 +12,7 @@ The repo also includes multiple code examples to get you started (along with tes
 
 Also see our talk [_More Like This, Please! Texture Synthesis and Remixing from a Single Example_](https://youtu.be/fMbK7PYQux4) which explains this technique and the background more in-depth:
 
-[![Video thumbnail](imgs/docs/video-thumbnail.jpg)](https://youtu.be/fMbK7PYQux4)
+[![Video thumbnail](imgs/docs/video-thumbnail.jpg)](https://www.youtube.com/watch?v=fMbK7PYQux4&t=6m57s)
 
 ## Features and examples
 

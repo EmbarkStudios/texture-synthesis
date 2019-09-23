@@ -4,7 +4,7 @@ stages:
 - test
 # Deploy stage on runs on a valid semver tag
 - name: deploy
-  if: branch = master AND tag =~ /^\d+\.\d+\.\d+.*$/
+  if: tag =~ /^\d+\.\d+\.\d+.*$/
 
 env:
   global:

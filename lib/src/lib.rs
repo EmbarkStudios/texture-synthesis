@@ -656,7 +656,7 @@ impl<'a> SessionBuilder<'a> {
                 min: 0.0,
                 max: 1.0,
                 value: self.params.cauchy_dispersion,
-                name: "cauchy_dispersion",
+                name: "cauchy-dispersion",
             }));
         }
 
@@ -665,7 +665,7 @@ impl<'a> SessionBuilder<'a> {
                 min: 0.0,
                 max: 1.0,
                 value: self.params.backtrack_percent,
-                name: "backtrack_percent",
+                name: "backtrack-percent",
             }));
         }
 
@@ -674,7 +674,7 @@ impl<'a> SessionBuilder<'a> {
                 min: 0.0,
                 max: 1.0,
                 value: self.params.guide_alpha,
-                name: "guide_alpha",
+                name: "guide-alpha",
             }));
         }
 
@@ -684,9 +684,18 @@ impl<'a> SessionBuilder<'a> {
                     min: 1.0,
                     max: 1024.0,
                     value: max_count as f32,
-                    name: "max_thread_count",
+                    name: "max-thread-count",
                 }));
             }
+        }
+
+        if self.params.random_sample_locations == 0 {
+            return Err(Error::InvalidRange(errors::InvalidRange {
+                min: 1.0,
+                max: 1024.0,
+                value: self.params.random_sample_locations as f32,
+                name: "m-rand",
+            }));
         }
 
         Ok(())

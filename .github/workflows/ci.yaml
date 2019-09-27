@@ -1,7 +1,7 @@
 on: push
 name: CI
 jobs:
-  fmt:
+  lint:
     name: Lint
     runs-on: ubuntu-latest
     steps:
@@ -24,3 +24,20 @@ jobs:
         with:
           command: clippy
           args: --all-features -- -D warnings
+
+  test:
+    name: Test
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v1
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all-features

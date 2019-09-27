@@ -1,18 +1,26 @@
 on: push
-name: Clippy check
+name: CI
 jobs:
-  clippy_check:
+  fmt:
+    name: Rustfmt
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
-      - id: component
-        uses: actions-rs/components-nightly@v1
-        with:
-          component: clippy
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: ${{ steps.component.outputs.toolchain }}
+          toolchain: stable
           override: true
+      - run: rustup component add rustfmt
+      - uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
       - run: rustup component add clippy
       - uses: actions-rs/clippy-check@v1
         with:

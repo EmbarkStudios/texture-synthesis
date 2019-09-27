@@ -26,33 +26,6 @@ matrix:
   fast_finish: true
 
   include:
-  #  _______        _   
-  # |__   __|      | |  
-  #    | | ___  ___| |_ 
-  #    | |/ _ \/ __| __|
-  #    | |  __/\__ \ |_ 
-  #    |_|\___||___/\__|
-
-  # Tests all platforms on stable
-  # and additionally running beta and nightly
-  # tests on Linux as Linux runs are generally
-  # faster in every aspect on Travis
-
-  - name: "stable test linux"
-    stage: test
-    rust: stable
-    os: linux
-    script: .ci/test.sh
-
-  - name: "stable test osx"
-    rust: stable
-    os: osx
-    script: .ci/test.sh
-
-  - name: "stable test windows"
-    rust: stable
-    os: windows
-    script: .ci/test.sh
 
   # Add more testing stages if you have them!
 

@@ -1,3 +1,6 @@
+#![warn(clippy::all)]
+#![warn(rust_2018_idioms)]
+
 use structopt::StructOpt;
 
 use std::path::PathBuf;

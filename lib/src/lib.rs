@@ -1,3 +1,6 @@
+#![warn(clippy::all)]
+#![warn(rust_2018_idioms)]
+
 //! `texture-synthesis` is a light API for Multiresolution Stochastic Texture Synthesis,
 //! a non-parametric example-based algorithm for image generation.
 //!

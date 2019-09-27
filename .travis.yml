@@ -26,51 +26,6 @@ matrix:
   fast_finish: true
 
   include:
-  #  _      _       _   
-  # | |    (_)     | |  
-  # | |     _ _ __ | |_ 
-  # | |    | | '_ \| __|
-  # | |____| | | | | |_ 
-  # |______|_|_| |_|\__|
-
-  # 1. Ensure rustfmt does not produce diffs. We always use
-  # the default rustfmt settings.
-  # 2. Ensure there are no clippy warnings.
-  - name: "stable lint"
-    # We could use a lint stage here, but prefer to go wide
-    #
-    stage: test
-    rust: stable
-    os: linux
-    script: .ci/lint.sh
-
-  #  _______        _   
-  # |__   __|      | |  
-  #    | | ___  ___| |_ 
-  #    | |/ _ \/ __| __|
-  #    | |  __/\__ \ |_ 
-  #    |_|\___||___/\__|
-
-  # Tests all platforms on stable
-  # and additionally running beta and nightly
-  # tests on Linux as Linux runs are generally
-  # faster in every aspect on Travis
-
-  - name: "stable test linux"
-    stage: test
-    rust: stable
-    os: linux
-    script: .ci/test.sh
-
-  - name: "stable test osx"
-    rust: stable
-    os: osx
-    script: .ci/test.sh
-
-  - name: "stable test windows"
-    rust: stable
-    os: windows
-    script: .ci/test.sh
 
   # Add more testing stages if you have them!
 

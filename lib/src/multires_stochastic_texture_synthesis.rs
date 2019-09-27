@@ -300,15 +300,19 @@ impl Generator {
                 let y_t = self.output_size.height as i32 - y_b;
 
                 if a[0] < x_l {
-                    rtree.insert([a[0] + (self.output_size.width as i32), a[1]]); // +x
+                    rtree.insert([a[0] + (self.output_size.width as i32), a[1]]);
+                // +x
                 } else if a[0] > x_r {
-                    rtree.insert([a[0] - (self.output_size.width as i32), a[1]]); // -x
+                    rtree.insert([a[0] - (self.output_size.width as i32), a[1]]);
+                    // -x
                 }
 
                 if a[1] < y_b {
-                    rtree.insert([a[0], a[1] + (self.output_size.height as i32)]); // +Y
+                    rtree.insert([a[0], a[1] + (self.output_size.height as i32)]);
+                // +Y
                 } else if a[1] > y_t {
-                    rtree.insert([a[0], a[1] - (self.output_size.height as i32)]); // -Y
+                    rtree.insert([a[0], a[1] - (self.output_size.height as i32)]);
+                    // -Y
                 }
             }
             resolved.push((*b, *score));
@@ -1190,7 +1194,7 @@ fn get_single_example_level<'a>(
 fn get_single_guide_level(
     guides_pyramid: &Option<GuidesPyramidStruct>,
     pyramid_level: usize,
-) -> Option<GuidesStruct> {
+) -> Option<GuidesStruct<'_>> {
     if let Some(ref guides_pyr) = guides_pyramid {
         Some(guides_pyr.to_guides_struct(pyramid_level))
     } else {

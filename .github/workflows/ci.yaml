@@ -2,7 +2,7 @@ on: push
 name: CI
 jobs:
   fmt:
-    name: Rustfmt
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
@@ -10,19 +10,17 @@ jobs:
         with:
           toolchain: stable
           override: true
+
+      # make sure all code has been formatted with rustfmt
       - run: rustup component add rustfmt
       - uses: actions-rs/cargo@v1
         with:
           command: fmt
           args: --all -- --check --color always
 
-  clippy:
-    name: Clippy
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v1
+      # run clippy to verify we have no warnings
       - run: rustup component add clippy
-      - uses: actions-rs/clippy-check@v1
+      - uses: actions-rs/cargo@v1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          command: clippy
           args: --all-features -- -D warnings

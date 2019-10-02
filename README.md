@@ -283,8 +283,13 @@ For more use cases and examples, please refer to the presentation ["More Like Th
 
 ## Command line binary
 
-* [Download the binary](https://github.com/EmbarkStudios/texture-synthesis/releases) for your OS, or install it from source, `cargo install --path=.`. **Note:** if you want to show a progress window you will need to enable the
-`progress` feature, eg. `cargo install --path=. --features="progress"`
+* [Download the binary](https://github.com/EmbarkStudios/texture-synthesis/releases) for your OS.
+* **Or** Install it from source.
+  * [Install Rust](https://www.rust-lang.org/tools/install) - The minimum required version is `1.37.0`
+  * [Clone this repo](https://help.github.com/en/articles/cloning-a-repository)
+  * In a terminal `cd` to the directory you cloned this repository into
+  * Run `cargo install --path=cli`
+  * **Or** if you wish to see the texture as it is being synthesized `cargo install --path=cli --features="progress"`
 * Open a terminal
 * Navigate to the directory where you downloaded the binary, if you didn't just `cargo install` it
 * Run `texture_synthesis --help` to get a list of all of the options and commands you can run

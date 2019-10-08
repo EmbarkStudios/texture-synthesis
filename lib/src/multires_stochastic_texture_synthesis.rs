@@ -4,7 +4,7 @@ use rstar::RTree;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, RwLock};
 
-use crate::{img_pyramid::*, unsync::*, Dims, SamplingMethod};
+use crate::{img_pyramid::*, unsync::*, CoordinateTransform, Dims, SamplingMethod};
 
 #[derive(Debug)]
 pub struct GeneratorParams {
@@ -695,6 +695,24 @@ impl Generator {
         }
 
         uncertainty_map
+    }
+
+    pub fn get_coord_map(&self) -> CoordinateTransform {
+        //init empty 32bit image
+        let mut buffer: Vec<u32> = Vec::new();
+        //populate the image with colors
+        for (coord, map_id) in self.coord_map.as_ref().iter() {
+            //normalize coord to color
+            let r = coord.x;
+            let g = coord.y;
+            let b = map_id.0;
+            //record the color
+            buffer.extend_from_slice(&[r, g, b]);
+        }
+        CoordinateTransform {
+            buffer,
+            dims: Dims::new(self.output_size.width, self.output_size.height),
+        }
     }
 
     //replace every resolved pixel with a pixel from a new level

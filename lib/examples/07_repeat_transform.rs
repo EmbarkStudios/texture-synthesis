@@ -20,6 +20,6 @@ fn main() -> Result<(), ts::Error> {
 
     //save the image to the disk
     //01 and 01_2 images should match perfectly
-    repeat_transform_img.save("out/01_2.jpg");
+    repeat_transform_img.save("out/01_2.jpg").unwrap();
     generated.save("out/01.jpg")
 }

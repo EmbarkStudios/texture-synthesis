@@ -20,7 +20,7 @@ fn single_example(c: &mut Criterion) {
                     let sess = ts::Session::builder()
                         .add_example(example_img.clone())
                         .seed(120)
-                        .output_size(dim, dim)
+                        .output_size(ts::Dims::square(dim))
                         .build()
                         .unwrap();
 
@@ -58,10 +58,10 @@ fn multi_example(c: &mut Criterion) {
                 for _i in 0..iters {
                     let sess = ts::Session::builder()
                         .add_examples(example_imgs.iter().cloned())
-                        .resize_input(dim, dim)
+                        .resize_input(ts::Dims::square(dim))
                         //.random_init(10)
                         .seed(211)
-                        .output_size(dim, dim)
+                        .output_size(ts::Dims::square(dim))
                         .build()
                         .unwrap();
 
@@ -101,7 +101,7 @@ fn guided(c: &mut Criterion) {
                         .load_target_guide(target_img.clone())
                         //.random_init(10)
                         .seed(211)
-                        .output_size(dim, dim)
+                        .output_size(ts::Dims::square(dim))
                         .build()
                         .unwrap();
 
@@ -136,7 +136,7 @@ fn style_transfer(c: &mut Criterion) {
                     let sess = ts::Session::builder()
                         .add_example(example_img.clone())
                         .load_target_guide(target_img.clone())
-                        .output_size(dim, dim)
+                        .output_size(ts::Dims::square(dim))
                         .build()
                         .unwrap();
 
@@ -173,9 +173,8 @@ fn inpaint(c: &mut Criterion) {
                             inpaint_mask.clone(),
                             ts::Example::builder(example_img.clone())
                                 .set_sample_method(inpaint_mask.clone()),
+                            ts::Dims::square(dim),
                         )
-                        .resize_input(dim, dim)
-                        .output_size(dim, dim)
                         .build()
                         .unwrap();
 
@@ -208,9 +207,11 @@ fn tiling(c: &mut Criterion) {
                 let mut total_elapsed = Duration::new(0, 0);
                 for _i in 0..iters {
                     let sess = ts::Session::builder()
-                        .inpaint_example(inpaint_mask.clone(), example_img.clone())
-                        .resize_input(dim, dim)
-                        .output_size(dim, dim)
+                        .inpaint_example(
+                            inpaint_mask.clone(),
+                            example_img.clone(),
+                            ts::Dims::square(dim),
+                        )
                         .tiling_mode(true)
                         .build()
                         .unwrap();

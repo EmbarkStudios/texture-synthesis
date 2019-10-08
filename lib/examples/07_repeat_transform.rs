@@ -13,6 +13,7 @@ fn main() -> Result<(), ts::Error> {
     //now we can apply the same transformation of the generated image
     //onto a new image (which can be used to ensure 1-1 mapping between multiple images)
     //NOTE: it is important to provide same number and image dimensions as the examples used for synthesis
+    //otherwise, there will be coordinates mismatch
     let repeat_transform_img = generated.get_coordinate_transform().repeat_transform(&["imgs/1_bw.jpg"])?;
 
     //save the image to the disk

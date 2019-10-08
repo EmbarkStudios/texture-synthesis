@@ -84,7 +84,7 @@ pub struct CoordinateTransform {
 
 impl<'a> CoordinateTransform {
     /// Applies the coordinate transformation from new source images. Important to ensure that you have same number and sizes of the images as during synthesis where the coordinate transform was saved from
-    pub fn repeat_transform<E: Into<ImageSource<'a>>, I: IntoIterator<Item = E>>(
+    pub fn apply<E: Into<ImageSource<'a>>, I: IntoIterator<Item = E>>(
         &self,
         source: I,
     ) -> Result<image::RgbaImage, Error> {

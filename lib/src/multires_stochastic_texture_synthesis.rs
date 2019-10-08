@@ -716,7 +716,7 @@ impl Generator {
         CoordinateTransform {
             buffer,
             dims: Dims::new(self.output_size.width, self.output_size.height),
-            max_map_id
+            max_map_id,
         }
     }
 

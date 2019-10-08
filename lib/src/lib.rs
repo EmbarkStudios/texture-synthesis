@@ -83,16 +83,16 @@ pub struct CoordinateTransform {
 }
 
 impl CoordinateTransform {
-    /// Applies the coordinate transformation to the image(s). Important to ensure that you have same number and sizes of the images as during synthesis where the coordinate transform was saved from
-    pub fn apply_to(&self, target: &[ImageSource<'_>]) -> Result<image::RgbaImage, Error> {
+    /// Applies the coordinate transformation from new source images. Important to ensure that you have same number and sizes of the images as during synthesis where the coordinate transform was saved from
+    pub fn repeat_transform(&self, source: &[ImageSource<'_>]) -> Result<image::RgbaImage, Error> {
         //assert same number of maps
-        if target.len() as u32 != self.max_map_id {
+        if source.len() as u32 != self.max_map_id {
             return Err(Error::MapsCountMismatch(
-                target.len() as u32,
+                source.len() as u32,
                 self.max_map_id,
             ));
         }
-        let ref_maps: Vec<image::RgbaImage> = target
+        let ref_maps: Vec<image::RgbaImage> = source
             .iter()
             .map(|t| load_image(t.clone(), None))
             .collect::<Result<Vec<_>, Error>>()?;

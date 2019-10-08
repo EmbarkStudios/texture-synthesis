@@ -697,21 +697,26 @@ impl Generator {
         uncertainty_map
     }
 
-    pub fn get_coord_map(&self) -> CoordinateTransform {
+    pub fn get_coord_transform(&self) -> CoordinateTransform {
         //init empty 32bit image
         let mut buffer: Vec<u32> = Vec::new();
+        let mut max_map_id = 1;
         //populate the image with colors
         for (coord, map_id) in self.coord_map.as_ref().iter() {
-            //normalize coord to color
+            // coord to color
             let r = coord.x;
             let g = coord.y;
             let b = map_id.0;
+            if max_map_id < b {
+                max_map_id = b;
+            }
             //record the color
             buffer.extend_from_slice(&[r, g, b]);
         }
         CoordinateTransform {
             buffer,
             dims: Dims::new(self.output_size.width, self.output_size.height),
+            max_map_id
         }
     }
 

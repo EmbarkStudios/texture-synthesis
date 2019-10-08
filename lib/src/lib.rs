@@ -82,21 +82,23 @@ pub struct CoordinateTransform {
     max_map_id: u32, // total number of maps required to perform transformation
 }
 
-impl CoordinateTransform {
+impl<'a> CoordinateTransform {
     /// Applies the coordinate transformation from new source images. Important to ensure that you have same number and sizes of the images as during synthesis where the coordinate transform was saved from
-    pub fn repeat_transform(&self, source: &[ImageSource<'_>]) -> Result<image::RgbaImage, Error> {
+    pub fn repeat_transform<E: Into<ImageSource<'a>>, I: IntoIterator<Item = E>>(
+        &self,
+        source: I,
+    ) -> Result<image::RgbaImage, Error> {
+        let ref_maps: Vec<image::RgbaImage> = source
+            .into_iter()
+            .map(|t| load_image(t.into(), None))
+            .collect::<Result<Vec<_>, Error>>()?;
         //assert same number of maps
-        if source.len() as u32 != self.max_map_id {
+        if ref_maps.len() as u32 != self.max_map_id {
             return Err(Error::MapsCountMismatch(
-                source.len() as u32,
+                ref_maps.len() as u32,
                 self.max_map_id,
             ));
         }
-        let ref_maps: Vec<image::RgbaImage> = source
-            .iter()
-            .map(|t| load_image(t.clone(), None))
-            .collect::<Result<Vec<_>, Error>>()?;
-
         //init new empty image
         let mut img = image::RgbaImage::new(self.dims.width, self.dims.height);
         // populate with pixels from ref maps
@@ -203,6 +205,22 @@ impl GeneratedImage {
         id_maps[1].save(&dir.join("map_id.png"))?;
 
         Ok(())
+    }
+
+    /// Get coordinate transform of this generated image, which can be repeated on a new image
+    /// ```no_run
+    ///  //create a new session
+    /// let texsynth = ts::Session::builder()
+    /// //load a single example image
+    /// .add_example(&"imgs/1.jpg")
+    /// .build()?;
+    /// //generate an image
+    /// let generated = texsynth.run(None);
+    /// //now we can repeat the same transformation on a different image
+    /// let repeated_transform_image : image:RgbaImage = generated.get_coordinate_transform().repeat_transform(&["imgs/2.jpg"]);
+    /// ```
+    pub fn get_coordinate_transform(&self) -> CoordinateTransform {
+        self.inner.get_coord_transform()
     }
 
     /// Returns the generated output image

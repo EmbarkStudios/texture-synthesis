@@ -13,17 +13,23 @@ jobs:
 
       # make sure all code has been formatted with rustfmt
       - run: rustup component add rustfmt
-      - uses: actions-rs/cargo@v1
+      - name: check rustfmt
+        uses: actions-rs/cargo@v1
         with:
           command: fmt
-          args: --all -- --check --color always
+          args: -- --check --color always
 
       # run clippy to verify we have no warnings
       - run: rustup component add clippy
-      - uses: actions-rs/cargo@v1
+      - name: cargo fetch
+        uses: actions-rs/cargo@v1
+        with:
+          command: fetch
+      - name: cargo clippy
+        uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --all-features -- -D warnings
+          args: --lib --tests -- -D warnings
 
   test:
     name: Test
@@ -37,7 +43,185 @@ jobs:
         with:
           toolchain: stable
           override: true
-      - uses: actions-rs/cargo@v1
+      - name: cargo fetch
+        uses: actions-rs/cargo@v1
+        with:
+          command: fetch
+      - name: cargo test build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --tests
+      - name: cargo test
+        uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --all-features
+
+  deny-check:
+    name: cargo-deny check
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: download cargo-deny
+      shell: bash
+      env:
+        DVS: 0.3.0-beta
+        DREPO: EmbarkStudios/cargo-deny
+        TARGET: x86_64-unknown-linux-musl
+      run: |
+        temp_archive=$(mktemp --suffix=.tar.gz)
+        curl -L --output "$temp_archive" https://github.com/$DREPO/releases/download/$DVS/cargo-deny-$DVS-$TARGET.tar.gz
+
+        tar -xzvf "$temp_arch" -C . --strip-components=1 --wildcards "*/cargo-deny"
+    - name: cargo-deny check licenses
+      run: cargo-deny -L debug check license
+    - name: cargo-deny check bans
+      run: cargo-deny -L debug check ban
+
+  publish-check:
+    name: Publish Check
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+    - name: cargo fetch
+      uses: actions-rs/cargo@v1
+      with:
+        command: fetch
+    - name: copy README
+      shell: bash
+      run: |
+        cp README.md lib
+        cp README.md cli
+    - name: cargo publish lib
+      uses: actions-rs/cargo@v1
+      with:
+        command: publish
+        args: --dry-run --allow-dirty --manifest-path lib/Cargo.toml
+    - name: cargo publish cli
+      uses: actions-rs/cargo@v1
+      with:
+        command: publish
+        args: --dry-run --allow-dirty --manifest-path cli/Cargo.toml
+
+  publish:
+    name: Publish
+    needs: [test, deny-check, publish-check]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+    - uses: actions/checkout@v1
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+    - name: cargo fetch
+      uses: actions-rs/cargo@v1
+      with:
+        command: fetch
+    - name: copy README
+      shell: bash
+      run: |
+        cp README.md lib
+        cp README.md cli
+    - name: cargo publish lib
+      uses: actions-rs/cargo@v1
+      env:
+        CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+      with:
+        command: publish
+        args: --allow-dirty --manifest-path lib/Cargo.toml
+    - name: cargo publish cli
+      uses: actions-rs/cargo@v1
+      env:
+        CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+      with:
+        command: publish
+        args: --allow-dirty --manifest-path cli/Cargo.toml
+
+  release:
+    name: Release
+    needs: [test, deny-check]
+    if: startsWith(github.ref, 'refs/tags/')
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macOS-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            rust: stable
+            target: x86_64-unknown-linux-musl
+            bin: texture-synthesis
+            # We don't enable the progress feature when targeting
+            # musl since there are some dependencies on shared libs
+            features: ""
+          - os: windows-latest
+            rust: stable
+            target: x86_64-pc-windows-msvc
+            bin: texture-synthesis.exe
+            features: --features=progress
+          - os: macOS-latest
+            rust: stable
+            target: x86_64-apple-darwin
+            bin: texture-synthesis
+            features: --features=progress
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          override: true
+          target: ${{ matrix.target }}
+      - name: Install musl tools
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get install -y musl-tools
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: cargo fetch
+        uses: actions-rs/cargo@v1
+        with:
+          command: fetch
+          args: --target ${{ matrix.target }}
+      - name: Release build
+        uses: actions-rs/cargo@v1
+        if: matrix.os != 'ubuntu-latest'
+        with:
+          command: build
+          args: --release --target ${{ matrix.target }} ${{ matrix.features }}
+      - name: Package
+        shell: bash
+        run: |
+          name=texture-synthesis
+          tag=$(git describe --tags --abbrev=0)
+          release_name="$name-$tag-${{ matrix.target }}"
+          release_tar="${release_name}.tar.gz"
+          mkdir "$release_name"
+
+          if [ "${{ matrix.target }}" != "x86_64-pc-windows-msvc" ]; then
+              strip "target/${{ matrix.target }}/release/${{ matrix.bin }}"
+          fi
+
+          cp "target/${{ matrix.target }}/release/${{ matrix.bin }}" "$release_name/"
+          cp README.md LICENSE-APACHE LICENSE-MIT "$release_name/"
+          tar czvf "$release_tar" "$release_name"
+
+          rm -r "$release_name"
+
+          # Windows environments in github actions don't have the gnu coreutils installed,
+          # which includes the shasum exe, so we just use powershell instead
+          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+            echo "(Get-FileHash \"${release_tar}\" -Algorithm SHA256).Hash | Out-File -Encoding ASCII -NoNewline \"${release_tar}.sha256\"" | pwsh -c -
+          else
+            echo -n "$(shasum -ba 256 "${release_tar}" | cut -d " " -f 1)" > "${release_tar}.sha256"
+          fi
+      - name: Publish
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          files: 'texture-synthesis*'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

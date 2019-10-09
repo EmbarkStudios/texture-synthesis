@@ -1,5 +1,5 @@
 [bans]
-multiple_versions = "deny"
+multiple-versions = "deny"
 deny = [
     # color-backtrace is nice but brings in too many dependencies and that are often outdated, so not worth it for us.
     { name = "color-backtrace" },
@@ -16,41 +16,25 @@ deny = [
 ]
 skip = [
     # minifb orbclient uses an older version rand 0.6.5
-    { name = "rand", version = "=0.6.5" },
+    { name = "rand",        version = "=0.6.5" },
     { name = "rand_chacha", version = "=0.1.1" },
-    { name = "rand_core", version = "=0.4.2" },
-    { name = "rand_core", version = "=0.3.1" },
-    { name = "rand_hc", version = "=0.1.0" },
-    { name = "rand_pcg", version = "=0.1.2" },
-    { name = "rand_os", version = "=0.1.3" },
+    { name = "rand_core",   version = "=0.4.2" },
+    { name = "rand_core",   version = "=0.3.1" },
+    { name = "rand_hc",     version = "=0.1.0" },
+    { name = "rand_pcg",    version = "=0.1.2" },
+    { name = "rand_os",     version = "=0.1.3" },
 ]
 
 [licenses]
 unlicensed = "deny"
-unknown = "deny"
 # We want really high confidence when inferring licenses from text
-confidence_threshold = 0.92
+confidence-threshold = 0.92
 allow = [
     "Apache-2.0",
     "BSD-2-Clause",
-    "BSD-2-Clause-FreeBSD",
     "BSD-3-Clause",
-    "BSL-1.0",
     "CC0-1.0",
     "ISC",
-    "LLVM-exception",
     "MIT",
-    "Unlicense",
     "Zlib",
-]
-
-[[licenses.ignore]]
-name = "criterion-plot"
-license_files = [
-    # This is just a symlink to a the license in the root or criterion, which
-    # is a normal Apache-2.0, but when published, the symlink is converted
-    # to a regular file, pointing to a now non-existent root file.
-    { path = "LICENSE-APACHE", hash = 0xa577772b },
-    # Ditto
-    { path = "LICENSE-MIT", hash = 0x343f7050 },
 ]

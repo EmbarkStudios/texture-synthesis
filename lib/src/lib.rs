@@ -76,6 +76,44 @@ impl Dims {
     }
 }
 
+pub struct CoordinateTransform {
+    buffer: Vec<u32>,
+    dims: Dims,
+    max_map_id: u32, // total number of maps required to perform transformation
+}
+
+impl<'a> CoordinateTransform {
+    /// Applies the coordinate transformation from new source images. Important to ensure that you have same number and sizes of the images as during synthesis where the coordinate transform was saved from
+    pub fn apply<E: Into<ImageSource<'a>>, I: IntoIterator<Item = E>>(
+        &self,
+        source: I,
+    ) -> Result<image::RgbaImage, Error> {
+        let ref_maps: Vec<image::RgbaImage> = source
+            .into_iter()
+            .map(|t| load_image(t.into(), None))
+            .collect::<Result<Vec<_>, Error>>()?;
+        //assert same number of maps
+        if ref_maps.len() as u32 != self.max_map_id {
+            return Err(Error::MapsCountMismatch(
+                ref_maps.len() as u32,
+                self.max_map_id,
+            ));
+        }
+        //init new empty image
+        let mut img = image::RgbaImage::new(self.dims.width, self.dims.height);
+        // populate with pixels from ref maps
+        for (i, pix) in img.pixels_mut().enumerate() {
+            let x = self.buffer[i * 3];
+            let y = self.buffer[i * 3 + 1];
+            let map = self.buffer[i * 3 + 2];
+
+            *pix = *ref_maps[map as usize].get_pixel(x, y);
+        }
+
+        Ok(img)
+    }
+}
+
 struct Parameters {
     tiling_mode: bool,
     nearest_neighbors: u32,
@@ -167,6 +205,23 @@ impl GeneratedImage {
         id_maps[1].save(&dir.join("map_id.png"))?;
 
         Ok(())
+    }
+
+    /// Get coordinate transform of this generated image, which can be repeated on a new image
+    /// ```no_run
+    /// use texture_synthesis as ts;
+    ///  //create a new session
+    /// let texsynth = ts::Session::builder()
+    /// //load a single example image
+    /// .add_example(&"imgs/1.jpg")
+    /// .build().unwrap();
+    /// //generate an image
+    /// let generated = texsynth.run(None);
+    /// //now we can repeat the same transformation on a different image
+    /// let repeated_transform_image = generated.get_coordinate_transform().apply(&["imgs/2.jpg"]);
+    /// ```
+    pub fn get_coordinate_transform(&self) -> CoordinateTransform {
+        self.inner.get_coord_transform()
     }
 
     /// Returns the generated output image

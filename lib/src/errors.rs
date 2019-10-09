@@ -54,6 +54,8 @@ pub enum Error {
     /// There are no examples to source pixels from, either because no examples
     /// were added, or all of them used SampleMethod::Ignore
     NoExamples,
+    ///
+    MapsCountMismatch(u32, u32),
 }
 
 impl fmt::Display for Error {
@@ -84,6 +86,11 @@ impl fmt::Display for Error {
             Self::NoExamples => write!(
                 f,
                 "at least 1 example must be available as a sampling source"
+            ),
+            Self::MapsCountMismatch(input, required) => write!(
+                f,
+                "{} map(s) were provided, but {} is/are required",
+                input, required
             ),
         }
     }

@@ -520,6 +520,7 @@ impl<'a> SessionBuilder<'a> {
         example: E,
         strength: f32,
         scale: f32,
+        size: Dims,
     ) -> Self {
         self.examples.push(example.into());
         self.mutation = Some(MutationParameters {
@@ -527,6 +528,8 @@ impl<'a> SessionBuilder<'a> {
             scale,
             map_id: self.examples.len() - 1,
         });
+        self.params.output_size = size;
+        self.params.resize_input = Some(size);
         self
     }
 
@@ -721,16 +724,16 @@ impl<'a> SessionBuilder<'a> {
                     let mut gen = Generator::new_from_image(
                         out_size,
                         ImageInitMask::Random(0.1, self.params.seed),
-                        examples[mutation_parms.map_id].bottom().clone(),
+                        examples[mutation_parms.map_id].pyramid[0].clone(),
                         mutation_parms.map_id,
                     );
-                    /*
                     gen.jitter(
                         mutation_parms.strength,
                         mutation_parms.scale,
                         self.params.seed,
                     );
-                    */
+
+                    gen.color_map.as_ref().save("out/test.jpg").unwrap();
                     gen
                 }
             },

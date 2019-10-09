@@ -1,6 +1,6 @@
 # 🎨 texture-synthesis
 
-[![Build Status](https://travis-ci.com/EmbarkStudios/texture-synthesis.svg?branch=master)](https://travis-ci.com/EmbarkStudios/texture-synthesis)
+[![Build Status](https://github.com/EmbarkStudios/texture-synthesis/workflows/CI/badge.svg)](https://github.com/EmbarkStudios/texture-synthesis/actions?workflow=CI)
 [![Crates.io](https://img.shields.io/crates/v/texture-synthesis.svg)](https://crates.io/crates/texture-synthesis)
 [![Docs](https://docs.rs/texture-synthesis/badge.svg)](https://docs.rs/texture-synthesis)
 [![Contributor Covenant](https://img.shields.io/badge/contributor%20covenant-v1.4%20adopted-ff69b4.svg)](CODE_OF_CONDUCT.md)

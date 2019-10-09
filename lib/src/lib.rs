@@ -209,6 +209,7 @@ impl GeneratedImage {
 
     /// Get coordinate transform of this generated image, which can be repeated on a new image
     /// ```no_run
+    /// use texture_synthesis as ts;
     ///  //create a new session
     /// let texsynth = ts::Session::builder()
     /// //load a single example image

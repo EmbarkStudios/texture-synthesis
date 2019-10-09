@@ -218,3 +218,35 @@ diff_hash!(tiling, "JFSVUUmMaMzhWSttmlwojR1q", {
         )
         .tiling_mode(true)
 });
+
+#[test]
+fn repeat_transform() {
+    //create a new session
+    let texsynth = ts::Session::builder()
+        .add_example(&"../imgs/1.jpg")
+        .build()
+        .unwrap();
+
+    let generated = texsynth.run(None);
+
+    let repeat_transform_img = generated
+        .get_coordinate_transform()
+        .apply(&["../imgs/1.jpg"])
+        .unwrap();
+
+    let hash_synthesized = ImageHash::hash(
+        &MyPrecious(generated.into_image()),
+        8,
+        HashType::DoubleGradient,
+    );
+    let hash_repeated = ImageHash::hash(
+        &MyPrecious(repeat_transform_img),
+        8,
+        HashType::DoubleGradient,
+    );
+
+    assert_eq!(
+        hash_synthesized, hash_repeated,
+        "repeated transform image hash differs from synthesized image"
+    );
+}

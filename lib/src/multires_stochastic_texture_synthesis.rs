@@ -190,6 +190,11 @@ impl<'a> From<&'a image::RgbaImage> for ImageBuffer<'a> {
     }
 }
 
+pub enum ImageInitMask {
+    Image(image::RgbaImage),
+    Random(f32, u64),
+}
+
 pub struct Generator {
     pub(crate) color_map: UnsyncRgbaImage,
     coord_map: UnsyncVec<(Coord2D, MapId)>, //list of samples coordinates from example map
@@ -219,23 +224,40 @@ impl Generator {
         }
     }
 
-    pub(crate) fn new_from_inpaint(
+    pub(crate) fn new_from_image(
         size: Dims,
-        inpaint_map: image::RgbaImage,
+        mask: ImageInitMask,
         color_map: image::RgbaImage,
         color_map_index: usize,
     ) -> Self {
-        let inpaint_map =
-            if inpaint_map.width() != size.width || inpaint_map.height() != size.height {
-                image::imageops::resize(
-                    &inpaint_map,
-                    size.width,
-                    size.height,
-                    image::imageops::Triangle,
-                )
-            } else {
-                inpaint_map
-            };
+        //create mask based on the input
+        let mask = match mask {
+            ImageInitMask::Image(image) => {
+                if image.width() != size.width || image.height() != size.height {
+                    image::imageops::resize(
+                        &image,
+                        size.width,
+                        size.height,
+                        image::imageops::Triangle,
+                    )
+                } else {
+                    image
+                }
+            }
+            ImageInitMask::Random(init_percent, seed) => {
+                let mut rng = Pcg32::seed_from_u64(seed);
+                let buffer = (0..(size.width * size.height * 4))
+                    .map(|_| {
+                        if rng.gen::<f32>() < init_percent {
+                            255
+                        } else {
+                            0
+                        }
+                    })
+                    .collect();
+                image::RgbaImage::from_raw(size.width, size.height, buffer).unwrap()
+            }
+        };
 
         let color_map = if color_map.width() != size.width || color_map.height() != size.height {
             image::imageops::resize(
@@ -247,7 +269,6 @@ impl Generator {
         } else {
             color_map
         };
-
         //
         let s = (size.width as usize) * (size.height as usize);
         let mut unresolved: Vec<CoordFlat> = Vec::new();
@@ -255,7 +276,7 @@ impl Generator {
         let mut coord_map = vec![(Coord2D::from(0, 0), MapId(0)); s];
         let mut rtree = RTree::new();
         //populate resolved, unresolved and coord map
-        for (i, pixel) in inpaint_map.clone().pixels().enumerate() {
+        for (i, pixel) in mask.clone().pixels().enumerate() {
             if pixel[0] < 255 {
                 unresolved.push(CoordFlat(i as u32));
             } else {
@@ -265,6 +286,8 @@ impl Generator {
                 rtree.insert([coord.x as i32, coord.y as i32]);
             }
         }
+
+        println!("{:?}", unresolved.len());
 
         let locked_resolved = resolved.len();
         Self {
@@ -278,6 +301,51 @@ impl Generator {
             update_queue: Mutex::new(Vec::new()),
             locked_resolved,
         }
+    }
+
+    #[allow(clippy::cast_lossless)]
+    pub(crate) fn jitter(&mut self, strength: f32, scale: f32, seed: u64) {
+        let mut img_jitter = self.color_map.as_ref().clone();
+        let mut coord_jitter = self.coord_map.as_ref().to_vec();
+        let size = img_jitter.dimensions();
+        let size = Dims::new(size.0, size.1);
+
+        for (i, _) in self.color_map.as_ref().pixels().enumerate() {
+            let coord = CoordFlat(i as u32).to_2d(size);
+            let x = coord.x;
+            let y = coord.y;
+
+            let x_hash = if scale > 0.0 {
+                x / (size.width as f32 * scale) as u32
+            } else {
+                x
+            };
+            let y_hash = if scale > 0.0 {
+                y / (size.height as f32 * scale) as u32
+            } else {
+                y
+            };
+
+            let mut rng = Pcg32::seed_from_u64((x_hash * y_hash + y_hash) as u64 + seed);
+            let jitter_x =
+                ((rng.gen_range(-1.0, 1.0) * strength) * size.width as f32).round() as i32;
+            let jitter_y =
+                ((rng.gen_range(-1.0, 1.0) * strength) * size.height as f32).round() as i32;
+
+            let x2 = modulo((x as i32) + jitter_x, size.width as i32) as u32;
+            let y2 = modulo((y as i32) + jitter_y, size.height as i32) as u32;
+
+            //update image
+            let pix = self.color_map.as_ref().get_pixel(x2, y2);
+            img_jitter.put_pixel(x, y, *pix);
+
+            //update coord map
+            let ind = Coord2D::from(x2, y2).to_flat(size).0 as usize;
+            coord_jitter[i] = self.coord_map.as_ref()[ind];
+        }
+
+        self.color_map = UnsyncRgbaImage::new(img_jitter);
+        self.coord_map = UnsyncVec::new(coord_jitter);
     }
 
     // Write resolved pixels from the update queue to an already write-locked `rtree` and `resolved` array.

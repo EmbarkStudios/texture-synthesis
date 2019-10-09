@@ -419,6 +419,12 @@ where
     }
 }
 
+struct MutationParameters {
+    strength: f32,
+    scale: f32,
+    map_id: usize,
+}
+
 /// Builds a session by setting parameters and adding input images, calling
 /// `build` will check all of the provided inputs to verify that texture
 /// synthesis will provide valid output
@@ -427,6 +433,7 @@ pub struct SessionBuilder<'a> {
     examples: Vec<Example<'a>>,
     target_guide: Option<ImageSource<'a>>,
     inpaint_mask: Option<(ImageSource<'a>, usize, Dims)>,
+    mutation: Option<MutationParameters>,
     params: Parameters,
 }
 
@@ -503,6 +510,23 @@ impl<'a> SessionBuilder<'a> {
     ) -> Self {
         self.inpaint_mask = Some((inpaint_mask.into(), self.examples.len(), size));
         self.examples.push(example.into());
+        self
+    }
+
+    /// Mutates example image by introducing noise of a speicifc frequency (controlled by scale)
+    /// Currently incompatable with inpaint on the API level (mutate_example() and inpaint_example() are non-overlapping functionalities during Session::build()).
+    pub fn mutate_example<E: Into<Example<'a>>>(
+        mut self,
+        example: E,
+        strength: f32,
+        scale: f32,
+    ) -> Self {
+        self.examples.push(example.into());
+        self.mutation = Some(MutationParameters {
+            strength,
+            scale,
+            map_id: self.examples.len() - 1,
+        });
         self
     }
 
@@ -685,13 +709,31 @@ impl<'a> SessionBuilder<'a> {
 
         // Initialize generator based on availability of an inpaint_mask.
         let generator = match inpaint {
-            None => Generator::new(out_size),
-            Some(inpaint) => Generator::new_from_inpaint(
+            Some(inpaint) => Generator::new_from_image(
                 out_size,
-                inpaint.inpaint_mask,
+                ImageInitMask::Image(inpaint.inpaint_mask),
                 inpaint.color_map,
                 inpaint.example_index,
             ),
+            None => match self.mutation {
+                None => Generator::new(out_size),
+                Some(mutation_parms) => {
+                    let mut gen = Generator::new_from_image(
+                        out_size,
+                        ImageInitMask::Random(0.1, self.params.seed),
+                        examples[mutation_parms.map_id].bottom().clone(),
+                        mutation_parms.map_id,
+                    );
+                    /*
+                    gen.jitter(
+                        mutation_parms.strength,
+                        mutation_parms.scale,
+                        self.params.seed,
+                    );
+                    */
+                    gen
+                }
+            },
         };
 
         let session = Session {

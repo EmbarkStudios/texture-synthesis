@@ -74,9 +74,9 @@ jobs:
 
         tar -xzvf "$temp_archive" -C . --strip-components=1 --wildcards "*/cargo-deny"
     - name: cargo-deny check licenses
-      run: cargo-deny -L debug check license
+      run: ./cargo-deny -L debug check license
     - name: cargo-deny check bans
-      run: cargo-deny -L debug check ban
+      run: ./cargo-deny -L debug check ban
 
   publish-check:
     name: Publish Check

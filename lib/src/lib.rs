@@ -214,11 +214,11 @@ impl GeneratedImage {
     /// let texsynth = ts::Session::builder()
     /// //load a single example image
     /// .add_example(&"imgs/1.jpg")
-    /// .build()?;
+    /// .build().unwrap();
     /// //generate an image
     /// let generated = texsynth.run(None);
     /// //now we can repeat the same transformation on a different image
-    /// let repeated_transform_image : image::RgbaImage = generated.get_coordinate_transform().apply(&["imgs/2.jpg"]);
+    /// let repeated_transform_image = generated.get_coordinate_transform().apply(&["imgs/2.jpg"]);
     /// ```
     pub fn get_coordinate_transform(&self) -> CoordinateTransform {
         self.inner.get_coord_transform()

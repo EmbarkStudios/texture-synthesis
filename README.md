@@ -275,7 +275,7 @@ You should get the following result with the images provided in this repo:
 
 We can re-apply the coordinate transformation performed by texture synthesis onto a new image.
 
-#### API - [07_repeat_transform](lib/examples/06_repeat_transform.rs)
+#### API - [07_repeat_transform](lib/examples/07_repeat_transform.rs)
 
 ```rust
 use texture_synthesis as ts;

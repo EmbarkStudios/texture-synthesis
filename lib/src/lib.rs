@@ -237,16 +237,19 @@ impl AsRef<image::RgbaImage> for GeneratedImage {
 }
 
 /// Method used for sampling an example image.
-pub enum SampleMethod<'a> {
+pub enum GenericSampleMethod<Img> {
     /// All pixels in the example image can be sampled.
     All,
     /// No pixels in the example image will be sampled.
     Ignore,
     /// Pixels are selectively sampled based on an image.
-    Image(ImageSource<'a>),
+    Image(Img),
 }
 
-impl<'a> SampleMethod<'a> {
+pub type SampleMethod<'a> = GenericSampleMethod<ImageSource<'a>>;
+pub type SamplingMethod = GenericSampleMethod<image::RgbaImage>;
+
+impl<Img> GenericSampleMethod<Img> {
     #[inline]
     fn is_ignore(&self) -> bool {
         match self {
@@ -262,23 +265,6 @@ where
 {
     fn from(is: IS) -> Self {
         SampleMethod::Image(is.into())
-    }
-}
-
-/// Internal sample method
-pub enum SamplingMethod {
-    All,
-    Ignore,
-    Image(image::RgbaImage),
-}
-
-impl SamplingMethod {
-    #[inline]
-    fn is_ignore(&self) -> bool {
-        match self {
-            Self::Ignore => true,
-            _ => false,
-        }
     }
 }
 

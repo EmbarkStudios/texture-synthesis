@@ -1218,9 +1218,7 @@ fn get_single_guide_level(
     guides_pyramid: &Option<GuidesPyramidStruct>,
     pyramid_level: usize,
 ) -> Option<GuidesStruct<'_>> {
-    if let Some(ref guides_pyr) = guides_pyramid {
-        Some(guides_pyr.to_guides_struct(pyramid_level))
-    } else {
-        None
-    }
+    guides_pyramid
+        .as_ref()
+        .map(|guides_pyr| guides_pyr.to_guides_struct(pyramid_level))
 }

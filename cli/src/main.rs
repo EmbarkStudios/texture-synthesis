@@ -5,7 +5,7 @@ use structopt::StructOpt;
 
 use std::path::PathBuf;
 use texture_synthesis::{
-    image::ImageOutputFormat as ImgFmt, Dims, Error, Example, ImageSource, SampleMethod, Session,
+    image::ImageOutputFormat as ImgFmt, Dims, Error, Example, ImageSource, SampleMethod, Session, Transformation,
 };
 
 fn parse_size(input: &str) -> Result<Dims, std::num::ParseIntError> {
@@ -118,6 +118,9 @@ struct Tweaks {
     /// Enables tiling of the output image
     #[structopt(long = "tiling")]
     enable_tiling: bool,
+    /// Flips and rotates traning images
+    #[structopt(long = "flips-and-rotates")]
+    enable_flips_and_rotates: bool,
 }
 
 #[derive(StructOpt)]
@@ -211,6 +214,23 @@ fn real_main() -> Result<(), Error> {
                 for (ex, guide) in examples.iter_mut().zip(gen.example_guides.iter()) {
                     ex.with_guide(guide);
                 }
+            }
+
+            if args.tweaks.enable_flips_and_rotates {
+                let mut transformed_examples: Vec<_> = vec![];
+                for example in &examples {
+                    let mut new_examples: Vec<_> = vec![
+                        example.clone().with_transformations(vec![Transformation::FlipH]).clone(),
+                        example.clone().with_transformations(vec![Transformation::Rot90]).clone(),
+                        example.clone().with_transformations(vec![Transformation::FlipH, Transformation::Rot90]).clone(),
+                        example.clone().with_transformations(vec![Transformation::Rot180]).clone(),
+                        example.clone().with_transformations(vec![Transformation::FlipH, Transformation::Rot180]).clone(),
+                        example.clone().with_transformations(vec![Transformation::Rot270]).clone(),
+                        example.clone().with_transformations(vec![Transformation::FlipH, Transformation::Rot270]).clone(),
+                    ];
+                    transformed_examples.append(&mut new_examples);
+                }
+                examples.append(&mut transformed_examples);
             }
 
             (examples, gen.target_guide.as_ref())

@@ -1,6 +1,21 @@
 use crate::{Dims, Error};
 use std::path::Path;
 
+/// Helper type used to transform image sources
+#[derive(Clone)]
+pub enum Transformation {
+    /// Flips an image horizontally
+    FlipH,
+    /// Flips an image vertically
+    FlipV,
+    /// Rotates the image by 90 degrees (clockwise)
+    Rot90,
+    /// Rotates the image by 180 degrees (clockwise)
+    Rot180,
+    /// Rotates the image by 270 degrees (clockwise)
+    Rot270,
+}
+
 /// Helper type used to pass image data to the Session
 #[derive(Clone)]
 pub enum ImageSource<'a> {
@@ -29,16 +44,31 @@ where
     }
 }
 
-pub(crate) fn load_image(
+pub(crate) fn get_dynamic_image(
     src: ImageSource<'_>,
-    resize: Option<Dims>,
-) -> Result<image::RgbaImage, Error> {
-    let img = match src {
+) -> Result<image::DynamicImage, image::ImageError> {
+    return match src {
         ImageSource::Memory(data) => image::load_from_memory(data),
         ImageSource::Path(path) => image::open(path),
         ImageSource::Image(img) => Ok(img),
-    }?;
+    };
+}
 
+pub(crate) fn load_image(
+    src: ImageSource<'_>,
+    resize: Option<Dims>,
+    transformations: Vec<Transformation>,
+) -> Result<image::RgbaImage, Error> {
+    let mut img = get_dynamic_image(src)?;
+    for t in transformations {
+        match t {
+            Transformation::FlipH => img = img.fliph(),
+            Transformation::FlipV => img = img.flipv(),
+            Transformation::Rot90 => img = img.rotate90(),
+            Transformation::Rot180 => img = img.rotate180(),
+            Transformation::Rot270 => img = img.rotate270(),
+        }
+    }
     Ok(match resize {
         None => img.to_rgba(),
         Some(ref size) => {

@@ -55,6 +55,7 @@ mod unsync;
 
 pub use image;
 pub use utils::ImageSource;
+pub use utils::Transformation;
 
 pub use errors::Error;
 
@@ -90,7 +91,7 @@ impl<'a> CoordinateTransform {
     ) -> Result<image::RgbaImage, Error> {
         let ref_maps: Vec<image::RgbaImage> = source
             .into_iter()
-            .map(|t| load_image(t.into(), None))
+            .map(|t| load_image(t.into(), None, vec![]))
             .collect::<Result<Vec<_>, Error>>()?;
         //assert same number of maps
         if ref_maps.len() as u32 != self.max_map_id {
@@ -237,6 +238,7 @@ impl AsRef<image::RgbaImage> for GeneratedImage {
 }
 
 /// Method used for sampling an example image.
+#[derive(Clone)]
 pub enum SampleMethod<'a> {
     /// All pixels in the example image can be sampled.
     All,
@@ -287,6 +289,7 @@ pub struct ExampleBuilder<'a> {
     img: ImageSource<'a>,
     guide: Option<ImageSource<'a>>,
     sample_method: SampleMethod<'a>,
+    transformations: Vec<Transformation>,
 }
 
 impl<'a> ExampleBuilder<'a> {
@@ -296,6 +299,7 @@ impl<'a> ExampleBuilder<'a> {
             img: img.into(),
             guide: None,
             sample_method: SampleMethod::All,
+            transformations: vec![],
         }
     }
 
@@ -315,6 +319,12 @@ impl<'a> ExampleBuilder<'a> {
         self.sample_method = method.into();
         self
     }
+
+    /// Specify the transformations to apply to the example image.
+    pub fn with_transformations(mut self, transformations: Vec<Transformation>) -> Self {
+        self.transformations = transformations;
+        self
+    }
 }
 
 impl<'a> Into<Example<'a>> for ExampleBuilder<'a> {
@@ -323,15 +333,18 @@ impl<'a> Into<Example<'a>> for ExampleBuilder<'a> {
             img: self.img,
             guide: self.guide,
             sample_method: self.sample_method,
+            transformations: self.transformations,
         }
     }
 }
 
 /// An example to be used in texture generation
+#[derive(Clone)]
 pub struct Example<'a> {
     img: ImageSource<'a>,
     guide: Option<ImageSource<'a>>,
     sample_method: SampleMethod<'a>,
+    transformations: Vec<Transformation>,
 }
 
 impl<'a> Example<'a> {
@@ -346,6 +359,7 @@ impl<'a> Example<'a> {
             img: img.into(),
             guide: None,
             sample_method: SampleMethod::All,
+            transformations: vec![],
         }
     }
 
@@ -366,19 +380,25 @@ impl<'a> Example<'a> {
         self
     }
 
+    /// Specify the transformations to apply to the example image.
+    pub fn with_transformations(&mut self, transformations: Vec<Transformation>) -> &mut Self {
+        self.transformations = transformations;
+        self
+    }
+
     fn resolve(
         self,
         backtracks: u32,
         resize: Option<Dims>,
         target_guide: &Option<ImagePyramid>,
     ) -> Result<ResolvedExample, Error> {
-        let image = ImagePyramid::new(load_image(self.img, resize)?, Some(backtracks));
+        let image = ImagePyramid::new(load_image(self.img, resize, self.transformations)?, Some(backtracks));
 
         let guide = match target_guide {
             Some(tg) => {
                 Some(match self.guide {
                     Some(exguide) => {
-                        let exguide = load_image(exguide, resize)?;
+                        let exguide = load_image(exguide, resize, vec![])?;
                         ImagePyramid::new(exguide, Some(backtracks))
                     }
                     None => {
@@ -397,7 +417,7 @@ impl<'a> Example<'a> {
             SampleMethod::All => SamplingMethod::All,
             SampleMethod::Ignore => SamplingMethod::Ignore,
             SampleMethod::Image(src) => {
-                let img = load_image(src, resize)?;
+                let img = load_image(src, resize, vec![])?;
                 SamplingMethod::Image(img)
             }
         };
@@ -626,8 +646,8 @@ impl<'a> SessionBuilder<'a> {
 
         let (inpaint, out_size, in_size) = match self.inpaint_mask {
             Some((src, ind, size)) => {
-                let inpaint_mask = load_image(src, Some(size))?;
-                let color_map = load_image(self.examples[ind].img.clone(), Some(size))?;
+                let inpaint_mask = load_image(src, Some(size), vec![])?;
+                let color_map = load_image(self.examples[ind].img.clone(), Some(size), vec![])?;
 
                 (
                     Some(InpaintExample {
@@ -644,7 +664,7 @@ impl<'a> SessionBuilder<'a> {
 
         let target_guide = match self.target_guide {
             Some(tg) => {
-                let tg_img = load_image(tg, Some(out_size))?;
+                let tg_img = load_image(tg, Some(out_size), vec![])?;
 
                 let num_guides = self.examples.iter().filter(|ex| ex.guide.is_some()).count();
                 let tg_img = if num_guides == 0 {

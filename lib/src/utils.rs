@@ -81,11 +81,11 @@ pub(crate) fn get_histogram(img: &image::RgbaImage) -> Vec<u32> {
     let pixels = &img;
 
     //populate the hist
-    for (i, pixel_value) in pixels.iter().enumerate() {
-        //since RGBA image, we only care for 1st channel
-        if i % 4 == 0 {
-            hist[*pixel_value as usize] += 1; //increment histogram by 1
-        }
+    for pixel_value in pixels
+        .iter()
+        .step_by(/*since RGBA image, we only care for 1st channel*/ 4)
+    {
+        hist[*pixel_value as usize] += 1; //increment histogram by 1
     }
 
     hist

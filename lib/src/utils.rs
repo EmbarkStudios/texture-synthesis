@@ -3,7 +3,28 @@ use std::path::Path;
 
 /// Helper type used to pass image data to the Session
 #[derive(Clone)]
-pub enum ImageSource<'a> {
+pub struct ImageSource<'a> {
+    data_source: DataSource<'a>,
+    mask: Option<Mask>,
+}
+
+impl<'a> ImageSource<'a> {
+    pub fn from_path(path: &'a Path) -> ImageSource<'a> {
+        ImageSource {
+            data_source: DataSource::Path(path),
+            mask: None,
+        }
+    }
+
+    pub fn mask(mut self, mask: Mask) -> ImageSource<'a> {
+        self.mask = Some(mask);
+        self
+    }
+}
+
+/// Helper type used to define the source of `ImageSource`'s data
+#[derive(Clone)]
+pub enum DataSource<'a> {
     /// A raw buffer of image data, see `image::load_from_memory` for details
     /// on what is supported
     Memory(&'a [u8]),
@@ -14,13 +35,25 @@ pub enum ImageSource<'a> {
     Image(image::DynamicImage),
 }
 
-impl<'a> From<image::DynamicImage> for ImageSource<'a> {
+impl<'a> From<image::DynamicImage> for DataSource<'a> {
     fn from(img: image::DynamicImage) -> Self {
-        ImageSource::Image(img)
+        DataSource::Image(img)
     }
 }
 
 impl<'a, S> From<&'a S> for ImageSource<'a>
+where
+    S: AsRef<Path> + 'a,
+{
+    fn from(path: &'a S) -> Self {
+        Self {
+            data_source: DataSource::Path(path.as_ref()),
+            mask: None,
+        }
+    }
+}
+
+impl<'a, S> From<&'a S> for DataSource<'a>
 where
     S: AsRef<Path> + 'a,
 {
@@ -37,12 +70,33 @@ pub fn load_dynamic_image(src: ImageSource<'_>) -> Result<image::DynamicImage, i
     }
 }
 
+/// Helper type used to mask `ImageSource`'s channels
+#[derive(Clone)]
+pub enum Mask {
+    R,
+    G,
+    B,
+    A,
+}
+
+impl From<&Mask> for usize {
+    fn from(mask: &Mask) -> Self {
+        match mask {
+            Mask::R => 0,
+            Mask::G => 1,
+            Mask::B => 2,
+            Mask::A => 3,
+        }
+    }
+}
+
 pub(crate) fn load_image(
     src: ImageSource<'_>,
     resize: Option<Dims>,
 ) -> Result<image::RgbaImage, Error> {
     let img = load_dynamic_image(src)?;
-    Ok(match resize {
+
+    let img = match resize {
         None => img.to_rgba(),
         Some(ref size) => {
             use image::GenericImageView;
@@ -58,7 +112,30 @@ pub(crate) fn load_image(
                 img.to_rgba()
             }
         }
-    })
+    };
+
+    let img = if let Some(mask) = src.mask {
+        apply_mask(&img, &mask)
+    } else {
+        img
+    };
+
+    Ok(img)
+}
+
+pub(crate) fn apply_mask(original_image: &image::RgbaImage, mask: &Mask) -> image::RgbaImage {
+    let mut image = original_image.clone();
+    let channel = mask.into();
+
+    for pixel_iter in image.enumerate_pixels_mut() {
+        let pixel = pixel_iter.2;
+        pixel[0] = pixel[channel];
+        pixel[1] = pixel[channel];
+        pixel[2] = pixel[channel];
+        pixel[3] = 255;
+    }
+
+    image
 }
 
 pub(crate) fn transform_to_guide_map(

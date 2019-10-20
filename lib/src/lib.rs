@@ -54,7 +54,7 @@ use std::path::Path;
 mod unsync;
 
 pub use image;
-pub use utils::ImageSource;
+pub use utils::{DataSource, ImageSource, Mask};
 
 pub use errors::Error;
 
@@ -325,7 +325,9 @@ impl<'a> Example<'a> {
     pub fn builder<I: Into<ImageSource<'a>>>(img: I) -> ExampleBuilder<'a> {
         ExampleBuilder::new(img)
     }
-
+    pub fn image_source(&self) -> &ImageSource<'a> {
+        &self.img
+    }
     /// Creates a new example input from the specified image source
     pub fn new<I: Into<ImageSource<'a>>>(img: I) -> Self {
         Self {

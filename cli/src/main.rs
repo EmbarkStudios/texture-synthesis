@@ -6,7 +6,7 @@ use structopt::StructOpt;
 use std::path::PathBuf;
 use texture_synthesis::{
     image::ImageOutputFormat as ImgFmt, load_dynamic_image, Dims, Error, Example, ImageSource,
-    SampleMethod, Session,
+    Mask, SampleMethod, Session,
 };
 
 fn parse_size(input: &str) -> Result<Dims, std::num::ParseIntError> {
@@ -154,6 +154,9 @@ struct Opt {
     /// Path to an inpaint map image, where black pixels are resolved, and white pixels are kept
     #[structopt(long, parse(from_os_str))]
     inpaint: Option<PathBuf>,
+    /// Flag to extract inpaint from the example's alpha channel
+    #[structopt(long)]
+    inpaint_alpha: bool,
     /// Size of the generated image, in `width x height`, or a single number for both dimensions
     #[structopt(
         long,
@@ -273,7 +276,7 @@ fn real_main() -> Result<(), Error> {
             match mask.as_str() {
                 "ALL" => example.set_sample_method(SampleMethod::All),
                 "IGNORE" => example.set_sample_method(SampleMethod::Ignore),
-                path => example.set_sample_method(SampleMethod::Image(ImageSource::Path(
+                path => example.set_sample_method(SampleMethod::Image(ImageSource::from_path(
                     &std::path::Path::new(path),
                 ))),
             };
@@ -281,6 +284,16 @@ fn real_main() -> Result<(), Error> {
     }
 
     let mut sb = Session::builder();
+
+    if args.inpaint_alpha {
+        let mut inpaint_example = examples.remove(0);
+        let inpaint = inpaint_example.image_source().clone().mask(Mask::A);
+        if args.sample_masks.is_empty() {
+            inpaint_example.set_sample_method(SampleMethod::Image(inpaint.clone()));
+        }
+
+        sb = sb.inpaint_example(inpaint, inpaint_example, args.out_size);
+    }
 
     // TODO: Make inpaint work with multiple examples
     if let Some(ref inpaint) = args.inpaint {

@@ -156,7 +156,7 @@ struct Opt {
     inpaint: Option<PathBuf>,
     /// Flag to extract inpaint from the example's alpha channel
     #[structopt(long)]
-    inpaint_alpha: bool,
+    inpaint_channel: Option<Mask>,
     /// Size of the generated image, in `width x height`, or a single number for both dimensions
     #[structopt(
         long,
@@ -285,18 +285,21 @@ fn real_main() -> Result<(), Error> {
 
     let mut sb = Session::builder();
 
-    if args.inpaint_alpha {
+    // TODO: Make inpaint work with multiple examples
+    if let (Some(_), Some(_)) = (args.inpaint_channel, &args.inpaint) {
+        return Err(Error::UnsupportedArgPair(
+            "channel".to_owned(),
+            "inpaint".to_owned(),
+        ));
+    } else if let Some(channel) = args.inpaint_channel {
         let mut inpaint_example = examples.remove(0);
-        let inpaint = inpaint_example.image_source().clone().mask(Mask::A);
+        let inpaint = inpaint_example.image_source().clone().mask(channel);
         if args.sample_masks.is_empty() {
             inpaint_example.set_sample_method(SampleMethod::Image(inpaint.clone()));
         }
 
         sb = sb.inpaint_example(inpaint, inpaint_example, args.out_size);
-    }
-
-    // TODO: Make inpaint work with multiple examples
-    if let Some(ref inpaint) = args.inpaint {
+    } else if let Some(ref inpaint) = args.inpaint {
         let mut inpaint_example = examples.remove(0);
 
         // If the user hasn't explicitly specified sample masks, assume they

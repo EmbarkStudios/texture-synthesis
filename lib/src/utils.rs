@@ -1,5 +1,6 @@
 use crate::{Dims, Error};
 use std::path::Path;
+use std::str::FromStr;
 
 /// Helper type used to pass image data to the Session
 #[derive(Clone)]
@@ -16,7 +17,7 @@ impl<'a> ImageSource<'a> {
         }
     }
 
-    pub fn mask(mut self, mask: Mask) -> ImageSource<'a> {
+    pub fn mask(mut self, mask: Mask) -> Self {
         self.mask = Some(mask);
         self
     }
@@ -63,7 +64,7 @@ where
 }
 
 /// Helper type used to mask `ImageSource`'s channels
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub enum Mask {
     R,
     G,
@@ -71,13 +72,16 @@ pub enum Mask {
     A,
 }
 
-impl From<&Mask> for usize {
-    fn from(mask: &Mask) -> Self {
-        match mask {
-            Mask::R => 0,
-            Mask::G => 1,
-            Mask::B => 2,
-            Mask::A => 3,
+impl FromStr for Mask {
+    type Err = Error;
+
+    fn from_str(mask: &str) -> Result<Self, Self::Err> {
+        match &mask.to_lowercase()[..] {
+            "r" => Ok(Mask::R),
+            "g" => Ok(Mask::G),
+            "b" => Ok(Mask::B),
+            "a" => Ok(Mask::A),
+            mask => Err(Error::ParseMask(mask.to_string())),
         }
     }
 }
@@ -111,7 +115,7 @@ pub(crate) fn load_image(
     };
 
     let img = if let Some(mask) = src.mask {
-        apply_mask(&img, &mask)
+        apply_mask(&img, mask)
     } else {
         img
     };
@@ -119,9 +123,15 @@ pub(crate) fn load_image(
     Ok(img)
 }
 
-pub(crate) fn apply_mask(original_image: &image::RgbaImage, mask: &Mask) -> image::RgbaImage {
+pub(crate) fn apply_mask(original_image: &image::RgbaImage, mask: Mask) -> image::RgbaImage {
     let mut image = original_image.clone();
-    let channel = mask.into();
+
+    let channel = match mask {
+        Mask::R => 0,
+        Mask::G => 1,
+        Mask::B => 2,
+        Mask::A => 3,
+    };
 
     for pixel_iter in image.enumerate_pixels_mut() {
         let pixel = pixel_iter.2;

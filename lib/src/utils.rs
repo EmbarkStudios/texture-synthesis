@@ -47,11 +47,11 @@ where
 pub(crate) fn get_dynamic_image(
     src: ImageSource<'_>,
 ) -> Result<image::DynamicImage, image::ImageError> {
-    return match src {
+    match src {
         ImageSource::Memory(data) => image::load_from_memory(data),
         ImageSource::Path(path) => image::open(path),
         ImageSource::Image(img) => Ok(img),
-    };
+    }
 }
 
 pub(crate) fn load_image(

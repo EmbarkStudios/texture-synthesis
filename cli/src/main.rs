@@ -5,7 +5,8 @@ use structopt::StructOpt;
 
 use std::path::PathBuf;
 use texture_synthesis::{
-    image::ImageOutputFormat as ImgFmt, Dims, Error, Example, ImageSource, SampleMethod, Session, Transformation,
+    image::ImageOutputFormat as ImgFmt, Dims, Error, Example, ImageSource, SampleMethod, Session,
+    Transformation,
 };
 
 fn parse_size(input: &str) -> Result<Dims, std::num::ParseIntError> {
@@ -220,13 +221,43 @@ fn real_main() -> Result<(), Error> {
                 let mut transformed_examples: Vec<_> = vec![];
                 for example in &examples {
                     let mut new_examples: Vec<_> = vec![
-                        example.clone().with_transformations(vec![Transformation::FlipH]).clone(),
-                        example.clone().with_transformations(vec![Transformation::Rot90]).clone(),
-                        example.clone().with_transformations(vec![Transformation::FlipH, Transformation::Rot90]).clone(),
-                        example.clone().with_transformations(vec![Transformation::Rot180]).clone(),
-                        example.clone().with_transformations(vec![Transformation::FlipH, Transformation::Rot180]).clone(),
-                        example.clone().with_transformations(vec![Transformation::Rot270]).clone(),
-                        example.clone().with_transformations(vec![Transformation::FlipH, Transformation::Rot270]).clone(),
+                        example
+                            .clone()
+                            .with_transformations(vec![Transformation::FlipH])
+                            .clone(),
+                        example
+                            .clone()
+                            .with_transformations(vec![Transformation::Rot90])
+                            .clone(),
+                        example
+                            .clone()
+                            .with_transformations(vec![
+                                Transformation::FlipH,
+                                Transformation::Rot90,
+                            ])
+                            .clone(),
+                        example
+                            .clone()
+                            .with_transformations(vec![Transformation::Rot180])
+                            .clone(),
+                        example
+                            .clone()
+                            .with_transformations(vec![
+                                Transformation::FlipH,
+                                Transformation::Rot180,
+                            ])
+                            .clone(),
+                        example
+                            .clone()
+                            .with_transformations(vec![Transformation::Rot270])
+                            .clone(),
+                        example
+                            .clone()
+                            .with_transformations(vec![
+                                Transformation::FlipH,
+                                Transformation::Rot270,
+                            ])
+                            .clone(),
                     ];
                     transformed_examples.append(&mut new_examples);
                 }

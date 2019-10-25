@@ -378,7 +378,10 @@ impl<'a> Example<'a> {
         resize: Option<Dims>,
         target_guide: &Option<ImagePyramid>,
     ) -> Result<ResolvedExample, Error> {
-        let image = ImagePyramid::new(load_image(self.img, resize, self.transformations)?, Some(backtracks));
+        let image = ImagePyramid::new(
+            load_image(self.img, resize, self.transformations)?,
+            Some(backtracks),
+        );
 
         let guide = match target_guide {
             Some(tg) => {

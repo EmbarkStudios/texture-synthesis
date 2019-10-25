@@ -5,8 +5,8 @@ use structopt::StructOpt;
 
 use std::path::PathBuf;
 use texture_synthesis::{
-    image::ImageOutputFormat as ImgFmt, Dims, Error, Example, ImageSource, SampleMethod, Session,
-    Transformation,
+    image::ImageOutputFormat as ImgFmt, load_dynamic_image, Dims, Error, Example, ImageSource,
+    SampleMethod, Session,
 };
 
 fn parse_size(input: &str) -> Result<Dims, std::num::ParseIntError> {
@@ -243,36 +243,16 @@ fn real_main() -> Result<(), Error> {
             }
 
             let mut transformed_examples: Vec<_> = vec![];
-            for example in &examples {
+            for example_path in &fr.examples {
+                let base_image = load_dynamic_image(example_path.into())?;
                 let mut new_examples: Vec<_> = vec![
-                    example
-                        .clone()
-                        .with_transformations(vec![Transformation::FlipH])
-                        .clone(),
-                    example
-                        .clone()
-                        .with_transformations(vec![Transformation::Rot90])
-                        .clone(),
-                    example
-                        .clone()
-                        .with_transformations(vec![Transformation::FlipH, Transformation::Rot90])
-                        .clone(),
-                    example
-                        .clone()
-                        .with_transformations(vec![Transformation::Rot180])
-                        .clone(),
-                    example
-                        .clone()
-                        .with_transformations(vec![Transformation::FlipH, Transformation::Rot180])
-                        .clone(),
-                    example
-                        .clone()
-                        .with_transformations(vec![Transformation::Rot270])
-                        .clone(),
-                    example
-                        .clone()
-                        .with_transformations(vec![Transformation::FlipH, Transformation::Rot270])
-                        .clone(),
+                    Example::new(base_image.fliph()),
+                    Example::new(base_image.rotate90()),
+                    Example::new(base_image.fliph().rotate90()),
+                    Example::new(base_image.rotate180()),
+                    Example::new(base_image.fliph().rotate180()),
+                    Example::new(base_image.rotate270()),
+                    Example::new(base_image.fliph().rotate270()),
                 ];
                 transformed_examples.append(&mut new_examples);
             }

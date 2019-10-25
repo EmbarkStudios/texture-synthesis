@@ -238,7 +238,6 @@ impl AsRef<image::RgbaImage> for GeneratedImage {
 }
 
 /// Method used for sampling an example image.
-#[derive(Clone)]
 pub enum GenericSampleMethod<Img> {
     /// All pixels in the example image can be sampled.
     All,
@@ -316,7 +315,6 @@ impl<'a> Into<Example<'a>> for ExampleBuilder<'a> {
 }
 
 /// An example to be used in texture generation
-#[derive(Clone)]
 pub struct Example<'a> {
     img: ImageSource<'a>,
     guide: Option<ImageSource<'a>>,

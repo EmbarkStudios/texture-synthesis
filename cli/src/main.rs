@@ -62,6 +62,20 @@ struct TransferStyle {
 }
 
 #[derive(StructOpt)]
+#[structopt(rename_all = "kebab-case")]
+struct FlipsAndRotates {
+    /// A target guidance map
+    #[structopt(long, parse(from_os_str))]
+    target_guide: Option<PathBuf>,
+    /// Path(s) to guide maps for the example output.
+    #[structopt(long = "guides", parse(from_os_str))]
+    example_guides: Vec<PathBuf>,
+    /// Path(s) to example images used to synthesize a new image
+    #[structopt(parse(from_os_str))]
+    examples: Vec<PathBuf>,
+}
+
+#[derive(StructOpt)]
 enum Subcommand {
     /// Transfers the style from an example onto a target guide
     #[structopt(name = "transfer-style")]
@@ -69,6 +83,10 @@ enum Subcommand {
     /// Generates a new image from 1 or more examples
     #[structopt(name = "generate")]
     Generate(Generate),
+    /// Generates a new image from 1 or more examples, extended with their
+    /// flipped and rotated versions
+    #[structopt(name = "flips-and-rotates")]
+    FlipsAndRotates(FlipsAndRotates),
 }
 
 #[derive(StructOpt)]
@@ -119,9 +137,6 @@ struct Tweaks {
     /// Enables tiling of the output image
     #[structopt(long = "tiling")]
     enable_tiling: bool,
-    /// Flips and rotates traning images
-    #[structopt(long = "flips-and-rotates")]
-    enable_flips_and_rotates: bool,
 }
 
 #[derive(StructOpt)]
@@ -217,54 +232,53 @@ fn real_main() -> Result<(), Error> {
                 }
             }
 
-            if args.tweaks.enable_flips_and_rotates {
-                let mut transformed_examples: Vec<_> = vec![];
-                for example in &examples {
-                    let mut new_examples: Vec<_> = vec![
-                        example
-                            .clone()
-                            .with_transformations(vec![Transformation::FlipH])
-                            .clone(),
-                        example
-                            .clone()
-                            .with_transformations(vec![Transformation::Rot90])
-                            .clone(),
-                        example
-                            .clone()
-                            .with_transformations(vec![
-                                Transformation::FlipH,
-                                Transformation::Rot90,
-                            ])
-                            .clone(),
-                        example
-                            .clone()
-                            .with_transformations(vec![Transformation::Rot180])
-                            .clone(),
-                        example
-                            .clone()
-                            .with_transformations(vec![
-                                Transformation::FlipH,
-                                Transformation::Rot180,
-                            ])
-                            .clone(),
-                        example
-                            .clone()
-                            .with_transformations(vec![Transformation::Rot270])
-                            .clone(),
-                        example
-                            .clone()
-                            .with_transformations(vec![
-                                Transformation::FlipH,
-                                Transformation::Rot270,
-                            ])
-                            .clone(),
-                    ];
-                    transformed_examples.append(&mut new_examples);
+            (examples, gen.target_guide.as_ref())
+        }
+        Subcommand::FlipsAndRotates(fr) => {
+            let mut examples: Vec<_> = fr.examples.iter().map(Example::new).collect();
+            if !fr.example_guides.is_empty() {
+                for (ex, guide) in examples.iter_mut().zip(fr.example_guides.iter()) {
+                    ex.with_guide(guide);
                 }
-                examples.append(&mut transformed_examples);
             }
 
-            (examples, gen.target_guide.as_ref())
+            let mut transformed_examples: Vec<_> = vec![];
+            for example in &examples {
+                let mut new_examples: Vec<_> = vec![
+                    example
+                        .clone()
+                        .with_transformations(vec![Transformation::FlipH])
+                        .clone(),
+                    example
+                        .clone()
+                        .with_transformations(vec![Transformation::Rot90])
+                        .clone(),
+                    example
+                        .clone()
+                        .with_transformations(vec![Transformation::FlipH, Transformation::Rot90])
+                        .clone(),
+                    example
+                        .clone()
+                        .with_transformations(vec![Transformation::Rot180])
+                        .clone(),
+                    example
+                        .clone()
+                        .with_transformations(vec![Transformation::FlipH, Transformation::Rot180])
+                        .clone(),
+                    example
+                        .clone()
+                        .with_transformations(vec![Transformation::Rot270])
+                        .clone(),
+                    example
+                        .clone()
+                        .with_transformations(vec![Transformation::FlipH, Transformation::Rot270])
+                        .clone(),
+                ];
+                transformed_examples.append(&mut new_examples);
+            }
+            examples.append(&mut transformed_examples);
+
+            (examples, fr.target_guide.as_ref())
         }
         Subcommand::TransferStyle(ts) => (vec![Example::new(&ts.style)], Some(&ts.guide)),
     };

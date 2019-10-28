@@ -29,16 +29,19 @@ where
     }
 }
 
+pub fn load_dynamic_image(src: ImageSource<'_>) -> Result<image::DynamicImage, image::ImageError> {
+    match src {
+        ImageSource::Memory(data) => image::load_from_memory(data),
+        ImageSource::Path(path) => image::open(path),
+        ImageSource::Image(img) => Ok(img),
+    }
+}
+
 pub(crate) fn load_image(
     src: ImageSource<'_>,
     resize: Option<Dims>,
 ) -> Result<image::RgbaImage, Error> {
-    let img = match src {
-        ImageSource::Memory(data) => image::load_from_memory(data),
-        ImageSource::Path(path) => image::open(path),
-        ImageSource::Image(img) => Ok(img),
-    }?;
-
+    let img = load_dynamic_image(src)?;
     Ok(match resize {
         None => img.to_rgba(),
         Some(ref size) => {

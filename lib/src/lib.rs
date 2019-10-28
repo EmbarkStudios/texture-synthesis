@@ -54,6 +54,7 @@ use std::path::Path;
 mod unsync;
 
 pub use image;
+pub use utils::load_dynamic_image;
 pub use utils::ImageSource;
 
 pub use errors::Error;

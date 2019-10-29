@@ -318,6 +318,16 @@ Or chaining multiple stages of generation together:
 
 For more use cases and examples, please refer to the presentation ["More Like This, Please! Texture Synthesis and Remixing from a Single Example"](https://youtu.be/fMbK7PYQux4)
 
+### 9. Additional CLI functionality
+
+Some functionality is only exposed through the CLI and not built into the library.
+
+#### `flip-and-rotate`
+
+This subcommand takes each example and performs flip and rotation transformations to it to generate additional example inputs for generation. This subcommand doesn't support target or example guides.
+
+Example: `cargo run --release -- -o out/output.png flip-and-rotate imgs/1.jpg`
+
 ## Command line binary
 
 * [Download the binary](https://github.com/EmbarkStudios/texture-synthesis/releases) for your OS.

@@ -5,6 +5,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- [PR#57](https://github.com/EmbarkStudios/texture-synthesis/pull/57) CLI: Added the `flip-and-rotate` subcommand which applies flip and rotation transforms to each example input and adds them as additional examples. Thanks [@JD557](https://github.com/JD557)!
+
 ### Fixed
 - Validate that the `--m-rand` / `random_sample_locations` parameter is > 0. [#45](https://github.com/EmbarkStudios/texture-synthesis/issues/45)
 

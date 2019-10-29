@@ -63,14 +63,11 @@ struct TransferStyle {
 
 #[derive(StructOpt)]
 #[structopt(rename_all = "kebab-case")]
-struct FlipsAndRotates {
-    /// A target guidance map
-    #[structopt(long, parse(from_os_str))]
-    target_guide: Option<PathBuf>,
-    /// Path(s) to guide maps for the example output.
-    #[structopt(long = "guides", parse(from_os_str))]
-    example_guides: Vec<PathBuf>,
-    /// Path(s) to example images used to synthesize a new image
+struct FlipAndRotate {
+    /// Path(s) to example images used to synthesize a new image. Each example
+    /// is rotated 4 times, and flipped once around each axis, resulting in a
+    /// total of 7 example inputs per example, so it is recommended you only
+    /// use 1 example input, even if you can pass as many as you like.
     #[structopt(parse(from_os_str))]
     examples: Vec<PathBuf>,
 }
@@ -85,8 +82,8 @@ enum Subcommand {
     Generate(Generate),
     /// Generates a new image from 1 or more examples, extended with their
     /// flipped and rotated versions
-    #[structopt(name = "flips-and-rotates")]
-    FlipsAndRotates(FlipsAndRotates),
+    #[structopt(name = "flip-and-rotate")]
+    FlipAndRotate(FlipAndRotate),
 }
 
 #[derive(StructOpt)]
@@ -234,31 +231,28 @@ fn real_main() -> Result<(), Error> {
 
             (examples, gen.target_guide.as_ref())
         }
-        Subcommand::FlipsAndRotates(fr) => {
-            let mut examples: Vec<_> = fr.examples.iter().map(Example::new).collect();
-            if !fr.example_guides.is_empty() {
-                for (ex, guide) in examples.iter_mut().zip(fr.example_guides.iter()) {
-                    ex.with_guide(guide);
-                }
+        Subcommand::FlipAndRotate(fr) => {
+            let example_imgs = fr
+                .examples
+                .iter()
+                .map(|path| load_dynamic_image(ImageSource::Path(path)))
+                .collect::<Result<Vec<_>, _>>()?;
+
+            let mut transformed: Vec<Example<'_>> = Vec::with_capacity(example_imgs.len() * 7);
+            for img in &example_imgs {
+                transformed.push(Example::new(img.fliph()));
+                transformed.push(Example::new(img.rotate90()));
+                transformed.push(Example::new(img.fliph().rotate90()));
+                transformed.push(Example::new(img.rotate180()));
+                transformed.push(Example::new(img.fliph().rotate180()));
+                transformed.push(Example::new(img.rotate270()));
+                transformed.push(Example::new(img.fliph().rotate270()));
             }
 
-            let mut transformed_examples: Vec<_> = vec![];
-            for example_path in &fr.examples {
-                let base_image = load_dynamic_image(example_path.into())?;
-                let mut new_examples: Vec<_> = vec![
-                    Example::new(base_image.fliph()),
-                    Example::new(base_image.rotate90()),
-                    Example::new(base_image.fliph().rotate90()),
-                    Example::new(base_image.rotate180()),
-                    Example::new(base_image.fliph().rotate180()),
-                    Example::new(base_image.rotate270()),
-                    Example::new(base_image.fliph().rotate270()),
-                ];
-                transformed_examples.append(&mut new_examples);
-            }
-            examples.append(&mut transformed_examples);
+            let mut examples: Vec<_> = example_imgs.into_iter().map(Example::new).collect();
+            examples.append(&mut transformed);
 
-            (examples, fr.target_guide.as_ref())
+            (examples, None)
         }
         Subcommand::TransferStyle(ts) => (vec![Example::new(&ts.style)], Some(&ts.guide)),
     };

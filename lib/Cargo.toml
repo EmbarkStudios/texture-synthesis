@@ -2,7 +2,7 @@
 name = "texture-synthesis"
 description = "Multiresolution Stochastic Texture Synthesis, a non-parametric example-based algorithm for image generation"
 repository = "https://github.com/EmbarkStudios/texture-synthesis"
-version = "0.6.0"
+version = "0.7.0"
 authors = [
     "Embark <opensource@embark-studios.com>",
     "Anastasia Opara <anastasiaopara@gmail.com>",
@@ -25,11 +25,6 @@ num_cpus = "1.10.1"
 rand = { version = "0.7.0", default-features = false } # avoid bringing in OS random gen that we don't use
 rand_pcg = "0.2.0"
 rstar = "0.5.0"
-
-[dependencies.failure]
-version = "0.1.5"
-default-features = false
-features = []
 
 [dependencies.image]
 version = "0.22.2"

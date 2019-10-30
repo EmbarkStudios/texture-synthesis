@@ -18,8 +18,6 @@ impl fmt::Display for InvalidRange {
     }
 }
 
-// impl std::error::Error for InvalidRange {}
-
 #[derive(Debug)]
 pub struct SizeMismatch {
     pub(crate) input: (u32, u32),
@@ -56,6 +54,16 @@ pub enum Error {
     NoExamples,
     ///
     MapsCountMismatch(u32, u32),
+}
+
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Error::Image(err) => Some(err),
+            Error::Io(err) => Some(err),
+            _ => None,
+        }
+    }
 }
 
 impl fmt::Display for Error {
@@ -95,9 +103,6 @@ impl fmt::Display for Error {
         }
     }
 }
-
-// TODO: Could also support backtraces and causes
-impl failure::Fail for Error {}
 
 impl From<image::ImageError> for Error {
     fn from(ie: image::ImageError) -> Self {

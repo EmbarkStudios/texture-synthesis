@@ -305,7 +305,6 @@ fn main() -> Result<(), ts::Error> {
 }
 ```
 
-
 ### 8. Combining texture synthesis 'verbs'
 
 We can also combine multiple modes together. For example, multi-example guided synthesis:
@@ -341,6 +340,13 @@ Example: `cargo run --release -- -o out/output.png flip-and-rotate imgs/1.jpg`
 * Navigate to the directory where you downloaded the binary, if you didn't just `cargo install` it
 * Run `texture_synthesis --help` to get a list of all of the options and commands you can run
 * Refer to the examples section in this readme for examples of running the binary
+
+## Notes
+
+* By default, generating output will use all of your logical cores
+* When using multiple threads for generation, the output image is not guaranteed to be deterministic with the same inputs. To have 100% determinism, you must use a thread count of one, which can by done via
+  * CLI - `texture-synthesis --threads 1`
+  * API - `SessionBuilder::max_thread_count(1)`
 
 ## Limitations
 
@@ -383,4 +389,3 @@ at your option.
 ### Contribution
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
-

@@ -186,6 +186,10 @@ struct Opt {
     debug_out_dir: Option<PathBuf>,
     /// The maximum number of worker threads that can be active at any one time
     /// while synthesizing images. Defaults to the logical core count.
+    ///
+    /// Note that setting this to `1` will allow you to generate 100%
+    /// deterministic output images (considering all other inputs are
+    /// the same)
     #[structopt(short = "t", long = "threads")]
     max_threads: Option<usize>,
     #[structopt(flatten)]

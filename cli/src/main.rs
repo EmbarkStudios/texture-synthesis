@@ -5,8 +5,8 @@ use structopt::StructOpt;
 
 use std::path::PathBuf;
 use texture_synthesis::{
-    image::ImageOutputFormat as ImgFmt, load_dynamic_image, Dims, Error, Example, ImageSource,
-    Mask, SampleMethod, Session,
+    image::ImageOutputFormat as ImgFmt, load_dynamic_image, DataSource, Dims, Error, Example,
+    ImageSource, Mask, SampleMethod, Session,
 };
 
 fn parse_size(input: &str) -> Result<Dims, std::num::ParseIntError> {
@@ -35,6 +35,23 @@ fn parse_img_fmt(input: &str) -> Result<ImgFmt, String> {
     };
 
     Ok(fmt)
+}
+
+fn parse_mask(input: &str) -> Result<Mask, String> {
+    let mask = match &input.to_lowercase()[..] {
+        "r" => Mask::R,
+        "g" => Mask::G,
+        "b" => Mask::B,
+        "a" => Mask::A,
+        mask => {
+            return Err(format!(
+                "unknown mask '{}', must be one of 'a', 'r', 'g', 'b'",
+                mask
+            ))
+        }
+    };
+
+    Ok(mask)
 }
 
 #[derive(StructOpt)]
@@ -154,8 +171,8 @@ struct Opt {
     /// Path to an inpaint map image, where black pixels are resolved, and white pixels are kept
     #[structopt(long, parse(from_os_str))]
     inpaint: Option<PathBuf>,
-    /// Flag to extract inpaint from the example's alpha channel
-    #[structopt(long)]
+    /// Flag to extract inpaint from one of the example's channels
+    #[structopt(long, parse(try_from_str = parse_mask))]
     inpaint_channel: Option<Mask>,
     /// Size of the generated image, in `width x height`, or a single number for both dimensions
     #[structopt(
@@ -242,7 +259,7 @@ fn real_main() -> Result<(), Error> {
             let example_imgs = fr
                 .examples
                 .iter()
-                .map(|path| load_dynamic_image(ImageSource::Path(path)))
+                .map(|path| load_dynamic_image(DataSource::Path(path)))
                 .collect::<Result<Vec<_>, _>>()?;
 
             let mut transformed: Vec<Example<'_>> = Vec::with_capacity(example_imgs.len() * 7);
@@ -286,29 +303,33 @@ fn real_main() -> Result<(), Error> {
     let mut sb = Session::builder();
 
     // TODO: Make inpaint work with multiple examples
-    if let (Some(_), Some(_)) = (args.inpaint_channel, &args.inpaint) {
-        return Err(Error::UnsupportedArgPair(
-            "channel".to_owned(),
-            "inpaint".to_owned(),
-        ));
-    } else if let Some(channel) = args.inpaint_channel {
-        let mut inpaint_example = examples.remove(0);
-        let inpaint = inpaint_example.image_source().clone().mask(channel);
-        if args.sample_masks.is_empty() {
-            inpaint_example.set_sample_method(SampleMethod::Image(inpaint.clone()));
+    match (args.inpaint_channel, &args.inpaint) {
+        (Some(_), Some(_)) => {
+            return Err(Error::Other(
+                "--inpaint-channel and --inpaint cannot be used together",
+            ));
         }
+        (Some(channel), None) => {
+            let mut inpaint_example = examples.remove(0);
+            let inpaint = inpaint_example.image_source().clone().mask(channel);
+            if args.sample_masks.is_empty() {
+                inpaint_example.set_sample_method(SampleMethod::Image(inpaint.clone()));
+            }
 
-        sb = sb.inpaint_example(inpaint, inpaint_example, args.out_size);
-    } else if let Some(ref inpaint) = args.inpaint {
-        let mut inpaint_example = examples.remove(0);
-
-        // If the user hasn't explicitly specified sample masks, assume they
-        // want to use the same mask
-        if args.sample_masks.is_empty() {
-            inpaint_example.set_sample_method(inpaint);
+            sb = sb.inpaint_example(inpaint, inpaint_example, args.out_size);
         }
+        (None, Some(inpaint)) => {
+            let mut inpaint_example = examples.remove(0);
 
-        sb = sb.inpaint_example(inpaint, inpaint_example, args.out_size);
+            // If the user hasn't explicitly specified sample masks, assume they
+            // want to use the same mask
+            if args.sample_masks.is_empty() {
+                inpaint_example.set_sample_method(inpaint);
+            }
+
+            sb = sb.inpaint_example(inpaint, inpaint_example, args.out_size);
+        }
+        (None, None) => {}
     }
 
     sb = sb

@@ -54,10 +54,8 @@ pub enum Error {
     NoExamples,
     ///
     MapsCountMismatch(u32, u32),
-    /// An invalid string has that can't be parsed into a `Mask`
-    ParseMask(String),
-    /// The user specified an unsupported pair of arguments
-    UnsupportedArgPair(String, String),
+    /// Miscellaneous error
+    Other(&'static str),
 }
 
 impl std::error::Error for Error {
@@ -104,16 +102,7 @@ impl fmt::Display for Error {
                 "{} map(s) were provided, but {} is/are required",
                 input, required
             ),
-            Self::ParseMask(mask_string) => write!(
-                f,
-                "couldn't parse mask '{}', not one of: 'r', 'g', 'b', 'a'",
-                mask_string
-            ),
-            Self::UnsupportedArgPair(arg_a, arg_b) => write!(
-                f,
-                "the arguments '{}' and '{}' can't be used together, pick one of them",
-                arg_a, arg_b,
-            ),
+            Self::Other(other) => write!(f, "{}", other),
         }
     }
 }

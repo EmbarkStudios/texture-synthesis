@@ -1,6 +1,5 @@
 use crate::{Dims, Error};
 use std::path::Path;
-use std::str::FromStr;
 
 /// Helper type used to pass image data to the Session
 #[derive(Clone)]
@@ -20,6 +19,15 @@ impl<'a> ImageSource<'a> {
     pub fn mask(mut self, mask: Mask) -> Self {
         self.mask = Some(mask);
         self
+    }
+}
+
+impl<'a> From<image::DynamicImage> for ImageSource<'a> {
+    fn from(img: image::DynamicImage) -> Self {
+        Self {
+            data_source: DataSource::Image(img),
+            mask: None,
+        }
     }
 }
 
@@ -63,11 +71,11 @@ where
     }
 }
 
-pub fn load_dynamic_image(src: ImageSource<'_>) -> Result<image::DynamicImage, image::ImageError> {
+pub fn load_dynamic_image(src: DataSource<'_>) -> Result<image::DynamicImage, image::ImageError> {
     match src {
-        ImageSource::Memory(data) => image::load_from_memory(data),
-        ImageSource::Path(path) => image::open(path),
-        ImageSource::Image(img) => Ok(img),
+        DataSource::Memory(data) => image::load_from_memory(data),
+        DataSource::Path(path) => image::open(path),
+        DataSource::Image(img) => Ok(img),
     }
 }
 
@@ -80,25 +88,12 @@ pub enum Mask {
     A,
 }
 
-impl FromStr for Mask {
-    type Err = Error;
-
-    fn from_str(mask: &str) -> Result<Self, Self::Err> {
-        match &mask.to_lowercase()[..] {
-            "r" => Ok(Mask::R),
-            "g" => Ok(Mask::G),
-            "b" => Ok(Mask::B),
-            "a" => Ok(Mask::A),
-            mask => Err(Error::ParseMask(mask.to_string())),
-        }
-    }
-}
-
 pub(crate) fn load_image(
     src: ImageSource<'_>,
     resize: Option<Dims>,
 ) -> Result<image::RgbaImage, Error> {
-    let img = load_dynamic_image(src)?;
+    let mask = src.mask;
+    let img = load_dynamic_image(src.data_source)?;
 
     let img = match resize {
         None => img.to_rgba(),
@@ -118,7 +113,7 @@ pub(crate) fn load_image(
         }
     };
 
-    let img = if let Some(mask) = src.mask {
+    let img = if let Some(mask) = mask {
         apply_mask(&img, mask)
     } else {
         img

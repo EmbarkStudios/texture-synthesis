@@ -54,8 +54,6 @@ pub enum Error {
     NoExamples,
     ///
     MapsCountMismatch(u32, u32),
-    /// Miscellaneous error
-    Other(&'static str),
 }
 
 impl std::error::Error for Error {
@@ -102,7 +100,6 @@ impl fmt::Display for Error {
                 "{} map(s) were provided, but {} is/are required",
                 input, required
             ),
-            Self::Other(other) => write!(f, "{}", other),
         }
     }
 }

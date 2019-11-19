@@ -172,7 +172,7 @@ struct Opt {
     #[structopt(long, parse(from_os_str))]
     inpaint: Option<PathBuf>,
     /// Flag to extract inpaint from one of the example's channels
-    #[structopt(long, parse(try_from_str = parse_mask))]
+    #[structopt(long, parse(try_from_str = parse_mask), conflicts_with = "inpaint")]
     inpaint_channel: Option<Mask>,
     /// Size of the generated image, in `width x height`, or a single number for both dimensions
     #[structopt(
@@ -304,11 +304,6 @@ fn real_main() -> Result<(), Error> {
 
     // TODO: Make inpaint work with multiple examples
     match (args.inpaint_channel, &args.inpaint) {
-        (Some(_), Some(_)) => {
-            return Err(Error::Other(
-                "--inpaint-channel and --inpaint cannot be used together",
-            ));
-        }
         (Some(channel), None) => {
             let mut inpaint_example = examples.remove(0);
             let inpaint = inpaint_example.image_source().clone().mask(channel);
@@ -330,6 +325,7 @@ fn real_main() -> Result<(), Error> {
             sb = sb.inpaint_example(inpaint, inpaint_example, args.out_size);
         }
         (None, None) => {}
+        (Some(_), Some(_)) => unreachable!("we prevent this combination with 'conflicts_with'"),
     }
 
     sb = sb

@@ -190,6 +190,43 @@ fn inpaint(c: &mut Criterion) {
     group.finish();
 }
 
+fn inpaint_channel(c: &mut Criterion) {
+    static DIM: u32 = 25;
+
+    // Load the example image once to reduce variation between runs,
+    // though we still do a memcpy each run
+    let example_img = ts::load_dynamic_image(ts::DataSource::from(&"../imgs/bricks.png")).unwrap();
+    let inpaint = ts::ImageSource::from(example_img.clone()).mask(ts::Mask::A);
+
+    let mut group = c.benchmark_group("inpaint_channel");
+    group.sample_size(10);
+
+    for dim in [DIM, 2 * DIM, 4 * DIM, 8 * DIM, 16 * DIM].iter() {
+        group.bench_with_input(BenchmarkId::from_parameter(dim), dim, |b, &dim| {
+            b.iter_custom(|iters| {
+                let mut total_elapsed = Duration::new(0, 0);
+                for _i in 0..iters {
+                    let sess = ts::Session::builder()
+                        .inpaint_example(
+                            inpaint.clone(),
+                            ts::Example::builder(example_img.clone()),
+                            ts::Dims::square(dim),
+                        )
+                        .build()
+                        .unwrap();
+
+                    let start = Instant::now();
+                    black_box(sess.run(None));
+                    total_elapsed += start.elapsed();
+                }
+
+                total_elapsed
+            });
+        });
+    }
+    group.finish();
+}
+
 fn tiling(c: &mut Criterion) {
     static DIM: u32 = 25;
 
@@ -235,6 +272,7 @@ criterion_group!(
     guided,
     style_transfer,
     inpaint,
+    inpaint_channel,
     tiling,
 );
 criterion_main!(benches);

@@ -206,6 +206,14 @@ diff_hash!(inpaint, "JNG1tl5SaIkqauco1NEmtikk", {
     )
 });
 
+diff_hash!(inpaint_channel, "JOVF4dThzPKa2suWLo1OWrKk", {
+    ts::Session::builder().inpaint_example_channel(
+        ts::ChannelMask::A,
+        &"../imgs/bricks.png",
+        ts::Dims::square(400),
+    )
+});
+
 diff_hash!(tiling, "JFSVUUmMaMzhWSttmlwojR1q", {
     ts::Session::builder()
         .inpaint_example(

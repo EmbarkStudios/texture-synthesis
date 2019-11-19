@@ -5,8 +5,8 @@ use structopt::StructOpt;
 
 use std::path::PathBuf;
 use texture_synthesis::{
-    image::ImageOutputFormat as ImgFmt, load_dynamic_image, Dims, Error, Example, ImageSource,
-    SampleMethod, Session,
+    image::ImageOutputFormat as ImgFmt, load_dynamic_image, ChannelMask, Dims, Error, Example,
+    ImageSource, SampleMethod, Session,
 };
 
 fn parse_size(input: &str) -> Result<Dims, std::num::ParseIntError> {
@@ -35,6 +35,23 @@ fn parse_img_fmt(input: &str) -> Result<ImgFmt, String> {
     };
 
     Ok(fmt)
+}
+
+fn parse_mask(input: &str) -> Result<ChannelMask, String> {
+    let mask = match &input.to_lowercase()[..] {
+        "r" => ChannelMask::R,
+        "g" => ChannelMask::G,
+        "b" => ChannelMask::B,
+        "a" => ChannelMask::A,
+        mask => {
+            return Err(format!(
+                "unknown mask '{}', must be one of 'a', 'r', 'g', 'b'",
+                mask
+            ))
+        }
+    };
+
+    Ok(mask)
 }
 
 #[derive(StructOpt)]
@@ -154,6 +171,9 @@ struct Opt {
     /// Path to an inpaint map image, where black pixels are resolved, and white pixels are kept
     #[structopt(long, parse(from_os_str))]
     inpaint: Option<PathBuf>,
+    /// Flag to extract inpaint from one of the example's channels
+    #[structopt(long, parse(try_from_str = parse_mask), conflicts_with = "inpaint")]
+    inpaint_channel: Option<ChannelMask>,
     /// Size of the generated image, in `width x height`, or a single number for both dimensions
     #[structopt(
         long,
@@ -273,7 +293,7 @@ fn real_main() -> Result<(), Error> {
             match mask.as_str() {
                 "ALL" => example.set_sample_method(SampleMethod::All),
                 "IGNORE" => example.set_sample_method(SampleMethod::Ignore),
-                path => example.set_sample_method(SampleMethod::Image(ImageSource::Path(
+                path => example.set_sample_method(SampleMethod::Image(ImageSource::from_path(
                     &std::path::Path::new(path),
                 ))),
             };
@@ -283,16 +303,25 @@ fn real_main() -> Result<(), Error> {
     let mut sb = Session::builder();
 
     // TODO: Make inpaint work with multiple examples
-    if let Some(ref inpaint) = args.inpaint {
-        let mut inpaint_example = examples.remove(0);
+    match (args.inpaint_channel, &args.inpaint) {
+        (Some(channel), None) => {
+            let inpaint_example = examples.remove(0);
 
-        // If the user hasn't explicitly specified sample masks, assume they
-        // want to use the same mask
-        if args.sample_masks.is_empty() {
-            inpaint_example.set_sample_method(inpaint);
+            sb = sb.inpaint_example_channel(channel, inpaint_example, args.out_size);
         }
+        (None, Some(inpaint)) => {
+            let mut inpaint_example = examples.remove(0);
 
-        sb = sb.inpaint_example(inpaint, inpaint_example, args.out_size);
+            // If the user hasn't explicitly specified sample masks, assume they
+            // want to use the same mask
+            if args.sample_masks.is_empty() {
+                inpaint_example.set_sample_method(inpaint);
+            }
+
+            sb = sb.inpaint_example(inpaint, inpaint_example, args.out_size);
+        }
+        (None, None) => {}
+        (Some(_), Some(_)) => unreachable!("we prevent this combination with 'conflicts_with'"),
     }
 
     sb = sb

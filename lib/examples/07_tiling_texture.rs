@@ -19,5 +19,5 @@ fn main() -> Result<(), ts::Error> {
 
     let generated = texsynth.run(None);
 
-    generated.save("out/06.jpg")
+    generated.save("out/07.jpg")
 }

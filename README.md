@@ -47,6 +47,7 @@ fn main() -> Result<(), ts::Error> {
 `cargo run --release -- --out out/01.jpg generate imgs/1.jpg`
 
 You should get the following result with the images provided in this repo:
+
 <img src="https://i.imgur.com/8p6nVYl.jpg" width="600" height="364">
 
 ### 2. Multi example generation
@@ -99,6 +100,7 @@ fn main() -> Result<(), ts::Error> {
 `cargo run --release -- --rand-init 10 --seed 211 --in-size 300x300 -o out/02.png --debug-out-dir out generate imgs/multiexample/1.jpg imgs/multiexample/2.jpg imgs/multiexample/3.jpg imgs/multiexample/4.jpg`
 
 You should get the following result with the images provided in this repo:
+
 <img src="https://i.imgur.com/tbz5d57.jpg" width="600" height="364">
 
 ### 3. Guided Synthesis
@@ -137,6 +139,7 @@ fn main() -> Result<(), ts::Error> {
 to the example will be used as another guide path and there won't be any examples.
 
 You should get the following result with the images provided in this repo:
+
 <img src="https://i.imgur.com/arTCi2f.jpg" width="600" height="364">
 
 ### 4. Style Transfer
@@ -174,6 +177,7 @@ fn main() -> Result<(), ts::Error> {
 `cargo run --release -- --alpha 0.8 -o out/04.png transfer-style --style imgs/multiexample/4.jpg --guide imgs/tom.jpg`
 
 You should get the following result with the images provided in this repo:
+
 <img src="https://i.imgur.com/1E7eDAb.jpg" width="600" height="364">
 
 ### 5. Inpaint
@@ -226,15 +230,53 @@ Note that the `--out-size` parameter determines the size for all inputs and outp
 `cargo run --release -- --out-size 400 --inpaint imgs/masks/3_inpaint.jpg -o out/05.png generate imgs/3.jpg`
 
 You should get the following result with the images provided in this repo:
+
 <img src="https://i.imgur.com/WZm2HHL.jpg" width="600" height="364">
 
-### 6. Tiling texture
+### 6. Inpaint Channel
+
+![Imgur](https://i.imgur.com/FqvV651.jpg)
+
+Instead of using a separate image for our inpaint mask, we can instead obtain the information from a specific
+channel. In this example, the alpha channel is a circle directly in the middle of the image.
+
+#### API - [06_inpaint_channel](lib/examples/06_inpaint_channel.rs)
+
+```rust
+use texture_synthesis as ts;
+
+fn main() -> Result<(), ts::Error> {
+    let texsynth = ts::Session::builder()
+        // Let the generator know that it is using 
+        .inpaint_example_channel(
+            ts::ChannelMask::A,
+            &"imgs/bricks.png",
+            ts::Dims::square(400),
+        )
+        .build()?;
+
+    let generated = texsynth.run(None);
+
+    //save the result to the disk
+    generated.save("out/06.jpg")
+}
+```
+
+#### CLI
+
+`cargo run --release -- --inpaint-channel a -o out/06.png generate imgs/bricks.jpg`
+
+You should get the following result with the images provided in this repo:
+
+<img src="https://imgur.com/7IuVN5K.jpg" width="400" height="400">
+
+### 7. Tiling texture
 
 ![](https://i.imgur.com/nFpCFzy.jpg)
 
 We can make the generated image tile (meaning it will not have seams if you put multiple images together side-by-side). By invoking inpaint mode together with tiling, we can make an existing image tile.
 
-#### API - [06_tiling_texture](lib/examples/06_tiling_texture.rs)
+#### API - [07_tiling_texture](lib/examples/07_tiling_texture.rs)
 
 ```rust
 use texture_synthesis as ts;
@@ -258,54 +300,55 @@ fn main() -> Result<(), ts::Error> {
 
     let generated = texsynth.run(None);
 
-    generated.save("out/06.jpg")
+    generated.save("out/07.jpg")
 }
 ```
 
 #### CLI
 
-`cargo run --release -- --inpaint imgs/masks/1_tile.jpg --out-size 400 --tiling -o out/06.bmp generate imgs/1.jpg`
+`cargo run --release -- --inpaint imgs/masks/1_tile.jpg --out-size 400 --tiling -o out/07.bmp generate imgs/1.jpg`
 
 You should get the following result with the images provided in this repo:
+
 <img src="https://i.imgur.com/foSlREz.jpg" width="600" height="364">
 
-### 7. Repeat texture synthesis transform on a new image
+### 8. Repeat texture synthesis transform on a new image
 
 ![](https://i.imgur.com/WEf6iir.jpg)
 
 We can re-apply the coordinate transformation performed by texture synthesis onto a new image.
 
-#### API - [07_repeat_transform](lib/examples/07_repeat_transform.rs)
+#### API - [08_repeat_transform](lib/examples/08_repeat_transform.rs)
 
 ```rust
 use texture_synthesis as ts;
 
 fn main() -> Result<(), ts::Error> {
-    //create a new session
+    // create a new session
     let texsynth = ts::Session::builder()
         //load a single example image
         .add_example(&"imgs/1.jpg")
         .build()?;
 
-    //generate an image
+    // generate an image
     let generated = texsynth.run(None);
 
-    //now we can apply the same transformation of the generated image
-    //onto a new image (which can be used to ensure 1-1 mapping between multiple images)
-    //NOTE: it is important to provide same number and image dimensions as the examples used for synthesis
-    //otherwise, there will be coordinates mismatch
+    // now we can apply the same transformation of the generated image
+    // onto a new image (which can be used to ensure 1-1 mapping between multiple images)
+    // NOTE: it is important to provide same number and image dimensions as the examples used for synthesis
+    // otherwise, there will be coordinates mismatch
     let repeat_transform_img = generated
         .get_coordinate_transform()
         .apply(&["imgs/1_bw.jpg"])?;
 
-    //save the image to the disk
-    //01 and 01_2 images should match perfectly
-    repeat_transform_img.save("out/01_2.jpg").unwrap();
-    generated.save("out/01.jpg")
+    // save the image to the disk
+    // 08 and 08_repeated images should match perfectly
+    repeat_transform_img.save("out/08_repeated.jpg").unwrap();
+    generated.save("out/08.jpg")
 }
 ```
 
-### 8. Combining texture synthesis 'verbs'
+### 9. Combining texture synthesis 'verbs'
 
 We can also combine multiple modes together. For example, multi-example guided synthesis:
 
@@ -317,7 +360,7 @@ Or chaining multiple stages of generation together:
 
 For more use cases and examples, please refer to the presentation ["More Like This, Please! Texture Synthesis and Remixing from a Single Example"](https://youtu.be/fMbK7PYQux4)
 
-### 9. Additional CLI functionality
+### Additional CLI functionality
 
 Some functionality is only exposed through the CLI and not built into the library.
 

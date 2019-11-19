@@ -54,8 +54,7 @@ use std::path::Path;
 mod unsync;
 
 pub use image;
-pub use utils::load_dynamic_image;
-pub use utils::ImageSource;
+pub use utils::{load_dynamic_image, ChannelMask, ImageSource};
 
 pub use errors::Error;
 
@@ -326,7 +325,9 @@ impl<'a> Example<'a> {
     pub fn builder<I: Into<ImageSource<'a>>>(img: I) -> ExampleBuilder<'a> {
         ExampleBuilder::new(img)
     }
-
+    pub fn image_source(&self) -> &ImageSource<'a> {
+        &self.img
+    }
     /// Creates a new example input from the specified image source
     pub fn new<I: Into<ImageSource<'a>>>(img: I) -> Self {
         Self {
@@ -406,6 +407,17 @@ where
     }
 }
 
+enum MaskOrImg<'a> {
+    Mask(utils::ChannelMask),
+    ImageSource(ImageSource<'a>),
+}
+
+struct InpaintMask<'a> {
+    src: MaskOrImg<'a>,
+    example_index: usize,
+    dims: Dims,
+}
+
 /// Builds a session by setting parameters and adding input images, calling
 /// `build` will check all of the provided inputs to verify that texture
 /// synthesis will provide valid output
@@ -413,7 +425,7 @@ where
 pub struct SessionBuilder<'a> {
     examples: Vec<Example<'a>>,
     target_guide: Option<ImageSource<'a>>,
-    inpaint_mask: Option<(ImageSource<'a>, usize, Dims)>,
+    inpaint_mask: Option<InpaintMask<'a>>,
     params: Parameters,
 }
 
@@ -488,7 +500,40 @@ impl<'a> SessionBuilder<'a> {
         example: E,
         size: Dims,
     ) -> Self {
-        self.inpaint_mask = Some((inpaint_mask.into(), self.examples.len(), size));
+        self.inpaint_mask = Some(InpaintMask {
+            src: MaskOrImg::ImageSource(inpaint_mask.into()),
+            example_index: self.examples.len(),
+            dims: size,
+        });
+        self.examples.push(example.into());
+        self
+    }
+
+    /// Inpaints an example, using a specific channel in the example image as the inpaint mask
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// let tex_synth = texture_synthesis::Session::builder()
+    ///     .inpaint_example_channel(
+    ///         // Let's use inpaint the alpha channel
+    ///         texture_synthesis::ChannelMask::A,
+    ///         &"imgs/bricks.png",
+    ///         texture_synthesis::Dims::square(400)
+    ///     )
+    ///     .build().expect("failed to build session");
+    /// ```
+    pub fn inpaint_example_channel<E: Into<Example<'a>>>(
+        mut self,
+        mask: utils::ChannelMask,
+        example: E,
+        size: Dims,
+    ) -> Self {
+        self.inpaint_mask = Some(InpaintMask {
+            src: MaskOrImg::Mask(mask),
+            example_index: self.examples.len(),
+            dims: size,
+        });
         self.examples.push(example.into());
         self
     }
@@ -601,7 +646,7 @@ impl<'a> SessionBuilder<'a> {
 
     /// Creates a `Session`, or returns an error if invalid parameters or input
     /// images were specified.
-    pub fn build(self) -> Result<Session, Error> {
+    pub fn build(mut self) -> Result<Session, Error> {
         self.check_parameters_validity()?;
         self.check_images_validity()?;
 
@@ -612,18 +657,38 @@ impl<'a> SessionBuilder<'a> {
         }
 
         let (inpaint, out_size, in_size) = match self.inpaint_mask {
-            Some((src, ind, size)) => {
-                let inpaint_mask = load_image(src, Some(size))?;
-                let color_map = load_image(self.examples[ind].img.clone(), Some(size))?;
+            Some(inpaint_mask) => {
+                let dims = inpaint_mask.dims;
+                let inpaint_img = match inpaint_mask.src {
+                    MaskOrImg::ImageSource(img) => load_image(img, Some(dims))?,
+                    MaskOrImg::Mask(mask) => {
+                        let example_img = &mut self.examples[inpaint_mask.example_index].img;
+
+                        let dynamic_img = utils::load_dynamic_image(example_img.clone())?;
+                        let inpaint_src = ImageSource::Image(dynamic_img.clone());
+
+                        // Replace the example image source so we don't load it twice
+                        *example_img = ImageSource::Image(dynamic_img);
+
+                        let inpaint_mask = load_image(inpaint_src, Some(dims))?;
+
+                        utils::apply_mask(inpaint_mask, mask)
+                    }
+                };
+
+                let color_map = load_image(
+                    self.examples[inpaint_mask.example_index].img.clone(),
+                    Some(dims),
+                )?;
 
                 (
                     Some(InpaintExample {
-                        inpaint_mask,
+                        inpaint_mask: inpaint_img,
                         color_map,
-                        example_index: ind,
+                        example_index: inpaint_mask.example_index,
                     }),
-                    size,
-                    Some(size),
+                    dims,
+                    Some(dims),
                 )
             }
             None => (None, self.params.output_size, self.params.resize_input),

@@ -7,9 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 - [PR#57](https://github.com/EmbarkStudios/texture-synthesis/pull/57) CLI: Added the `flip-and-rotate` subcommand which applies flip and rotation transforms to each example input and adds them as additional examples. Thanks [@JD557](https://github.com/JD557)!
+- [PR#60](https://github.com/EmbarkStudios/texture-synthesis/pull/60) added the ability to specify a channel to use as
+the inpaint mask instead of a separate image. Thanks [@khskarl](https://github.com/khskarl)!
+- Added `SessionBuilder::inpaint_example_channel`
+- CLI: Added `--inpaint-channel <r|g|b|a>`
 
 ### Changed
-- Replace [`failure`](https://crates.io/crates/failure) crate for error handling with just std::error::Error
+- Replace [`failure`](https://crates.io/crates/failure) crate for error handling with just `std::error::Error`
 
 ### Fixed
 - Validate that the `--m-rand` / `random_sample_locations` parameter is > 0. [#45](https://github.com/EmbarkStudios/texture-synthesis/issues/45)

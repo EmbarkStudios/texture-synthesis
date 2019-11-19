@@ -875,7 +875,7 @@ dependencies = [
 
 [[package]]
 name = "texture-synthesis"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "criterion 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "crossbeam-utils 0.6.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -889,13 +889,13 @@ dependencies = [
 
 [[package]]
 name = "texture-synthesis-cli"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "atty 0.2.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "indicatif 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "minifb 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "structopt 0.3.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "texture-synthesis 0.7.0",
+ "texture-synthesis 0.7.1",
 ]
 
 [[package]]

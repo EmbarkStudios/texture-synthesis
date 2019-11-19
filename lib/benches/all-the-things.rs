@@ -195,8 +195,7 @@ fn inpaint_channel(c: &mut Criterion) {
 
     // Load the example image once to reduce variation between runs,
     // though we still do a memcpy each run
-    let example_img = ts::load_dynamic_image(ts::DataSource::from(&"../imgs/bricks.png")).unwrap();
-    let inpaint = ts::ImageSource::from(example_img.clone()).mask(ts::Mask::A);
+    let example_img = ts::load_dynamic_image(ts::ImageSource::from(&"../imgs/bricks.png")).unwrap();
 
     let mut group = c.benchmark_group("inpaint_channel");
     group.sample_size(10);
@@ -207,8 +206,8 @@ fn inpaint_channel(c: &mut Criterion) {
                 let mut total_elapsed = Duration::new(0, 0);
                 for _i in 0..iters {
                     let sess = ts::Session::builder()
-                        .inpaint_example(
-                            inpaint.clone(),
+                        .inpaint_example_channel(
+                            ts::ChannelMask::A,
                             ts::Example::builder(example_img.clone()),
                             ts::Dims::square(dim),
                         )

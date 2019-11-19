@@ -1,39 +1,9 @@
 use crate::{Dims, Error};
 use std::path::Path;
 
-/// Helper type used to pass image data to the Session
-#[derive(Clone)]
-pub struct ImageSource<'a> {
-    data_source: DataSource<'a>,
-    mask: Option<Mask>,
-}
-
-impl<'a> ImageSource<'a> {
-    pub fn from_path(path: &'a Path) -> ImageSource<'a> {
-        ImageSource {
-            data_source: DataSource::Path(path),
-            mask: None,
-        }
-    }
-
-    pub fn mask(mut self, mask: Mask) -> Self {
-        self.mask = Some(mask);
-        self
-    }
-}
-
-impl<'a> From<image::DynamicImage> for ImageSource<'a> {
-    fn from(img: image::DynamicImage) -> Self {
-        Self {
-            data_source: DataSource::Image(img),
-            mask: None,
-        }
-    }
-}
-
 /// Helper type used to define the source of `ImageSource`'s data
 #[derive(Clone)]
-pub enum DataSource<'a> {
+pub enum ImageSource<'a> {
     /// A raw buffer of image data, see `image::load_from_memory` for details
     /// on what is supported
     Memory(&'a [u8]),
@@ -44,9 +14,15 @@ pub enum DataSource<'a> {
     Image(image::DynamicImage),
 }
 
-impl<'a> From<image::DynamicImage> for DataSource<'a> {
+impl<'a> ImageSource<'a> {
+    pub fn from_path(path: &'a Path) -> Self {
+        Self::Path(path)
+    }
+}
+
+impl<'a> From<image::DynamicImage> for ImageSource<'a> {
     fn from(img: image::DynamicImage) -> Self {
-        DataSource::Image(img)
+        Self::Image(img)
     }
 }
 
@@ -55,33 +31,21 @@ where
     S: AsRef<Path> + 'a,
 {
     fn from(path: &'a S) -> Self {
-        Self {
-            data_source: DataSource::Path(path.as_ref()),
-            mask: None,
-        }
-    }
-}
-
-impl<'a, S> From<&'a S> for DataSource<'a>
-where
-    S: AsRef<Path> + 'a,
-{
-    fn from(path: &'a S) -> Self {
         Self::Path(path.as_ref())
     }
 }
 
-pub fn load_dynamic_image(src: DataSource<'_>) -> Result<image::DynamicImage, image::ImageError> {
+pub fn load_dynamic_image(src: ImageSource<'_>) -> Result<image::DynamicImage, image::ImageError> {
     match src {
-        DataSource::Memory(data) => image::load_from_memory(data),
-        DataSource::Path(path) => image::open(path),
-        DataSource::Image(img) => Ok(img),
+        ImageSource::Memory(data) => image::load_from_memory(data),
+        ImageSource::Path(path) => image::open(path),
+        ImageSource::Image(img) => Ok(img),
     }
 }
 
 /// Helper type used to mask `ImageSource`'s channels
 #[derive(Clone, Copy)]
-pub enum Mask {
+pub enum ChannelMask {
     R,
     G,
     B,
@@ -92,8 +56,7 @@ pub(crate) fn load_image(
     src: ImageSource<'_>,
     resize: Option<Dims>,
 ) -> Result<image::RgbaImage, Error> {
-    let mask = src.mask;
-    let img = load_dynamic_image(src.data_source)?;
+    let img = load_dynamic_image(src)?;
 
     let img = match resize {
         None => img.to_rgba(),
@@ -113,23 +76,15 @@ pub(crate) fn load_image(
         }
     };
 
-    let img = if let Some(mask) = mask {
-        apply_mask(&img, mask)
-    } else {
-        img
-    };
-
     Ok(img)
 }
 
-pub(crate) fn apply_mask(original_image: &image::RgbaImage, mask: Mask) -> image::RgbaImage {
-    let mut image = original_image.clone();
-
+pub(crate) fn apply_mask(mut image: image::RgbaImage, mask: ChannelMask) -> image::RgbaImage {
     let channel = match mask {
-        Mask::R => 0,
-        Mask::G => 1,
-        Mask::B => 2,
-        Mask::A => 3,
+        ChannelMask::R => 0,
+        ChannelMask::G => 1,
+        ChannelMask::B => 2,
+        ChannelMask::A => 3,
     };
 
     for pixel_iter in image.enumerate_pixels_mut() {

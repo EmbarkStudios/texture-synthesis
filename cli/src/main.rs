@@ -5,8 +5,8 @@ use structopt::StructOpt;
 
 use std::path::PathBuf;
 use texture_synthesis::{
-    image::ImageOutputFormat as ImgFmt, load_dynamic_image, DataSource, Dims, Error, Example,
-    ImageSource, Mask, SampleMethod, Session,
+    image::ImageOutputFormat as ImgFmt, load_dynamic_image, ChannelMask, Dims, Error, Example,
+    ImageSource, SampleMethod, Session,
 };
 
 fn parse_size(input: &str) -> Result<Dims, std::num::ParseIntError> {
@@ -37,12 +37,12 @@ fn parse_img_fmt(input: &str) -> Result<ImgFmt, String> {
     Ok(fmt)
 }
 
-fn parse_mask(input: &str) -> Result<Mask, String> {
+fn parse_mask(input: &str) -> Result<ChannelMask, String> {
     let mask = match &input.to_lowercase()[..] {
-        "r" => Mask::R,
-        "g" => Mask::G,
-        "b" => Mask::B,
-        "a" => Mask::A,
+        "r" => ChannelMask::R,
+        "g" => ChannelMask::G,
+        "b" => ChannelMask::B,
+        "a" => ChannelMask::A,
         mask => {
             return Err(format!(
                 "unknown mask '{}', must be one of 'a', 'r', 'g', 'b'",
@@ -173,7 +173,7 @@ struct Opt {
     inpaint: Option<PathBuf>,
     /// Flag to extract inpaint from one of the example's channels
     #[structopt(long, parse(try_from_str = parse_mask), conflicts_with = "inpaint")]
-    inpaint_channel: Option<Mask>,
+    inpaint_channel: Option<ChannelMask>,
     /// Size of the generated image, in `width x height`, or a single number for both dimensions
     #[structopt(
         long,
@@ -259,7 +259,7 @@ fn real_main() -> Result<(), Error> {
             let example_imgs = fr
                 .examples
                 .iter()
-                .map(|path| load_dynamic_image(DataSource::Path(path)))
+                .map(|path| load_dynamic_image(ImageSource::Path(path)))
                 .collect::<Result<Vec<_>, _>>()?;
 
             let mut transformed: Vec<Example<'_>> = Vec::with_capacity(example_imgs.len() * 7);
@@ -305,13 +305,9 @@ fn real_main() -> Result<(), Error> {
     // TODO: Make inpaint work with multiple examples
     match (args.inpaint_channel, &args.inpaint) {
         (Some(channel), None) => {
-            let mut inpaint_example = examples.remove(0);
-            let inpaint = inpaint_example.image_source().clone().mask(channel);
-            if args.sample_masks.is_empty() {
-                inpaint_example.set_sample_method(SampleMethod::Image(inpaint.clone()));
-            }
+            let inpaint_example = examples.remove(0);
 
-            sb = sb.inpaint_example(inpaint, inpaint_example, args.out_size);
+            sb = sb.inpaint_example_channel(channel, inpaint_example, args.out_size);
         }
         (None, Some(inpaint)) => {
             let mut inpaint_example = examples.remove(0);

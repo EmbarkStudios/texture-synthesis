@@ -207,11 +207,11 @@ diff_hash!(inpaint, "JNG1tl5SaIkqauco1NEmtikk", {
 });
 
 diff_hash!(inpaint_channel, "JOVF4dThzPKa2suWLo1OWrKk", {
-    let img = ts::load_dynamic_image(ts::DataSource::from(&"../imgs/bricks.png")).unwrap();
-
-    let inpaint = ts::ImageSource::from(img.clone()).mask(ts::Mask::A);
-
-    ts::Session::builder().inpaint_example(inpaint, img, ts::Dims::square(400))
+    ts::Session::builder().inpaint_example_channel(
+        ts::ChannelMask::A,
+        &"../imgs/bricks.png",
+        ts::Dims::square(400),
+    )
 });
 
 diff_hash!(tiling, "JFSVUUmMaMzhWSttmlwojR1q", {

@@ -1137,8 +1137,8 @@ fn better_match(
             (0, 0),
         );
 
-        for j in 0..4 {
-            next_pixel_score += my_cost.get(my_precomputed_pattern.0[j + i], next_pixel[j]);
+        for (channel_n, &channel) in next_pixel.iter().enumerate() {
+            next_pixel_score += my_cost.get(my_precomputed_pattern.0[i + channel_n], channel);
         }
 
         if let Some(guide_cost) = guide_cost {
@@ -1152,9 +1152,10 @@ fn better_match(
                 false,
                 (0, 0),
             );
-            for j in 0..4 {
+
+            for (channel_n, &channel) in next_pixel.iter().enumerate() {
                 next_pixel_score +=
-                    guide_cost.get(my_precomputed_guide_pattern.0[j + i], next_pixel[j]);
+                    guide_cost.get(my_precomputed_guide_pattern.0[i + channel_n], channel);
             }
         }
         score += next_pixel_score * distance_gaussians[i];

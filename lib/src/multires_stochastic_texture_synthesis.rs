@@ -1121,6 +1121,7 @@ fn better_match(
 
     let mut i = 0;
     let mut next_pixel = [0; 4];
+    let mut next_pixel_score: f32 = 0.0;
     for (n_coord, n_map) in k_neighs {
         let end = i + 4;
 
@@ -1136,11 +1137,7 @@ fn better_match(
         );
 
         for j in 0..4 {
-            score += distance_gaussians[i + j]
-                * my_cost.get(my_precomputed_pattern.0[j + i], next_pixel[j]);
-            if score >= current_best {
-                return None;
-            }
+            next_pixel_score = my_cost.get(my_precomputed_pattern.0[j + i], next_pixel[j]);
         }
 
         if let Some(guide_cost) = guide_cost {
@@ -1155,12 +1152,13 @@ fn better_match(
                 (0, 0),
             );
             for j in 0..4 {
-                score += distance_gaussians[i + j]
-                    * guide_cost.get(my_precomputed_guide_pattern.0[j + i], next_pixel[j]);
-                if score >= current_best {
-                    return None;
-                }
+                next_pixel_score +=
+                    guide_cost.get(my_precomputed_guide_pattern.0[j + i], next_pixel[j]);
             }
+        }
+        score += next_pixel_score * distance_gaussians[i];
+        if score >= current_best {
+            return None;
         }
         i = end;
     }

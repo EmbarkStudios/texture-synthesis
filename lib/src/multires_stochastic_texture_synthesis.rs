@@ -1121,8 +1121,9 @@ fn better_match(
 
     let mut i = 0;
     let mut next_pixel = [0; 4];
-    let mut next_pixel_score: f32 = 0.0;
+    let mut next_pixel_score: f32;
     for (n_coord, n_map) in k_neighs {
+        next_pixel_score = 0.0;
         let end = i + 4;
 
         //check if he haven't gone outside the possible bounds
@@ -1137,7 +1138,7 @@ fn better_match(
         );
 
         for j in 0..4 {
-            next_pixel_score = my_cost.get(my_precomputed_pattern.0[j + i], next_pixel[j]);
+            next_pixel_score += my_cost.get(my_precomputed_pattern.0[j + i], next_pixel[j]);
         }
 
         if let Some(guide_cost) = guide_cost {

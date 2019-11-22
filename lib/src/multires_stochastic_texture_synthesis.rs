@@ -889,7 +889,6 @@ impl Generator {
                                     is_tiling_mode,
                                 );
 
-                                // TODO Peter do not forget to move guide cost lookup table
                                 // 3.2 get pattern for guide map if we have them
                                 let (my_cost, guide_cost) = if let Some(ref in_guides) = guides {
                                     //get example pattern to compare to

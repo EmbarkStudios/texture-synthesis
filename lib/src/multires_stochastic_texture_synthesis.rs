@@ -1141,18 +1141,8 @@ fn better_match(
             next_pixel_score += my_cost.get(my_precomputed_pattern.0[i + channel_n], channel);
         }
 
-        score += next_pixel_score * distance_gaussians[i];
-        if score >= current_best {
-            return None;
-        }
-        i = end;
-    }
-
-    i = 0;
-    if let Some(guide_cost) = guide_cost {
-        let example_guides = &(guides.as_ref().unwrap().example_guides);
-        for (n_coord, n_map) in k_neighs {
-            next_pixel_score = 0.0;
+        if let Some(guide_cost) = guide_cost {
+            let example_guides = &(guides.as_ref().unwrap().example_guides);
             get_color_of_neighbor(
                 outside_color,
                 example_guides,
@@ -1167,12 +1157,12 @@ fn better_match(
                 next_pixel_score +=
                     guide_cost.get(my_precomputed_guide_pattern.0[i + channel_n], channel);
             }
-            score += next_pixel_score * distance_gaussians[i];
-            if score >= current_best {
-                return None;
-            }
-            i += 4;
         }
+        score += next_pixel_score * distance_gaussians[i];
+        if score >= current_best {
+            return None;
+        }
+        i = end;
     }
 
     Some(score)

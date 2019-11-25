@@ -582,7 +582,6 @@ impl Generator {
 
                     *output = (n2_coord, n_map_id)
                 }
-
                 //record the candidate info
                 candidates_vec[candidate_count].coord = (candidate_coord, n_map_id);
                 candidates_vec[candidate_count].id = (n_patch_id, n_map_id);
@@ -811,7 +810,6 @@ impl Generator {
                 for _ in 0..n_workers {
                     scope.spawn(|_| {
                         let mut candidates: Vec<CandidateStruct> = Vec::new();
-                        let mut candidates_patterns: Vec<ColorPattern> = Vec::new();
                         let mut my_pattern: ColorPattern = ColorPattern::new();
                         let mut k_neighs: Vec<SignedCoord2D> =
                             Vec::with_capacity(params.nearest_neighbors as usize);
@@ -820,12 +818,9 @@ impl Generator {
                             + params.random_sample_locations as usize;
 
                         candidates.resize(max_candidate_count, CandidateStruct::default());
-                        candidates_patterns.resize(max_candidate_count, ColorPattern::new());
 
                         //alloc storage for our guides (regardless of whether we have them or not)
                         let mut my_guide_pattern: ColorPattern = ColorPattern::new();
-                        let mut candidates_guide_patterns: Vec<ColorPattern> = Vec::new();
-                        candidates_guide_patterns.resize(max_candidate_count, ColorPattern::new());
 
                         let out_color_map = &[ImageBuffer::from(self.color_map.as_ref())];
 
@@ -886,20 +881,7 @@ impl Generator {
                                     loop_seed + 1,
                                 );
 
-                                // 3.1 get patterns for color maps
-                                for (cand_i, cand) in candidates.iter().enumerate() {
-                                    k_neighs_to_color_pattern(
-                                        &cand.k_neighs,
-                                        image::Rgba([0, 0, 0, 255]),
-                                        &example_maps,
-                                        &mut candidates_patterns[cand_i],
-                                        false,
-                                    );
-                                }
-
-                                let candidates_patterns = &candidates_patterns[0..candidates.len()];
-
-                                k_neighs_to_color_pattern(
+                                k_neighs_to_precomputed_reference_pattern(
                                     &k_neighs_w_map_id, //feed into the function with always 0 index of the sample map
                                     image::Rgba([0, 0, 0, 255]),
                                     out_color_map,
@@ -909,25 +891,14 @@ impl Generator {
 
                                 // 3.2 get pattern for guide map if we have them
                                 let (my_cost, guide_cost) = if let Some(ref in_guides) = guides {
-                                    // populate guidance patterns for candidates
-                                    for (cand_i, cand) in candidates.iter().enumerate() {
-                                        k_neighs_to_color_pattern(
-                                            &cand.k_neighs,
-                                            image::Rgba([0, 0, 0, 255]),
-                                            &in_guides.example_guides,
-                                            &mut candidates_guide_patterns[cand_i],
-                                            false,
-                                        );
-
-                                        //get example pattern to compare to
-                                        k_neighs_to_color_pattern(
-                                            &k_neighs_w_map_id,
-                                            image::Rgba([0, 0, 0, 255]),
-                                            &[in_guides.target_guide.clone()],
-                                            &mut my_guide_pattern,
-                                            is_tiling_mode,
-                                        );
-                                    }
+                                    //get example pattern to compare to
+                                    k_neighs_to_precomputed_reference_pattern(
+                                        &k_neighs_w_map_id,
+                                        image::Rgba([0, 0, 0, 255]),
+                                        &[in_guides.target_guide.clone()],
+                                        &mut my_guide_pattern,
+                                        is_tiling_mode,
+                                    );
 
                                     (
                                         &my_inverse_alpha_cost_precomputed,
@@ -937,16 +908,14 @@ impl Generator {
                                     (&cauchy_precomputed, None)
                                 };
 
-                                let candidates_guide_patterns =
-                                    &candidates_guide_patterns[0..candidates.len()];
-
                                 // 4. find best match based on the candidate patterns
                                 let (best_match, score) = find_best_match(
+                                    image::Rgba([0, 0, 0, 255]),
+                                    &example_maps,
+                                    &guides,
                                     &candidates,
                                     &my_pattern,
-                                    &candidates_patterns,
                                     &my_guide_pattern,
-                                    &candidates_guide_patterns,
                                     &k_neighs_dist,
                                     &my_cost,
                                     guide_cost,
@@ -1018,7 +987,49 @@ impl Generator {
     }
 }
 
-fn k_neighs_to_color_pattern(
+#[inline]
+fn metric_cauchy(a: u8, b: u8, sig2: f32) -> f32 {
+    let mut x2 = (f32::from(a) - f32::from(b)) / 255.0; //normalize the colors to be between 0-1
+    x2 = x2 * x2;
+    (1.0 + x2 / sig2).ln()
+}
+
+#[inline]
+fn metric_l2(a: u8, b: u8) -> f32 {
+    let x = (f32::from(a) - f32::from(b)) / 255.0;
+    x * x
+}
+
+#[inline]
+fn get_color_of_neighbor(
+    outside_color: image::Rgba<u8>,
+    source_maps: &[ImageBuffer<'_>],
+    n_coord: SignedCoord2D,
+    n_map: MapId,
+    neighbor_color: &mut [u8],
+    is_wrap_mode: bool,
+    wrap_dim: (i32, i32),
+) {
+    let coord = if is_wrap_mode {
+        n_coord.wrap(wrap_dim)
+    } else {
+        n_coord
+    };
+
+    //check if he haven't gone outside the possible bounds
+    if source_maps[n_map.0 as usize].is_in_bounds(coord) {
+        neighbor_color.copy_from_slice(
+            &(source_maps[n_map.0 as usize])
+                .get_pixel(coord.x as u32, coord.y as u32)
+                .0[..4],
+        );
+    } else {
+        // if we have gone out of bounds, then just fill as outside color
+        neighbor_color.copy_from_slice(&outside_color.0[..]);
+    }
+}
+
+fn k_neighs_to_precomputed_reference_pattern(
     k_neighs: &[(SignedCoord2D, MapId)],
     outside_color: image::Rgba<u8>,
     source_maps: &[ImageBuffer<'_>],
@@ -1034,50 +1045,30 @@ fn k_neighs_to_color_pattern(
     );
 
     for (n_coord, n_map) in k_neighs {
-        let coord = if is_wrap_mode {
-            n_coord.wrap(wrap_dim)
-        } else {
-            *n_coord
-        };
-
         let end = i + 4;
 
-        //check if he haven't gone outside the possible bounds
-        if source_maps[n_map.0 as usize].is_in_bounds(coord) {
-            pattern.0[i..end].copy_from_slice(
-                &(source_maps[n_map.0 as usize])
-                    .get_pixel(coord.x as u32, coord.y as u32)
-                    .0[..4],
-            )
-        } else {
-            // if we have gone out of bounds, then just fill as outside color
-            pattern.0[i..end].copy_from_slice(&outside_color.0[..]);
-        }
+        get_color_of_neighbor(
+            outside_color,
+            source_maps,
+            *n_coord,
+            *n_map,
+            &mut (pattern.0[i..end]),
+            is_wrap_mode,
+            wrap_dim,
+        );
 
         i = end;
     }
 }
 
-#[inline]
-fn metric_cauchy(a: u8, b: u8, sig2: f32) -> f32 {
-    let mut x2 = (f32::from(a) - f32::from(b)) / 255.0; //normalize the colors to be between 0-1
-    x2 = x2 * x2;
-    (1.0 + x2 / sig2).ln()
-}
-
-#[inline]
-fn metric_l2(a: u8, b: u8) -> f32 {
-    let x = (f32::from(a) - f32::from(b)) / 255.0;
-    x * x
-}
-
 #[allow(clippy::too_many_arguments)]
 fn find_best_match<'a>(
+    outside_color: image::Rgba<u8>,
+    source_maps: &[ImageBuffer<'_>],
+    guides: &Option<GuidesStruct<'_>>,
     candidates: &'a [CandidateStruct],
-    my_pattern: &ColorPattern,
-    candidates_patterns: &[ColorPattern],
-    my_guide_pattern: &ColorPattern,
-    candidates_guide_patterns: &[ColorPattern],
+    my_precomputed_pattern: &ColorPattern,
+    my_precomputed_guide_pattern: &ColorPattern,
     k_distances: &[f64], //weight by distance
     my_cost: &PrerenderedU8Function,
     guide_cost: Option<&PrerenderedU8Function>,
@@ -1092,16 +1083,14 @@ fn find_best_match<'a>(
         .map(|d| d as f32)
         .collect();
 
-    for (i, (candidate_pattern, candidate_guide_pattern)) in candidates_patterns
-        .iter()
-        .zip(candidates_guide_patterns.iter())
-        .enumerate()
-    {
+    for (i, cand) in candidates.iter().enumerate() {
         if let Some(cost) = better_match(
-            &my_pattern,
-            candidate_pattern,
-            &my_guide_pattern,
-            candidate_guide_pattern,
+            &cand.k_neighs,
+            outside_color,
+            source_maps,
+            &guides,
+            &my_precomputed_pattern,
+            &my_precomputed_guide_pattern,
             distance_gaussians.as_slice(),
             my_cost,
             guide_cost,
@@ -1117,10 +1106,12 @@ fn find_best_match<'a>(
 
 #[allow(clippy::too_many_arguments)]
 fn better_match(
-    my_pattern: &ColorPattern,
-    candidate_pattern: &ColorPattern,
-    my_guide_pattern: &ColorPattern,
-    candidate_guide_pattern: &ColorPattern,
+    k_neighs: &[(SignedCoord2D, MapId)],
+    outside_color: image::Rgba<u8>,
+    source_maps: &[ImageBuffer<'_>],
+    guides: &Option<GuidesStruct<'_>>,
+    my_precomputed_pattern: &ColorPattern,
+    my_precomputed_guide_pattern: &ColorPattern,
     distance_gaussians: &[f32], //weight by distance
     my_cost: &PrerenderedU8Function,
     guide_cost: Option<&PrerenderedU8Function>,
@@ -1128,34 +1119,50 @@ fn better_match(
 ) -> Option<f32> {
     let mut score: f32 = 0.0; //minimize score
 
-    for ((my_value, candidate_value), dist_gaussian) in my_pattern
-        .0
-        .iter()
-        .copied()
-        .zip(candidate_pattern.0.iter().copied())
-        .zip(distance_gaussians.iter().copied())
-    {
-        score += dist_gaussian * my_cost.get(my_value, candidate_value);
+    let mut i = 0;
+    let mut next_pixel = [0; 4];
+    let mut next_pixel_score: f32;
+    for (n_coord, n_map) in k_neighs {
+        next_pixel_score = 0.0;
+        let end = i + 4;
 
+        //check if he haven't gone outside the possible bounds
+        get_color_of_neighbor(
+            outside_color,
+            source_maps,
+            *n_coord,
+            *n_map,
+            &mut next_pixel,
+            false,
+            (0, 0),
+        );
+
+        for (channel_n, &channel) in next_pixel.iter().enumerate() {
+            next_pixel_score += my_cost.get(my_precomputed_pattern.0[i + channel_n], channel);
+        }
+
+        if let Some(guide_cost) = guide_cost {
+            let example_guides = &(guides.as_ref().unwrap().example_guides);
+            get_color_of_neighbor(
+                outside_color,
+                example_guides,
+                *n_coord,
+                *n_map,
+                &mut next_pixel,
+                false,
+                (0, 0),
+            );
+
+            for (channel_n, &channel) in next_pixel.iter().enumerate() {
+                next_pixel_score +=
+                    guide_cost.get(my_precomputed_guide_pattern.0[i + channel_n], channel);
+            }
+        }
+        score += next_pixel_score * distance_gaussians[i];
         if score >= current_best {
             return None;
         }
-    }
-
-    if let Some(guide_cost_fn) = guide_cost {
-        for ((my_guide, candidate_guide), dist_gaussian) in my_guide_pattern
-            .0
-            .iter()
-            .copied()
-            .zip(candidate_guide_pattern.0.iter().copied())
-            .zip(distance_gaussians.iter().copied())
-        {
-            score += dist_gaussian * guide_cost_fn.get(my_guide, candidate_guide);
-
-            if score >= current_best {
-                return None;
-            }
-        }
+        i = end;
     }
 
     Some(score)

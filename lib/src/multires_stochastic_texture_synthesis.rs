@@ -203,7 +203,7 @@ pub struct Generator {
     resolved: RwLock<Vec<(CoordFlat, Score)>>, //a list of resolved coordinates in our canvas and their scores
     //rtree: RwLock<RTree<[i32; 2]>>,            //R* tree
     stree: STree,
-    update_queue: Mutex<Vec<([i32; 2], CoordFlat, Score)>>,
+    //update_queue: Mutex<Vec<([i32; 2], CoordFlat, Score)>>,
     locked_resolved: usize, //used for inpainting, to not backtrack these pixels
 }
 
@@ -221,7 +221,7 @@ impl Generator {
             //rtree: RwLock::new(RTree::new()),
             // TODO (Peter) support rectangular images
             stree: STree::new(size.width, 1),
-            update_queue: Mutex::new(Vec::new()),
+            //update_queue: Mutex::new(Vec::new()),
             locked_resolved: 0,
         }
     }
@@ -284,7 +284,7 @@ impl Generator {
             resolved: RwLock::new(resolved),
             //rtree: RwLock::new(rtree),
             stree: STree::new(10, 10),
-            update_queue: Mutex::new(Vec::new()),
+            //update_queue: Mutex::new(Vec::new()),
             locked_resolved,
         }
     }
@@ -333,7 +333,7 @@ impl Generator {
         resolved_queue_time
     }
 
-    fn force_flush_resolved(&self, my_resolved_list: &mut Vec<(CoordFlat, Score)>, is_tiling_mode: bool) {
+    /*fn force_flush_resolved(&self, my_resolved_list: &mut Vec<(CoordFlat, Score)>, is_tiling_mode: bool) {
         self.flush_resolved(
             my_resolved_list,
             &self.stree,
@@ -345,7 +345,7 @@ impl Generator {
                 .collect::<Vec<_>>(),
             is_tiling_mode,
         );
-    }
+    }*/
 
     #[allow(clippy::too_many_arguments)]
     fn update(
@@ -385,9 +385,24 @@ impl Generator {
         );
 
         if update_resolved_list {
-            const FORCE_FLUSH_THRESHOLD: usize = 1;
+            let rtree_now = Instant::now();
+            let stree_arg = &self.stree;
+            rtree_wait = rtree_now.elapsed().as_micros();
 
-            let force_flush_items: Option<Vec<_>> = {
+            resolved_queue_wait = self.flush_resolved(
+                my_resolved_list,
+                stree_arg,
+                &[(
+                    [update_coord.x as i32, update_coord.y as i32],
+                    flat_coord,
+                    score,
+                )],
+                is_tiling_mode,
+            );
+
+            //const FORCE_FLUSH_THRESHOLD: usize = 1;
+
+            /*let force_flush_items: Option<Vec<_>> = {
                 let update_queue_now = Instant::now();
                 let mut update_queue = self.update_queue.lock().unwrap();
                 update_queue_wait += update_queue_now.elapsed().as_micros();
@@ -407,10 +422,10 @@ impl Generator {
                 } else {
                     None
                 }
-            };
+            };*/
 
 
-            if let Some(force_flush_items) = force_flush_items {
+            /*if let Some(force_flush_items) = force_flush_items {
                 let rtree_now = Instant::now();
                 //let rtree_arg = &mut *self.rtree.write().unwrap();
                 let stree_arg = &self.stree;
@@ -433,7 +448,7 @@ impl Generator {
 
                     resolved_queue_wait = self.flush_resolved(&mut *rtree, &update_queue, is_tiling_mode);
                 }*/
-            }
+            }*/
         }
         (resolved_queue_wait, update_queue_wait, rtree_wait)
     }
@@ -1079,7 +1094,7 @@ impl Generator {
                 }
 
                 // Some items might still be pending a resolve flush. Do it now before we start the next stage.
-                self.force_flush_resolved(&mut resolved, is_tiling_mode);
+                //self.force_flush_resolved(&mut resolved, is_tiling_mode);
             }
         }
     }

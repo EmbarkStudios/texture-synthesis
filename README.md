@@ -235,7 +235,7 @@ You should get the following result with the images provided in this repo:
 
 ### 6. Inpaint Channel
 
-![Imgur](https://i.imgur.com/FqvV651.jpg)
+![bricks](imgs/bricks.png)
 
 Instead of using a separate image for our inpaint mask, we can instead obtain the information from a specific
 channel. In this example, the alpha channel is a circle directly in the middle of the image.
@@ -268,7 +268,7 @@ fn main() -> Result<(), ts::Error> {
 
 You should get the following result with the images provided in this repo:
 
-<img src="https://imgur.com/7IuVN5K.jpg" width="400" height="400">
+<img src="https://imgur.com/7IuVN5K.jpg" width="350" height="350">
 
 ### 7. Tiling texture
 

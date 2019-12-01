@@ -3,6 +3,10 @@ use rand_pcg::Pcg32;
 use rstar::RTree;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, RwLock};
+use std::thread::ThreadId;
+
+use std::thread::sleep;
+use std::time::Instant;
 
 use crate::{img_pyramid::*, unsync::*, CoordinateTransform, Dims, SamplingMethod};
 
@@ -197,7 +201,8 @@ pub struct Generator {
     pub(crate) output_size: Dims,           // size of the generated image
     unresolved: Mutex<Vec<CoordFlat>>,      //for us to pick from
     resolved: RwLock<Vec<(CoordFlat, Score)>>, //a list of resolved coordinates in our canvas and their scores
-    rtree: RwLock<RTree<[i32; 2]>>,            //R* tree
+    //rtree: RwLock<RTree<[i32; 2]>>,            //R* tree
+    stree: STree,
     update_queue: Mutex<Vec<([i32; 2], CoordFlat, Score)>>,
     locked_resolved: usize, //used for inpainting, to not backtrack these pixels
 }
@@ -213,7 +218,9 @@ impl Generator {
             output_size: size,
             unresolved: Mutex::new(unresolved),
             resolved: RwLock::new(Vec::new()),
-            rtree: RwLock::new(RTree::new()),
+            //rtree: RwLock::new(RTree::new()),
+            // TODO (Peter) support rectangular images
+            stree: STree::new(size.width, 1),
             update_queue: Mutex::new(Vec::new()),
             locked_resolved: 0,
         }
@@ -267,6 +274,7 @@ impl Generator {
         }
 
         let locked_resolved = resolved.len();
+        // TODO (Peter) fix this!!!!!
         Self {
             color_map: UnsyncRgbaImage::new(color_map.clone()),
             coord_map: UnsyncVec::new(coord_map),
@@ -274,7 +282,8 @@ impl Generator {
             output_size: size,
             unresolved: Mutex::new(unresolved),
             resolved: RwLock::new(resolved),
-            rtree: RwLock::new(rtree),
+            //rtree: RwLock::new(rtree),
+            stree: STree::new(10, 10),
             update_queue: Mutex::new(Vec::new()),
             locked_resolved,
         }
@@ -283,16 +292,20 @@ impl Generator {
     // Write resolved pixels from the update queue to an already write-locked `rtree` and `resolved` array.
     fn flush_resolved(
         &self,
-        rtree: &mut RTree<[i32; 2]>,
+        my_resolved_list: &mut Vec<(CoordFlat, Score)>,
+        //rtree: &mut RTree<[i32; 2]>,
+        stree: &STree,
         update_queue: &[([i32; 2], CoordFlat, Score)],
         is_tiling_mode: bool,
-    ) {
-        let mut resolved = self.resolved.write().unwrap();
+    ) -> u128 {
+        let resolved_queue_now = Instant::now();
+        //let mut resolved = self.resolved.write().unwrap();
+        let resolved_queue_time = resolved_queue_now.elapsed().as_micros();
 
         for (a, b, score) in update_queue.iter() {
-            rtree.insert(*a);
+            stree.force_insert(a[0], a[1]);
 
-            if is_tiling_mode {
+            /*if is_tiling_mode {
                 //if close to border add additional mirrors
                 let x_l = ((self.output_size.width as f32) * 0.05) as i32;
                 let x_r = self.output_size.width as i32 - x_l;
@@ -314,14 +327,16 @@ impl Generator {
                     rtree.insert([a[0], a[1] - (self.output_size.height as i32)]);
                     // -Y
                 }
-            }
-            resolved.push((*b, *score));
+            }*/
+            my_resolved_list.push((*b, *score));
         }
+        resolved_queue_time
     }
 
-    fn force_flush_resolved(&self, is_tiling_mode: bool) {
+    fn force_flush_resolved(&self, my_resolved_list: &mut Vec<(CoordFlat, Score)>, is_tiling_mode: bool) {
         self.flush_resolved(
-            &mut *self.rtree.write().unwrap(),
+            my_resolved_list,
+            &self.stree,
             &self
                 .update_queue
                 .lock()
@@ -335,6 +350,7 @@ impl Generator {
     #[allow(clippy::too_many_arguments)]
     fn update(
         &self,
+        my_resolved_list: &mut Vec<(CoordFlat, Score)>,
         update_coord: Coord2D,
         (example_coord, example_map_id): (Coord2D, MapId),
         example_maps: &[ImageBuffer<'_>],
@@ -342,7 +358,12 @@ impl Generator {
         score: Score,
         island_id: (PatchId, MapId),
         is_tiling_mode: bool,
-    ) {
+    ) -> (u128, u128, u128) {
+        // Debug
+        let mut update_queue_wait = 0;
+        let mut resolved_queue_wait = 0;
+        let mut rtree_wait = 0;
+
         let flat_coord = update_coord.to_flat(self.output_size);
 
         // A little cheat to avoid taking excessive locks.
@@ -364,10 +385,12 @@ impl Generator {
         );
 
         if update_resolved_list {
-            const FORCE_FLUSH_THRESHOLD: usize = 32;
+            const FORCE_FLUSH_THRESHOLD: usize = 1;
 
             let force_flush_items: Option<Vec<_>> = {
+                let update_queue_now = Instant::now();
                 let mut update_queue = self.update_queue.lock().unwrap();
+                update_queue_wait += update_queue_now.elapsed().as_micros();
 
                 // Don't immediately resolve the pixel. Instead, add it to a list, to be resolved at the right time.
                 update_queue.push((
@@ -386,23 +409,33 @@ impl Generator {
                 }
             };
 
+
             if let Some(force_flush_items) = force_flush_items {
-                self.flush_resolved(
-                    &mut *self.rtree.write().unwrap(),
+                let rtree_now = Instant::now();
+                //let rtree_arg = &mut *self.rtree.write().unwrap();
+                let stree_arg = &self.stree;
+                rtree_wait = rtree_now.elapsed().as_micros();
+                resolved_queue_wait = self.flush_resolved(
+                    my_resolved_list,
+                    stree_arg,
                     &force_flush_items,
                     is_tiling_mode,
                 );
             } else {
                 // Otherwise, check if we can get a lock on the rtree, and only then flush the list.
                 // The rtree lock has moderate contention, so we might not get it this time around.
-                if let Ok(ref mut rtree) = self.rtree.try_write() {
+                //self.stree.try_insert()
+                /*if let Ok(ref mut rtree) = self.rtree.try_write() {
+                    let update_queue_now = Instant::now();
                     let update_queue: Vec<_> =
                         self.update_queue.lock().unwrap().drain(..).collect();
+                    update_queue_wait += update_queue_now.elapsed().as_micros();
 
-                    self.flush_resolved(&mut *rtree, &update_queue, is_tiling_mode);
-                }
+                    resolved_queue_wait = self.flush_resolved(&mut *rtree, &update_queue, is_tiling_mode);
+                }*/
             }
         }
+        (resolved_queue_wait, update_queue_wait, rtree_wait)
     }
 
     //returns flat coord
@@ -423,7 +456,7 @@ impl Generator {
         k: u32,
         k_neighs_2d: &mut Vec<SignedCoord2D>,
     ) -> bool {
-        {
+        /*{
             let resolved = self.resolved.read().unwrap();
 
             //check how many resolved neighbors we have
@@ -439,17 +472,22 @@ impl Generator {
                 );
                 return true;
             }
-        }
+        }*/
 
+        self.stree.get_k_nearest_neighbors(coord.x, coord.y, k as usize, k_neighs_2d);
+        //println!("knn: {:?}", k_neighs_2d);
+        if k_neighs_2d.is_empty() {
+            return false
+        }
         //return the search of the tree
-        k_neighs_2d.extend(
-            self.rtree
+        /*k_neighs_2d.extend(
+           self.rtree
                 .read()
                 .unwrap()
                 .nearest_neighbor_iter(&[coord.x as i32, coord.y as i32])
                 .take(k as usize)
                 .map(|a| SignedCoord2D::from((*a)[0], (*a)[1])),
-        );
+        );*/
         true
     }
 
@@ -485,6 +523,8 @@ impl Generator {
             if let Some(ref unresolved_flat) = self.pick_random_unresolved(seed + i as u64) {
                 //no resolved neighs? resolve at random!
                 self.resolve_at_random(
+                    // TODO (Peter) come back and make sure this is right
+                    &mut self.resolved.write().unwrap(),
                     unresolved_flat.to_2d(self.output_size),
                     example_maps,
                     seed + i as u64 + u64::from(unresolved_flat.0),
@@ -494,7 +534,7 @@ impl Generator {
         self.locked_resolved += steps; //lock these pixels from being re-resolved
     }
 
-    fn resolve_at_random(&self, my_coord: Coord2D, example_maps: &[ImageBuffer<'_>], seed: u64) {
+    fn resolve_at_random(&self, my_resolved_list: &mut Vec<(CoordFlat, Score)>, my_coord: Coord2D, example_maps: &[ImageBuffer<'_>], seed: u64) {
         let rand_map: u32 = Pcg32::seed_from_u64(seed).gen_range(0, example_maps.len()) as u32;
         let rand_x: u32 =
             Pcg32::seed_from_u64(seed).gen_range(0, example_maps[rand_map as usize].width as u32);
@@ -502,6 +542,7 @@ impl Generator {
             Pcg32::seed_from_u64(seed).gen_range(0, example_maps[rand_map as usize].height as u32);
 
         self.update(
+            my_resolved_list,
             my_coord,
             (Coord2D::from(rand_x, rand_y), MapId(rand_map)),
             example_maps,
@@ -582,7 +623,6 @@ impl Generator {
 
                     *output = (n2_coord, n_map_id)
                 }
-
                 //record the candidate info
                 candidates_vec[candidate_count].coord = (candidate_coord, n_map_id);
                 candidates_vec[candidate_count].id = (n_patch_id, n_map_id);
@@ -786,6 +826,11 @@ impl Generator {
 
             // Start with serial execution for the first few pixels, then go wide
             let n_workers = if redo_count < 1000 { 1 } else { max_workers };
+            if self.stree.size == 1 && n_workers > 1 {
+                let new_stree = STree::new(self.output_size.width, 12);
+                self.stree.clone_into_new_stree(&new_stree);
+                self.stree = new_stree;
+            }
 
             //calculate the guidance alpha
             let adaptive_alpha = if guides.is_some() && p_stage > 0 {
@@ -807,11 +852,17 @@ impl Generator {
             let processed_pixel_count = AtomicUsize::new(0);
             let remaining_threads = AtomicUsize::new(n_workers);
 
+            let mut pixels_resolved_this_stage:Vec<Mutex<Vec<(CoordFlat, Score)>>> = Vec::new();
+            pixels_resolved_this_stage.resize_with(n_workers, || {
+                Mutex::new(Vec::new())
+            });
+            let thread_counter = AtomicUsize::new(0);
+
             crossbeam_utils::thread::scope(|scope| {
                 for _ in 0..n_workers {
                     scope.spawn(|_| {
+                        let mut my_count = 0;
                         let mut candidates: Vec<CandidateStruct> = Vec::new();
-                        let mut candidates_patterns: Vec<ColorPattern> = Vec::new();
                         let mut my_pattern: ColorPattern = ColorPattern::new();
                         let mut k_neighs: Vec<SignedCoord2D> =
                             Vec::with_capacity(params.nearest_neighbors as usize);
@@ -819,17 +870,30 @@ impl Generator {
                         let max_candidate_count = params.nearest_neighbors as usize
                             + params.random_sample_locations as usize;
 
+                        let my_id = std::thread::current().id();
+                        let my_thread_num = thread_counter.fetch_add(1, Ordering::Relaxed);
+                        let mut my_resolved_list = pixels_resolved_this_stage[my_thread_num].lock().unwrap();
+
                         candidates.resize(max_candidate_count, CandidateStruct::default());
-                        candidates_patterns.resize(max_candidate_count, ColorPattern::new());
 
                         //alloc storage for our guides (regardless of whether we have them or not)
                         let mut my_guide_pattern: ColorPattern = ColorPattern::new();
-                        let mut candidates_guide_patterns: Vec<ColorPattern> = Vec::new();
-                        candidates_guide_patterns.resize(max_candidate_count, ColorPattern::new());
 
                         let out_color_map = &[ImageBuffer::from(self.color_map.as_ref())];
 
+                        let mut avg_loop_time = 0;
+                        let mut avg_update_time = 0;
+                        let mut avg_find_time = 0;
+                        let mut its = 0;
+
+                        let mut update_its = 0;
+                        let mut avg_resolved_queue_wait = 0;
+                        let mut avg_update_queue_wait = 0;
+                        let mut avg_rtree_wait = 0;
+
                         loop {
+                            let now = Instant::now();
+
                             // Get the next work item
                             let i = processed_pixel_count.fetch_add(1, Ordering::Relaxed);
 
@@ -864,11 +928,13 @@ impl Generator {
                             k_neighs.clear();
 
                             // 2. find K nearest resolved neighs
+                            let find_now = Instant::now();
                             if self.find_k_nearest_resolved_neighs(
                                 unresolved_2d,
                                 params.nearest_neighbors,
                                 &mut k_neighs,
                             ) {
+                                avg_find_time += find_now.elapsed().as_micros();
                                 //2.1 get distances to the pattern of neighbors
                                 let k_neighs_dist =
                                     self.get_distances_to_k_neighs(unresolved_2d, &k_neighs);
@@ -886,20 +952,7 @@ impl Generator {
                                     loop_seed + 1,
                                 );
 
-                                // 3.1 get patterns for color maps
-                                for (cand_i, cand) in candidates.iter().enumerate() {
-                                    k_neighs_to_color_pattern(
-                                        &cand.k_neighs,
-                                        image::Rgba([0, 0, 0, 255]),
-                                        &example_maps,
-                                        &mut candidates_patterns[cand_i],
-                                        false,
-                                    );
-                                }
-
-                                let candidates_patterns = &candidates_patterns[0..candidates.len()];
-
-                                k_neighs_to_color_pattern(
+                                k_neighs_to_precomputed_reference_pattern(
                                     &k_neighs_w_map_id, //feed into the function with always 0 index of the sample map
                                     image::Rgba([0, 0, 0, 255]),
                                     out_color_map,
@@ -909,25 +962,14 @@ impl Generator {
 
                                 // 3.2 get pattern for guide map if we have them
                                 let (my_cost, guide_cost) = if let Some(ref in_guides) = guides {
-                                    // populate guidance patterns for candidates
-                                    for (cand_i, cand) in candidates.iter().enumerate() {
-                                        k_neighs_to_color_pattern(
-                                            &cand.k_neighs,
-                                            image::Rgba([0, 0, 0, 255]),
-                                            &in_guides.example_guides,
-                                            &mut candidates_guide_patterns[cand_i],
-                                            false,
-                                        );
-
-                                        //get example pattern to compare to
-                                        k_neighs_to_color_pattern(
-                                            &k_neighs_w_map_id,
-                                            image::Rgba([0, 0, 0, 255]),
-                                            &[in_guides.target_guide.clone()],
-                                            &mut my_guide_pattern,
-                                            is_tiling_mode,
-                                        );
-                                    }
+                                    //get example pattern to compare to
+                                    k_neighs_to_precomputed_reference_pattern(
+                                        &k_neighs_w_map_id,
+                                        image::Rgba([0, 0, 0, 255]),
+                                        &[in_guides.target_guide.clone()],
+                                        &mut my_guide_pattern,
+                                        is_tiling_mode,
+                                    );
 
                                     (
                                         &my_inverse_alpha_cost_precomputed,
@@ -937,16 +979,14 @@ impl Generator {
                                     (&cauchy_precomputed, None)
                                 };
 
-                                let candidates_guide_patterns =
-                                    &candidates_guide_patterns[0..candidates.len()];
-
                                 // 4. find best match based on the candidate patterns
                                 let (best_match, score) = find_best_match(
+                                    image::Rgba([0, 0, 0, 255]),
+                                    &example_maps,
+                                    &guides,
                                     &candidates,
                                     &my_pattern,
-                                    &candidates_patterns,
                                     &my_guide_pattern,
-                                    &candidates_guide_patterns,
                                     &k_neighs_dist,
                                     &my_cost,
                                     guide_cost,
@@ -956,7 +996,12 @@ impl Generator {
                                 let best_match_map_id = best_match.coord.1;
 
                                 // 5. resolve our pixel
-                                self.update(
+
+                                // Debug
+                                my_count += 1;
+                                let update_now = Instant::now();
+                                let (resolved_time, update_time, rtree_time) = self.update(
+                                    &mut my_resolved_list,
                                     unresolved_2d,
                                     (best_match_coord, best_match_map_id),
                                     &example_maps,
@@ -965,13 +1010,27 @@ impl Generator {
                                     best_match.id,
                                     is_tiling_mode,
                                 );
+                                avg_resolved_queue_wait += resolved_time;
+                                avg_update_queue_wait += update_time;
+                                avg_rtree_wait += rtree_time;
+                                update_its += 1;
+                                avg_update_time += update_now.elapsed().as_micros();
                             } else {
                                 //no resolved neighs? resolve at random!
-                                self.resolve_at_random(unresolved_2d, &example_maps, p_stage_seed);
+                                avg_find_time += find_now.elapsed().as_micros();
+                                my_count += 1;
+                                let update_now = Instant::now();
+                                self.resolve_at_random(&mut my_resolved_list, unresolved_2d, &example_maps, p_stage_seed);
+                                avg_update_time += update_now.elapsed().as_micros();
                             }
+                            its += 1;
+                            avg_loop_time += now.elapsed().as_micros();
                         }
-
                         remaining_threads.fetch_sub(1, Ordering::Relaxed);
+
+                        println!("my count {} for thread with id {:?} avg loop time {} avg update time {} avg find time {} avg resolved queue {} avg update queue {} avg rtree {} \n \n",
+                         my_count, my_id, avg_loop_time / its, avg_update_time / its, avg_find_time / its,
+                        avg_resolved_queue_wait / update_its, avg_update_queue_wait / update_its, avg_rtree_wait / update_its);
                     });
                 }
 
@@ -1012,49 +1071,17 @@ impl Generator {
             })
             .unwrap();
 
-            // Some items might still be pending a resolve flush. Do it now before we start the next stage.
-            self.force_flush_resolved(is_tiling_mode);
+            {
+                // append all resolved threads to resolved
+                let mut resolved = self.resolved.write().unwrap();
+                for thread_resolved in pixels_resolved_this_stage {
+                    resolved.extend(thread_resolved.lock().unwrap().iter());
+                }
+
+                // Some items might still be pending a resolve flush. Do it now before we start the next stage.
+                self.force_flush_resolved(&mut resolved, is_tiling_mode);
+            }
         }
-    }
-}
-
-fn k_neighs_to_color_pattern(
-    k_neighs: &[(SignedCoord2D, MapId)],
-    outside_color: image::Rgba<u8>,
-    source_maps: &[ImageBuffer<'_>],
-    pattern: &mut ColorPattern,
-    is_wrap_mode: bool,
-) {
-    pattern.0.resize(k_neighs.len() * 4, 0);
-    let mut i = 0;
-
-    let wrap_dim = (
-        source_maps[0].dimensions().0 as i32,
-        source_maps[0].dimensions().1 as i32,
-    );
-
-    for (n_coord, n_map) in k_neighs {
-        let coord = if is_wrap_mode {
-            n_coord.wrap(wrap_dim)
-        } else {
-            *n_coord
-        };
-
-        let end = i + 4;
-
-        //check if he haven't gone outside the possible bounds
-        if source_maps[n_map.0 as usize].is_in_bounds(coord) {
-            pattern.0[i..end].copy_from_slice(
-                &(source_maps[n_map.0 as usize])
-                    .get_pixel(coord.x as u32, coord.y as u32)
-                    .0[..4],
-            )
-        } else {
-            // if we have gone out of bounds, then just fill as outside color
-            pattern.0[i..end].copy_from_slice(&outside_color.0[..]);
-        }
-
-        i = end;
     }
 }
 
@@ -1071,13 +1098,75 @@ fn metric_l2(a: u8, b: u8) -> f32 {
     x * x
 }
 
+#[inline]
+fn get_color_of_neighbor(
+    outside_color: image::Rgba<u8>,
+    source_maps: &[ImageBuffer<'_>],
+    n_coord: SignedCoord2D,
+    n_map: MapId,
+    neighbor_color: &mut [u8],
+    is_wrap_mode: bool,
+    wrap_dim: (i32, i32),
+) {
+    let coord = if is_wrap_mode {
+        n_coord.wrap(wrap_dim)
+    } else {
+        n_coord
+    };
+
+    //check if he haven't gone outside the possible bounds
+    if source_maps[n_map.0 as usize].is_in_bounds(coord) {
+        neighbor_color.copy_from_slice(
+            &(source_maps[n_map.0 as usize])
+                .get_pixel(coord.x as u32, coord.y as u32)
+                .0[..4],
+        );
+    } else {
+        // if we have gone out of bounds, then just fill as outside color
+        neighbor_color.copy_from_slice(&outside_color.0[..]);
+    }
+}
+
+fn k_neighs_to_precomputed_reference_pattern(
+    k_neighs: &[(SignedCoord2D, MapId)],
+    outside_color: image::Rgba<u8>,
+    source_maps: &[ImageBuffer<'_>],
+    pattern: &mut ColorPattern,
+    is_wrap_mode: bool,
+) {
+    pattern.0.resize(k_neighs.len() * 4, 0);
+    let mut i = 0;
+
+    let wrap_dim = (
+        source_maps[0].dimensions().0 as i32,
+        source_maps[0].dimensions().1 as i32,
+    );
+
+    for (n_coord, n_map) in k_neighs {
+        let end = i + 4;
+
+        get_color_of_neighbor(
+            outside_color,
+            source_maps,
+            *n_coord,
+            *n_map,
+            &mut (pattern.0[i..end]),
+            is_wrap_mode,
+            wrap_dim,
+        );
+
+        i = end;
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn find_best_match<'a>(
+    outside_color: image::Rgba<u8>,
+    source_maps: &[ImageBuffer<'_>],
+    guides: &Option<GuidesStruct<'_>>,
     candidates: &'a [CandidateStruct],
-    my_pattern: &ColorPattern,
-    candidates_patterns: &[ColorPattern],
-    my_guide_pattern: &ColorPattern,
-    candidates_guide_patterns: &[ColorPattern],
+    my_precomputed_pattern: &ColorPattern,
+    my_precomputed_guide_pattern: &ColorPattern,
     k_distances: &[f64], //weight by distance
     my_cost: &PrerenderedU8Function,
     guide_cost: Option<&PrerenderedU8Function>,
@@ -1092,16 +1181,14 @@ fn find_best_match<'a>(
         .map(|d| d as f32)
         .collect();
 
-    for (i, (candidate_pattern, candidate_guide_pattern)) in candidates_patterns
-        .iter()
-        .zip(candidates_guide_patterns.iter())
-        .enumerate()
-    {
+    for (i, cand) in candidates.iter().enumerate() {
         if let Some(cost) = better_match(
-            &my_pattern,
-            candidate_pattern,
-            &my_guide_pattern,
-            candidate_guide_pattern,
+            &cand.k_neighs,
+            outside_color,
+            source_maps,
+            &guides,
+            &my_precomputed_pattern,
+            &my_precomputed_guide_pattern,
             distance_gaussians.as_slice(),
             my_cost,
             guide_cost,
@@ -1117,10 +1204,12 @@ fn find_best_match<'a>(
 
 #[allow(clippy::too_many_arguments)]
 fn better_match(
-    my_pattern: &ColorPattern,
-    candidate_pattern: &ColorPattern,
-    my_guide_pattern: &ColorPattern,
-    candidate_guide_pattern: &ColorPattern,
+    k_neighs: &[(SignedCoord2D, MapId)],
+    outside_color: image::Rgba<u8>,
+    source_maps: &[ImageBuffer<'_>],
+    guides: &Option<GuidesStruct<'_>>,
+    my_precomputed_pattern: &ColorPattern,
+    my_precomputed_guide_pattern: &ColorPattern,
     distance_gaussians: &[f32], //weight by distance
     my_cost: &PrerenderedU8Function,
     guide_cost: Option<&PrerenderedU8Function>,
@@ -1128,34 +1217,50 @@ fn better_match(
 ) -> Option<f32> {
     let mut score: f32 = 0.0; //minimize score
 
-    for ((my_value, candidate_value), dist_gaussian) in my_pattern
-        .0
-        .iter()
-        .copied()
-        .zip(candidate_pattern.0.iter().copied())
-        .zip(distance_gaussians.iter().copied())
-    {
-        score += dist_gaussian * my_cost.get(my_value, candidate_value);
+    let mut i = 0;
+    let mut next_pixel = [0; 4];
+    let mut next_pixel_score: f32;
+    for (n_coord, n_map) in k_neighs {
+        next_pixel_score = 0.0;
+        let end = i + 4;
 
+        //check if he haven't gone outside the possible bounds
+        get_color_of_neighbor(
+            outside_color,
+            source_maps,
+            *n_coord,
+            *n_map,
+            &mut next_pixel,
+            false,
+            (0, 0),
+        );
+
+        for (channel_n, &channel) in next_pixel.iter().enumerate() {
+            next_pixel_score += my_cost.get(my_precomputed_pattern.0[i + channel_n], channel);
+        }
+
+        if let Some(guide_cost) = guide_cost {
+            let example_guides = &(guides.as_ref().unwrap().example_guides);
+            get_color_of_neighbor(
+                outside_color,
+                example_guides,
+                *n_coord,
+                *n_map,
+                &mut next_pixel,
+                false,
+                (0, 0),
+            );
+
+            for (channel_n, &channel) in next_pixel.iter().enumerate() {
+                next_pixel_score +=
+                    guide_cost.get(my_precomputed_guide_pattern.0[i + channel_n], channel);
+            }
+        }
+        score += next_pixel_score * distance_gaussians[i];
         if score >= current_best {
             return None;
         }
-    }
-
-    if let Some(guide_cost_fn) = guide_cost {
-        for ((my_guide, candidate_guide), dist_gaussian) in my_guide_pattern
-            .0
-            .iter()
-            .copied()
-            .zip(candidate_guide_pattern.0.iter().copied())
-            .zip(distance_gaussians.iter().copied())
-        {
-            score += dist_gaussian * guide_cost_fn.get(my_guide, candidate_guide);
-
-            if score >= current_best {
-                return None;
-            }
-        }
+        i = end;
     }
 
     Some(score)
@@ -1181,6 +1286,125 @@ impl PrerenderedU8Function {
     #[inline]
     pub fn get(&self, a: u8, b: u8) -> f32 {
         self.data[a as usize * 256usize + b as usize]
+    }
+}
+
+struct STree {
+    size: u32,
+    chunk_size: u32,
+    rtrees: Vec<RwLock<RTree<[i32; 2]>>>
+    //rtree_size_underestimates: Vec<
+}
+
+impl STree {
+    pub fn new(space_size: u32, size: u32) -> STree {
+        let mut rtrees: Vec<RwLock<RTree<[i32; 2]>>> = Vec::new();
+        rtrees.resize_with((size * size) as usize, || {
+            RwLock::new(RTree::new())
+        });
+        let chunk_size = space_size / size + 1;
+        STree { rtrees, size, chunk_size }
+    }
+
+    #[inline]
+    fn get_space(&self, x: u32, y: u32) -> usize {
+        //println!("x: {} y: {}",x, y);
+        (x * self.size + y) as usize
+    }
+
+    pub fn force_insert(&self, x: i32, y: i32) {
+        //println!("x: {} y: {}, chunk_size {}",x, y, self.chunk_size);
+        let my_tree_index = self.get_space((x as u32) / self.chunk_size, (y as u32) / self.chunk_size);
+        self.rtrees[my_tree_index].write().unwrap().insert([x, y]);
+        //println!("inserted at sub tree with index {}", my_tree_index);
+    }
+
+    pub fn get_raw_tree(&self, x: i32, y: i32) -> &RwLock<RTree<[i32; 2]>> {
+        let my_tree_index = self.get_space((x as u32) / self.chunk_size, (y as u32) / self.chunk_size);
+        &self.rtrees[my_tree_index]
+    }
+
+    pub fn clone_into_new_stree(&self, other: &STree) {
+        for tree in &self.rtrees {
+            for coord in tree.read().unwrap().iter() {
+                other.force_insert((*coord)[0], (*coord)[1]);
+            }
+        }
+    }
+
+    pub fn get_k_nearest_neighbors(&self, x: u32, y: u32, k: usize, result: &mut Vec<SignedCoord2D>) {
+        // this could be more efficient
+        let chunk_x = (x / self.chunk_size) as i32;
+        let chunk_y = (y / self.chunk_size) as i32;
+        let mut places_to_look = vec![
+            (chunk_x, chunk_y, true),
+            (chunk_x + 1, chunk_y, false),
+            (chunk_x - 1, chunk_y, false),
+            (chunk_x, chunk_y - 1, false),
+            (chunk_x, chunk_y + 1, false),
+            (chunk_x + 1, chunk_y + 1, false),
+            (chunk_x - 1, chunk_y + 1, false),
+            (chunk_x + 1, chunk_y - 1, false),
+            (chunk_x - 1, chunk_y - 1, false),
+        ];
+        /*for i in 0..self.size {
+            for j in 0..self.size {
+                if i == chunk_x as u32 && j == chunk_y as u32 {
+                    continue;
+                }
+                places_to_look.push((i as i32, j as i32, false));
+            }
+        }*/
+        // Note (Peter) I think locking all of them at different times is fine as opposed to
+        // all at once but this should be noted
+        let mut tmp_result:Vec<(i32, i32, i32)> = Vec::with_capacity(k * 9);
+        result.clear();
+        result.reserve(k);
+        
+        // this isn't really the kth best distance but should be good enough for a simple time
+        let mut kth_best_distance = i32::max_value();
+        let sqrt2: f64 = 1.414214;
+        let mut num_skipped = 0;
+        for place_to_look in places_to_look.iter() {
+            if place_to_look.0 >= 0 && place_to_look.0 < self.size as i32 && place_to_look.1 >= 0 && place_to_look.1 < self.size as i32 {
+                let chunk_center_x = place_to_look.0 * self.chunk_size as i32 + (self.chunk_size / 2) as i32;
+                let chunk_center_y = place_to_look.0 * self.chunk_size as i32 + (self.chunk_size / 2) as i32;
+                let is_center = place_to_look.2;
+                
+                if !is_center {
+                    let distance_to_chunk_center = 
+                        (((x as i32 - chunk_center_x) * (x as i32 - chunk_center_x) +
+                        (y as i32 - chunk_center_y) * (y as i32 - chunk_center_y)) as f64).sqrt();
+                    let optimistically_close_point = (distance_to_chunk_center - (sqrt2 * self.chunk_size as f64 / 2.0)) as i32;
+                    if optimistically_close_point > kth_best_distance {
+                        num_skipped += 1;
+                        continue;
+                    }
+                }
+                
+                let my_tree_index = self.get_space(place_to_look.0 as u32, place_to_look.1 as u32);
+                let my_rtree = &self.rtrees[my_tree_index];
+                tmp_result.extend(my_rtree
+                .read()
+                .unwrap()
+                .nearest_neighbor_iter(&[x as i32, y as i32])
+                .take(k)
+                .map(|a| ((*a)[0], (*a)[1], ((*a)[0] - x as i32) * ((*a)[0] - x as i32) 
+                    + ((*a)[1] - y as i32) * ((*a)[1] - y as i32))));
+                
+                // this isn't really the kth best distance but should be good enough for a simple time
+                if tmp_result.len() >= k {
+                    let furthest_dist_for_chunk = tmp_result[tmp_result.len() - 1].2;
+                    if furthest_dist_for_chunk < kth_best_distance {
+                        kth_best_distance = furthest_dist_for_chunk;
+                    }
+                }
+            }
+        }
+        //println!("skipped {}", num_skipped);
+        //println!("tmp knn: {:?}", tmp_result);
+        tmp_result.sort_by_key(|k| k.2);
+        result.extend(tmp_result.iter().take(k).map(|a| SignedCoord2D::from(a.0, a.1)));
     }
 }
 

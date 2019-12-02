@@ -1383,7 +1383,7 @@ impl STree {
         for place_to_look in places_to_look.iter() {
             if place_to_look.0 >= 0 && place_to_look.0 < self.size as i32 && place_to_look.1 >= 0 && place_to_look.1 < self.size as i32 {
                 let chunk_center_x = place_to_look.0 * self.chunk_size as i32 + (self.chunk_size / 2) as i32;
-                let chunk_center_y = place_to_look.0 * self.chunk_size as i32 + (self.chunk_size / 2) as i32;
+                let chunk_center_y = place_to_look.1 * self.chunk_size as i32 + (self.chunk_size / 2) as i32;
                 let is_center = place_to_look.2;
                 
                 if !is_center {

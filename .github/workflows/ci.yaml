@@ -215,7 +215,7 @@ jobs:
 
           # Archive in .zip for Windows, .tar.gz for other platforms
           if [ "${{ matrix.os }}" == "windows-latest" ]; then
-            7za a "$release_archive" "$release_name"
+            7z a "$release_archive" "$release_name"
           else
             tar czvf "$release_archive" "$release_name"
           fi

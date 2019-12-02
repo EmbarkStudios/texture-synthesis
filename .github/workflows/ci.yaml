@@ -197,7 +197,13 @@ jobs:
           name=texture-synthesis
           tag=$(git describe --tags --abbrev=0)
           release_name="$name-$tag-${{ matrix.target }}"
-          release_tar="${release_name}.tar.gz"
+
+          # Archive in .zip for Windows, .tar.gz for other platforms
+          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+            release_archive="${release_name}.zip"
+          else
+            release_archive="${release_name}.tar.gz"
+          fi
           mkdir "$release_name"
 
           if [ "${{ matrix.target }}" != "x86_64-pc-windows-msvc" ]; then
@@ -206,16 +212,22 @@ jobs:
 
           cp "target/${{ matrix.target }}/release/${{ matrix.bin }}" "$release_name/"
           cp README.md LICENSE-APACHE LICENSE-MIT "$release_name/"
-          tar czvf "$release_tar" "$release_name"
+
+          # Archive in .zip for Windows, .tar.gz for other platforms
+          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+            zip -r "$release_archive" "$release_name"
+          else
+            tar czvf "$release_archive" "$release_name"
+          fi
 
           rm -r "$release_name"
 
           # Windows environments in github actions don't have the gnu coreutils installed,
           # which includes the shasum exe, so we just use powershell instead
           if [ "${{ matrix.os }}" == "windows-latest" ]; then
-            echo "(Get-FileHash \"${release_tar}\" -Algorithm SHA256).Hash | Out-File -Encoding ASCII -NoNewline \"${release_tar}.sha256\"" | pwsh -c -
+            echo "(Get-FileHash \"${release_archive}\" -Algorithm SHA256).Hash | Out-File -Encoding ASCII -NoNewline \"${release_archive}.sha256\"" | pwsh -c -
           else
-            echo -n "$(shasum -ba 256 "${release_tar}" | cut -d " " -f 1)" > "${release_tar}.sha256"
+            echo -n "$(shasum -ba 256 "${release_archive}" | cut -d " " -f 1)" > "${release_archive}.sha256"
           fi
       - name: Publish
         uses: softprops/action-gh-release@v1

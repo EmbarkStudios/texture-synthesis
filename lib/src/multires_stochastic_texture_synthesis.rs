@@ -1264,15 +1264,15 @@ impl STree {
         // Assume that all k nearest neighbors are in these cells
         // it looks like we are rarely wrong once enough pixels are filled in
         let mut places_to_look = vec![
-            (chunk_x, chunk_y, true),
-            (chunk_x + 1, chunk_y, false),
-            (chunk_x - 1, chunk_y, false),
-            (chunk_x, chunk_y - 1, false),
-            (chunk_x, chunk_y + 1, false),
-            (chunk_x + 1, chunk_y + 1, false),
-            (chunk_x - 1, chunk_y + 1, false),
-            (chunk_x + 1, chunk_y - 1, false),
-            (chunk_x - 1, chunk_y - 1, false),
+            (chunk_x, chunk_y, true, 0, 0),
+            (chunk_x + 1, chunk_y, false, (chunk_x + 1) * self.chunk_size as i32, y as i32),
+            (chunk_x - 1, chunk_y, false, chunk_x * self.chunk_size as i32, y as i32),
+            (chunk_x, chunk_y - 1, false, x as i32, chunk_y * self.chunk_size as i32),
+            (chunk_x, chunk_y + 1, false, x as i32, (chunk_y + 1) * self.chunk_size as i32),
+            (chunk_x + 1, chunk_y + 1, false, (chunk_x + 1) * self.chunk_size as i32, (chunk_y + 1) * self.chunk_size as i32),
+            (chunk_x - 1, chunk_y + 1, false, chunk_x * self.chunk_size as i32, (chunk_y + 1) * self.chunk_size as i32),
+            (chunk_x + 1, chunk_y - 1, false, (chunk_x + 1) * self.chunk_size as i32, chunk_y * self.chunk_size as i32),
+            (chunk_x - 1, chunk_y - 1, false, chunk_x * self.chunk_size as i32, chunk_y * self.chunk_size as i32),
         ];
         // Note (Peter) I think locking all of them at different times is fine as opposed to
         // all at once but this should be noted
@@ -1282,22 +1282,18 @@ impl STree {
         
         // this isn't really the kth best distance but should be good enough for a simple time
         let mut kth_best_distance = i32::max_value();
-        let sqrt2: f64 = 1.414214;
         //let mut num_skipped = 0;
         for place_to_look in places_to_look.iter() {
             if place_to_look.0 >= 0 && place_to_look.0 < self.size as i32 && place_to_look.1 >= 0 && place_to_look.1 < self.size as i32 {
-                let chunk_center_x = place_to_look.0 * self.chunk_size as i32 + (self.chunk_size / 2) as i32;
-                let chunk_center_y = place_to_look.1 * self.chunk_size as i32 + (self.chunk_size / 2) as i32;
                 let is_center = place_to_look.2;
                 
                 // a tiny optimization to help us throw far away neighbors
-                // however could be improved
+                // saves us a decent amount of reads
                 if !is_center {
-                    let distance_to_chunk_center = 
-                        (((x as i32 - chunk_center_x) * (x as i32 - chunk_center_x) +
-                        (y as i32 - chunk_center_y) * (y as i32 - chunk_center_y)) as f64).sqrt();
-                    let optimistically_close_point = (distance_to_chunk_center - (sqrt2 * self.chunk_size as f64 / 2.0)) as i32;
-                    if optimistically_close_point > kth_best_distance {
+                    let squared_distance_to_closest_possible_point_on_chunk = (x as i32 - place_to_look.3) * (x as i32 - place_to_look.3) + 
+                        (y as i32 - place_to_look.4) * (y as i32 - place_to_look.4);
+                        
+                    if squared_distance_to_closest_possible_point_on_chunk > kth_best_distance {
                         //num_skipped += 1;
                         continue;
                     }

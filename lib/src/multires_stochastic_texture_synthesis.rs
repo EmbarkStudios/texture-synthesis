@@ -1263,7 +1263,8 @@ impl STree {
         let chunk_y = (y / self.chunk_size) as i32;
         // Assume that all k nearest neighbors are in these cells
         // it looks like we are rarely wrong once enough pixels are filled in
-        let mut places_to_look = vec![
+        // the stucture of this tuple is (chunk_x, chunk_y, is_center_chunk, closest_x_point, closest_y_point)
+        let places_to_look = vec![
             (chunk_x, chunk_y, true, 0, 0),
             (chunk_x + 1, chunk_y, false, (chunk_x + 1) * self.chunk_size as i32, y as i32),
             (chunk_x - 1, chunk_y, false, chunk_x * self.chunk_size as i32, y as i32),
@@ -1281,7 +1282,7 @@ impl STree {
         result.reserve(k);
         
         // this isn't really the kth best distance but should be good enough for a simple time
-        let mut kth_best_distance = i32::max_value();
+        let mut kth_best_squared_distance = i32::max_value();
         //let mut num_skipped = 0;
         for place_to_look in places_to_look.iter() {
             if place_to_look.0 >= 0 && place_to_look.0 < self.size as i32 && place_to_look.1 >= 0 && place_to_look.1 < self.size as i32 {
@@ -1293,7 +1294,7 @@ impl STree {
                     let squared_distance_to_closest_possible_point_on_chunk = (x as i32 - place_to_look.3) * (x as i32 - place_to_look.3) + 
                         (y as i32 - place_to_look.4) * (y as i32 - place_to_look.4);
                         
-                    if squared_distance_to_closest_possible_point_on_chunk > kth_best_distance {
+                    if squared_distance_to_closest_possible_point_on_chunk > kth_best_squared_distance {
                         //num_skipped += 1;
                         continue;
                     }
@@ -1313,8 +1314,8 @@ impl STree {
                 // making this better could definitely make this whole step faster
                 if tmp_result.len() >= k {
                     let furthest_dist_for_chunk = tmp_result[tmp_result.len() - 1].2;
-                    if furthest_dist_for_chunk < kth_best_distance {
-                        kth_best_distance = furthest_dist_for_chunk;
+                    if furthest_dist_for_chunk < kth_best_squared_distance {
+                        kth_best_squared_distance = furthest_dist_for_chunk;
                     }
                 }
             }

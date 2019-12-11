@@ -3,10 +3,6 @@ use rand_pcg::Pcg32;
 use rstar::RTree;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, RwLock};
-use std::thread::ThreadId;
-
-use std::thread::sleep;
-use std::time::Instant;
 
 use crate::{img_pyramid::*, unsync::*, CoordinateTransform, Dims, SamplingMethod};
 
@@ -201,8 +197,8 @@ pub struct Generator {
     pub(crate) output_size: Dims,           // size of the generated image
     unresolved: Mutex<Vec<CoordFlat>>,      //for us to pick from
     resolved: RwLock<Vec<(CoordFlat, Score)>>, //a list of resolved coordinates in our canvas and their scores
-    stree: STree,   // grid of R*Trees
-    locked_resolved: usize, //used for inpainting, to not backtrack these pixels
+    tree_grid: TreeGrid,                              // grid of R*Trees
+    locked_resolved: usize,                    //used for inpainting, to not backtrack these pixels
 }
 
 impl Generator {
@@ -217,7 +213,7 @@ impl Generator {
             unresolved: Mutex::new(unresolved),
             resolved: RwLock::new(Vec::new()),
             // TODO (Peter) support rectangular images
-            stree: STree::new(size.width, 1),
+            tree_grid: TreeGrid::new(size.width, 1),
             locked_resolved: 0,
         }
     }
@@ -278,7 +274,7 @@ impl Generator {
             output_size: size,
             unresolved: Mutex::new(unresolved),
             resolved: RwLock::new(resolved),
-            stree: STree::new(10, 10),
+            tree_grid: TreeGrid::new(10, 10),
             locked_resolved,
         }
     }
@@ -287,18 +283,16 @@ impl Generator {
     fn flush_resolved(
         &self,
         my_resolved_list: &mut Vec<(CoordFlat, Score)>,
-        stree: &STree,
+        tree_grid: &TreeGrid,
         update_queue: &[([i32; 2], CoordFlat, Score)],
         is_tiling_mode: bool,
-    ) -> u128 {
-        let resolved_queue_now = Instant::now();
-        let resolved_queue_time = resolved_queue_now.elapsed().as_micros();
+    ) {
 
         for (a, b, score) in update_queue.iter() {
-            stree.force_insert(a[0], a[1]);
+            tree_grid.force_insert(a[0], a[1]);
 
             // TODO Peter renable this
-            /*if is_tiling_mode {
+            if is_tiling_mode {
                 //if close to border add additional mirrors
                 let x_l = ((self.output_size.width as f32) * 0.05) as i32;
                 let x_r = self.output_size.width as i32 - x_l;
@@ -306,39 +300,24 @@ impl Generator {
                 let y_t = self.output_size.height as i32 - y_b;
 
                 if a[0] < x_l {
-                    rtree.insert([a[0] + (self.output_size.width as i32), a[1]]);
+                    tree_grid.force_insert(a[0] + (self.output_size.width as i32), a[1]);
                 // +x
                 } else if a[0] > x_r {
-                    rtree.insert([a[0] - (self.output_size.width as i32), a[1]]);
+                    tree_grid.force_insert(a[0] - (self.output_size.width as i32), a[1]);
                     // -x
                 }
 
                 if a[1] < y_b {
-                    rtree.insert([a[0], a[1] + (self.output_size.height as i32)]);
+                    tree_grid.force_insert(a[0], a[1] + (self.output_size.height as i32));
                 // +Y
                 } else if a[1] > y_t {
-                    rtree.insert([a[0], a[1] - (self.output_size.height as i32)]);
+                    tree_grid.force_insert(a[0], a[1] - (self.output_size.height as i32));
                     // -Y
                 }
-            }*/
+            }
             my_resolved_list.push((*b, *score));
         }
-        resolved_queue_time
     }
-
-    /*fn force_flush_resolved(&self, my_resolved_list: &mut Vec<(CoordFlat, Score)>, is_tiling_mode: bool) {
-        self.flush_resolved(
-            my_resolved_list,
-            &self.stree,
-            &self
-                .update_queue
-                .lock()
-                .unwrap()
-                .drain(..)
-                .collect::<Vec<_>>(),
-            is_tiling_mode,
-        );
-    }*/
 
     #[allow(clippy::too_many_arguments)]
     fn update(
@@ -351,11 +330,7 @@ impl Generator {
         score: Score,
         island_id: (PatchId, MapId),
         is_tiling_mode: bool,
-    ) -> (u128, u128, u128) {
-        // Debug
-        let mut update_queue_wait = 0;
-        let mut resolved_queue_wait = 0;
-        let mut rtree_wait = 0;
+    ) {
 
         let flat_coord = update_coord.to_flat(self.output_size);
 
@@ -378,13 +353,9 @@ impl Generator {
         );
 
         if update_resolved_list {
-            let rtree_now = Instant::now();
-            let stree_arg = &self.stree;
-            rtree_wait = rtree_now.elapsed().as_micros();
-
-            resolved_queue_wait = self.flush_resolved(
+            self.flush_resolved(
                 my_resolved_list,
-                stree_arg,
+                &self.tree_grid,
                 &[(
                     [update_coord.x as i32, update_coord.y as i32],
                     flat_coord,
@@ -393,7 +364,6 @@ impl Generator {
                 is_tiling_mode,
             );
         }
-        (resolved_queue_wait, update_queue_wait, rtree_wait)
     }
 
     //returns flat coord
@@ -414,10 +384,10 @@ impl Generator {
         k: u32,
         k_neighs_2d: &mut Vec<SignedCoord2D>,
     ) -> bool {
-
-        self.stree.get_k_nearest_neighbors(coord.x, coord.y, k as usize, k_neighs_2d);
+        self.tree_grid
+            .get_k_nearest_neighbors(coord.x, coord.y, k as usize, k_neighs_2d);
         if k_neighs_2d.is_empty() {
-            return false
+            return false;
         }
         true
     }
@@ -454,7 +424,6 @@ impl Generator {
             if let Some(ref unresolved_flat) = self.pick_random_unresolved(seed + i as u64) {
                 //no resolved neighs? resolve at random!
                 self.resolve_at_random(
-                    // TODO (Peter) come back and make sure this is right
                     &mut self.resolved.write().unwrap(),
                     unresolved_flat.to_2d(self.output_size),
                     example_maps,
@@ -465,7 +434,13 @@ impl Generator {
         self.locked_resolved += steps; //lock these pixels from being re-resolved
     }
 
-    fn resolve_at_random(&self, my_resolved_list: &mut Vec<(CoordFlat, Score)>, my_coord: Coord2D, example_maps: &[ImageBuffer<'_>], seed: u64) {
+    fn resolve_at_random(
+        &self,
+        my_resolved_list: &mut Vec<(CoordFlat, Score)>,
+        my_coord: Coord2D,
+        example_maps: &[ImageBuffer<'_>],
+        seed: u64,
+    ) {
         let rand_map: u32 = Pcg32::seed_from_u64(seed).gen_range(0, example_maps.len()) as u32;
         let rand_x: u32 =
             Pcg32::seed_from_u64(seed).gen_range(0, example_maps[rand_map as usize].width as u32);
@@ -757,10 +732,10 @@ impl Generator {
 
             // Start with serial execution for the first few pixels, then go wide
             let n_workers = if redo_count < 1000 { 1 } else { max_workers };
-            if self.stree.size == 1 && n_workers > 1 {
-                let new_stree = STree::new(self.output_size.width, 12);
-                self.stree.clone_into_new_stree(&new_stree);
-                self.stree = new_stree;
+            if self.tree_grid.size == 1 && n_workers > 1 {
+                let new_tree_grid = TreeGrid::new(self.output_size.width, 12);
+                self.tree_grid.clone_into_new_tree_grid(&new_tree_grid);
+                self.tree_grid = new_tree_grid;
             }
 
             //calculate the guidance alpha
@@ -783,16 +758,13 @@ impl Generator {
             let processed_pixel_count = AtomicUsize::new(0);
             let remaining_threads = AtomicUsize::new(n_workers);
 
-            let mut pixels_resolved_this_stage:Vec<Mutex<Vec<(CoordFlat, Score)>>> = Vec::new();
-            pixels_resolved_this_stage.resize_with(n_workers, || {
-                Mutex::new(Vec::new())
-            });
+            let mut pixels_resolved_this_stage: Vec<Mutex<Vec<(CoordFlat, Score)>>> = Vec::new();
+            pixels_resolved_this_stage.resize_with(n_workers, || Mutex::new(Vec::new()));
             let thread_counter = AtomicUsize::new(0);
 
             crossbeam_utils::thread::scope(|scope| {
                 for _ in 0..n_workers {
                     scope.spawn(|_| {
-                        let mut my_count = 0;
                         let mut candidates: Vec<CandidateStruct> = Vec::new();
                         let mut my_pattern: ColorPattern = ColorPattern::new();
                         let mut k_neighs: Vec<SignedCoord2D> =
@@ -801,7 +773,6 @@ impl Generator {
                         let max_candidate_count = params.nearest_neighbors as usize
                             + params.random_sample_locations as usize;
 
-                        let my_id = std::thread::current().id();
                         let my_thread_num = thread_counter.fetch_add(1, Ordering::Relaxed);
                         let mut my_resolved_list = pixels_resolved_this_stage[my_thread_num].lock().unwrap();
 
@@ -812,19 +783,7 @@ impl Generator {
 
                         let out_color_map = &[ImageBuffer::from(self.color_map.as_ref())];
 
-                        let mut avg_loop_time = 0;
-                        let mut avg_update_time = 0;
-                        let mut avg_find_time = 0;
-                        let mut its = 0;
-
-                        let mut update_its = 0;
-                        let mut avg_resolved_queue_wait = 0;
-                        let mut avg_update_queue_wait = 0;
-                        let mut avg_rtree_wait = 0;
-
                         loop {
-                            let now = Instant::now();
-
                             // Get the next work item
                             let i = processed_pixel_count.fetch_add(1, Ordering::Relaxed);
 
@@ -859,13 +818,11 @@ impl Generator {
                             k_neighs.clear();
 
                             // 2. find K nearest resolved neighs
-                            let find_now = Instant::now();
                             if self.find_k_nearest_resolved_neighs(
                                 unresolved_2d,
                                 params.nearest_neighbors,
                                 &mut k_neighs,
                             ) {
-                                avg_find_time += find_now.elapsed().as_micros();
                                 //2.1 get distances to the pattern of neighbors
                                 let k_neighs_dist =
                                     self.get_distances_to_k_neighs(unresolved_2d, &k_neighs);
@@ -927,11 +884,7 @@ impl Generator {
                                 let best_match_map_id = best_match.coord.1;
 
                                 // 5. resolve our pixel
-
-                                // Debug
-                                my_count += 1;
-                                let update_now = Instant::now();
-                                let (resolved_time, update_time, rtree_time) = self.update(
+                                self.update(
                                     &mut my_resolved_list,
                                     unresolved_2d,
                                     (best_match_coord, best_match_map_id),
@@ -941,27 +894,12 @@ impl Generator {
                                     best_match.id,
                                     is_tiling_mode,
                                 );
-                                avg_resolved_queue_wait += resolved_time;
-                                avg_update_queue_wait += update_time;
-                                avg_rtree_wait += rtree_time;
-                                update_its += 1;
-                                avg_update_time += update_now.elapsed().as_micros();
                             } else {
                                 //no resolved neighs? resolve at random!
-                                avg_find_time += find_now.elapsed().as_micros();
-                                my_count += 1;
-                                let update_now = Instant::now();
                                 self.resolve_at_random(&mut my_resolved_list, unresolved_2d, &example_maps, p_stage_seed);
-                                avg_update_time += update_now.elapsed().as_micros();
                             }
-                            its += 1;
-                            avg_loop_time += now.elapsed().as_micros();
                         }
                         remaining_threads.fetch_sub(1, Ordering::Relaxed);
-
-                        println!("my count {} for thread with id {:?} avg loop time {} avg update time {} avg find time {} avg resolved queue {} avg update queue {} avg rtree {} \n \n",
-                         my_count, my_id, avg_loop_time / its, avg_update_time / its, avg_find_time / its,
-                        avg_resolved_queue_wait / update_its, avg_update_queue_wait / update_its, avg_rtree_wait / update_its);
                     });
                 }
 
@@ -1217,22 +1155,24 @@ impl PrerenderedU8Function {
     }
 }
 
-struct STree {
+struct TreeGrid {
     size: u32,
     chunk_size: u32,
-    rtrees: Vec<RwLock<RTree<[i32; 2]>>>
+    rtrees: Vec<RwLock<RTree<[i32; 2]>>>,
 }
 
 // This is a grid of rtrees
 // The idea is that most pixels after the first couple steps will have their neighbors close by
-impl STree {
-    pub fn new(space_size: u32, size: u32) -> STree {
+impl TreeGrid {
+    pub fn new(space_size: u32, size: u32) -> TreeGrid {
         let mut rtrees: Vec<RwLock<RTree<[i32; 2]>>> = Vec::new();
-        rtrees.resize_with((size * size) as usize, || {
-            RwLock::new(RTree::new())
-        });
+        rtrees.resize_with((size * size) as usize, || RwLock::new(RTree::new()));
         let chunk_size = space_size / size + 1;
-        STree { rtrees, size, chunk_size }
+        TreeGrid {
+            rtrees,
+            size,
+            chunk_size,
+        }
     }
 
     #[inline]
@@ -1241,11 +1181,12 @@ impl STree {
     }
 
     pub fn force_insert(&self, x: i32, y: i32) {
-        let my_tree_index = self.get_space((x as u32) / self.chunk_size, (y as u32) / self.chunk_size);
+        let my_tree_index =
+            self.get_space((x as u32) / self.chunk_size, (y as u32) / self.chunk_size);
         self.rtrees[my_tree_index].write().unwrap().insert([x, y]);
     }
 
-    pub fn clone_into_new_stree(&self, other: &STree) {
+    pub fn clone_into_new_tree_grid(&self, other: &TreeGrid) {
         for tree in &self.rtrees {
             for coord in tree.read().unwrap().iter() {
                 other.force_insert((*coord)[0], (*coord)[1]);
@@ -1253,9 +1194,15 @@ impl STree {
         }
     }
 
-    pub fn get_k_nearest_neighbors(&self, x: u32, y: u32, k: usize, result: &mut Vec<SignedCoord2D>) {
+    pub fn get_k_nearest_neighbors(
+        &self,
+        x: u32,
+        y: u32,
+        k: usize,
+        result: &mut Vec<SignedCoord2D>,
+    ) {
         // This function could be made faster
-        // Some quick ideas 
+        // Some quick ideas
         // - better function to rule out neighbors (see below)
         // - fast merge of k sorted lists
 
@@ -1266,50 +1213,113 @@ impl STree {
         // the stucture of this tuple is (chunk_x, chunk_y, is_center_chunk, closest_x_point, closest_y_point)
         let places_to_look = vec![
             (chunk_x, chunk_y, true, 0, 0),
-            (chunk_x + 1, chunk_y, false, (chunk_x + 1) * self.chunk_size as i32, y as i32),
-            (chunk_x - 1, chunk_y, false, chunk_x * self.chunk_size as i32, y as i32),
-            (chunk_x, chunk_y - 1, false, x as i32, chunk_y * self.chunk_size as i32),
-            (chunk_x, chunk_y + 1, false, x as i32, (chunk_y + 1) * self.chunk_size as i32),
-            (chunk_x + 1, chunk_y + 1, false, (chunk_x + 1) * self.chunk_size as i32, (chunk_y + 1) * self.chunk_size as i32),
-            (chunk_x - 1, chunk_y + 1, false, chunk_x * self.chunk_size as i32, (chunk_y + 1) * self.chunk_size as i32),
-            (chunk_x + 1, chunk_y - 1, false, (chunk_x + 1) * self.chunk_size as i32, chunk_y * self.chunk_size as i32),
-            (chunk_x - 1, chunk_y - 1, false, chunk_x * self.chunk_size as i32, chunk_y * self.chunk_size as i32),
+            (
+                chunk_x + 1,
+                chunk_y,
+                false,
+                (chunk_x + 1) * self.chunk_size as i32,
+                y as i32,
+            ),
+            (
+                chunk_x - 1,
+                chunk_y,
+                false,
+                chunk_x * self.chunk_size as i32,
+                y as i32,
+            ),
+            (
+                chunk_x,
+                chunk_y - 1,
+                false,
+                x as i32,
+                chunk_y * self.chunk_size as i32,
+            ),
+            (
+                chunk_x,
+                chunk_y + 1,
+                false,
+                x as i32,
+                (chunk_y + 1) * self.chunk_size as i32,
+            ),
+            (
+                chunk_x + 1,
+                chunk_y + 1,
+                false,
+                (chunk_x + 1) * self.chunk_size as i32,
+                (chunk_y + 1) * self.chunk_size as i32,
+            ),
+            (
+                chunk_x - 1,
+                chunk_y + 1,
+                false,
+                chunk_x * self.chunk_size as i32,
+                (chunk_y + 1) * self.chunk_size as i32,
+            ),
+            (
+                chunk_x + 1,
+                chunk_y - 1,
+                false,
+                (chunk_x + 1) * self.chunk_size as i32,
+                chunk_y * self.chunk_size as i32,
+            ),
+            (
+                chunk_x - 1,
+                chunk_y - 1,
+                false,
+                chunk_x * self.chunk_size as i32,
+                chunk_y * self.chunk_size as i32,
+            ),
         ];
         // Note (Peter) I think locking all of them at different times is fine as opposed to
         // all at once but this should be noted
-        let mut tmp_result:Vec<(i32, i32, i32)> = Vec::with_capacity(k * 9);
+        let mut tmp_result: Vec<(i32, i32, i32)> = Vec::with_capacity(k * 9);
         result.clear();
         result.reserve(k);
-        
+
         // this isn't really the kth best distance but should be good enough for a simple time
         let mut kth_best_squared_distance = i32::max_value();
         //let mut num_skipped = 0;
         for place_to_look in places_to_look.iter() {
-            if place_to_look.0 >= 0 && place_to_look.0 < self.size as i32 && place_to_look.1 >= 0 && place_to_look.1 < self.size as i32 {
+            if place_to_look.0 >= 0
+                && place_to_look.0 < self.size as i32
+                && place_to_look.1 >= 0
+                && place_to_look.1 < self.size as i32
+            {
                 let is_center = place_to_look.2;
-                
+
                 // a tiny optimization to help us throw far away neighbors
                 // saves us a decent amount of reads
                 if !is_center {
-                    let squared_distance_to_closest_possible_point_on_chunk = (x as i32 - place_to_look.3) * (x as i32 - place_to_look.3) + 
-                        (y as i32 - place_to_look.4) * (y as i32 - place_to_look.4);
-                        
-                    if squared_distance_to_closest_possible_point_on_chunk > kth_best_squared_distance {
+                    let squared_distance_to_closest_possible_point_on_chunk =
+                        (x as i32 - place_to_look.3) * (x as i32 - place_to_look.3)
+                            + (y as i32 - place_to_look.4) * (y as i32 - place_to_look.4);
+
+                    if squared_distance_to_closest_possible_point_on_chunk
+                        > kth_best_squared_distance
+                    {
                         //num_skipped += 1;
                         continue;
                     }
                 }
-                
+
                 let my_tree_index = self.get_space(place_to_look.0 as u32, place_to_look.1 as u32);
                 let my_rtree = &self.rtrees[my_tree_index];
-                tmp_result.extend(my_rtree
-                .read()
-                .unwrap()
-                .nearest_neighbor_iter(&[x as i32, y as i32])
-                .take(k)
-                .map(|a| ((*a)[0], (*a)[1], ((*a)[0] - x as i32) * ((*a)[0] - x as i32) 
-                    + ((*a)[1] - y as i32) * ((*a)[1] - y as i32))));
-                
+                tmp_result.extend(
+                    my_rtree
+                        .read()
+                        .unwrap()
+                        .nearest_neighbor_iter(&[x as i32, y as i32])
+                        .take(k)
+                        .map(|a| {
+                            (
+                                (*a)[0],
+                                (*a)[1],
+                                ((*a)[0] - x as i32) * ((*a)[0] - x as i32)
+                                    + ((*a)[1] - y as i32) * ((*a)[1] - y as i32),
+                            )
+                        }),
+                );
+
                 // this isn't really the kth best distance but it's an okay approximation
                 // making this better could definitely make this whole step faster
                 if tmp_result.len() >= k {
@@ -1320,10 +1330,13 @@ impl STree {
                 }
             }
         }
-        //println!("skipped {}", num_skipped);
-        //println!("tmp knn: {:?}", tmp_result);
         tmp_result.sort_by_key(|k| k.2);
-        result.extend(tmp_result.iter().take(k).map(|a| SignedCoord2D::from(a.0, a.1)));
+        result.extend(
+            tmp_result
+                .iter()
+                .take(k)
+                .map(|a| SignedCoord2D::from(a.0, a.1)),
+        );
     }
 }
 

@@ -63,7 +63,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
-      - uses: EmbarkStudios/cargo-deny-action@master # we use latest master as this is our own tool that we maintain
+      - uses: EmbarkStudios/cargo-deny-action@v0
 
   publish-check:
     name: Publish Check

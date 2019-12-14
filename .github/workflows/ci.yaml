@@ -58,7 +58,7 @@ jobs:
           command: test
           args: --release
 
-  cargo-deny:
+  deny-check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1

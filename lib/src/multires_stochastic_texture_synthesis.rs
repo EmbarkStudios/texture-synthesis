@@ -212,8 +212,7 @@ impl Generator {
             output_size: size,
             unresolved: Mutex::new(unresolved),
             resolved: RwLock::new(Vec::new()),
-            // TODO (Peter) support rectangular images
-            tree_grid: TreeGrid::new(size.width, 1),
+            tree_grid: TreeGrid::new(size.width, 1, 0),
             locked_resolved: 0,
         }
     }
@@ -251,7 +250,7 @@ impl Generator {
         let mut unresolved: Vec<CoordFlat> = Vec::new();
         let mut resolved: Vec<(CoordFlat, Score)> = Vec::new();
         let mut coord_map = vec![(Coord2D::from(0, 0), MapId(0)); s];
-        let tree_grid = TreeGrid::new(size.width, 1);
+        let tree_grid = TreeGrid::new(size.width, 1, 0);
         //populate resolved, unresolved and coord map
         for (i, pixel) in inpaint_map.clone().pixels().enumerate() {
             if pixel[0] < 255 {
@@ -260,7 +259,6 @@ impl Generator {
                 resolved.push((CoordFlat(i as u32), Score(0.0)));
                 let coord = CoordFlat(i as u32).to_2d(size);
                 coord_map[i] = (coord, MapId(color_map_index as u32)); //this absolutely requires the input image and output image to be the same size!!!!
-                tree_grid.force_insert(coord.x as i32, coord.y as i32);
             }
         }
 
@@ -706,6 +704,30 @@ impl Generator {
         let mut total_processed_pixels = 0;
         let max_workers = params.max_thread_count;
 
+        {
+            // now that we have all of the parameters we can setup our initial tree grid
+            self.tree_grid = TreeGrid::new(
+                (self.output_size.width as f32 * 1.1) as u32 + 1,
+                1,
+                (self.output_size.width as f32 * 0.05) as u32 + 1,
+            );
+            // if we already have resolved pixels from an inpaint or multiexample add them to this tree grid
+            let resolved_queue = &mut self.resolved.write().unwrap();
+            let pixels_to_update: Vec<([i32; 2], CoordFlat, Score)> = resolved_queue
+                .drain(..)
+                .map(|a| {
+                    let coord_2d = a.0.to_2d(self.output_size);
+                    ([coord_2d.x as i32, coord_2d.y as i32], a.0, a.1)
+                })
+                .collect();
+            self.flush_resolved(
+                resolved_queue,
+                &self.tree_grid,
+                &pixels_to_update[..],
+                is_tiling_mode,
+            );
+        }
+
         for p_stage in (0..=params.p_stages).rev() {
             //get maps from current pyramid level (for now it will be p-stage dependant)
             let example_maps =
@@ -730,7 +752,11 @@ impl Generator {
             // Start with serial execution for the first few pixels, then go wide
             let n_workers = if redo_count < 1000 { 1 } else { max_workers };
             if self.tree_grid.size == 1 && n_workers > 1 {
-                let new_tree_grid = TreeGrid::new(self.output_size.width, 12);
+                let new_tree_grid = TreeGrid::new(
+                    (self.output_size.width as f32 * 1.1) as u32 + 1,
+                    12,
+                    (self.output_size.width as f32 * 0.05) as u32 + 1,
+                );
                 self.tree_grid.clone_into_new_tree_grid(&new_tree_grid);
                 self.tree_grid = new_tree_grid;
             }
@@ -1160,6 +1186,7 @@ impl PrerenderedU8Function {
 
 struct TreeGrid {
     size: u32,
+    offset: i32,
     chunk_size: u32,
     rtrees: Vec<RwLock<RTree<[i32; 2]>>>,
 }
@@ -1167,13 +1194,14 @@ struct TreeGrid {
 // This is a grid of rtrees
 // The idea is that most pixels after the first couple steps will have their neighbors close by
 impl TreeGrid {
-    pub fn new(space_size: u32, size: u32) -> TreeGrid {
+    pub fn new(space_size: u32, size: u32, offset: u32) -> TreeGrid {
         let mut rtrees: Vec<RwLock<RTree<[i32; 2]>>> = Vec::new();
         rtrees.resize_with((size * size) as usize, || RwLock::new(RTree::new()));
         let chunk_size = space_size / size + 1;
         TreeGrid {
             rtrees,
             size,
+            offset: (offset as i32),
             chunk_size,
         }
     }
@@ -1184,8 +1212,10 @@ impl TreeGrid {
     }
 
     pub fn force_insert(&self, x: i32, y: i32) {
-        let my_tree_index =
-            self.get_space((x as u32) / self.chunk_size, (y as u32) / self.chunk_size);
+        let my_tree_index = self.get_space(
+            ((x + self.offset) as u32) / self.chunk_size,
+            ((y + self.offset) as u32) / self.chunk_size,
+        );
         self.rtrees[my_tree_index].write().unwrap().insert([x, y]);
     }
 
@@ -1209,8 +1239,11 @@ impl TreeGrid {
         // - better function to rule out neighbors (see below)
         // - fast merge of k sorted lists
 
-        let chunk_x = (x / self.chunk_size) as i32;
-        let chunk_y = (y / self.chunk_size) as i32;
+        let offset_x = x as i32 + self.offset;
+        let offset_y = y as i32 + self.offset;
+
+        let chunk_x = offset_x / self.chunk_size as i32;
+        let chunk_y = offset_y / self.chunk_size as i32;
 
         struct ChunkSearchInfo {
             x: i32,
@@ -1234,14 +1267,14 @@ impl TreeGrid {
                 x: chunk_x + 1,
                 y: chunk_y,
                 center: false,
-                closest_point_on_boundary_x: (chunk_x + 1) * self.chunk_size as i32,
+                closest_point_on_boundary_x: (chunk_x + 1) * self.chunk_size as i32 - self.offset,
                 closest_point_on_boundary_y: y as i32,
             },
             ChunkSearchInfo {
                 x: chunk_x - 1,
                 y: chunk_y,
                 center: false,
-                closest_point_on_boundary_x: chunk_x * self.chunk_size as i32,
+                closest_point_on_boundary_x: chunk_x * self.chunk_size as i32 - self.offset,
                 closest_point_on_boundary_y: y as i32,
             },
             ChunkSearchInfo {
@@ -1249,42 +1282,42 @@ impl TreeGrid {
                 y: chunk_y - 1,
                 center: false,
                 closest_point_on_boundary_x: x as i32,
-                closest_point_on_boundary_y: chunk_y * self.chunk_size as i32,
+                closest_point_on_boundary_y: chunk_y * self.chunk_size as i32 - self.offset,
             },
             ChunkSearchInfo {
                 x: chunk_x,
                 y: chunk_y + 1,
                 center: false,
                 closest_point_on_boundary_x: x as i32,
-                closest_point_on_boundary_y: (chunk_y + 1) * self.chunk_size as i32,
+                closest_point_on_boundary_y: (chunk_y + 1) * self.chunk_size as i32 - self.offset,
             },
             ChunkSearchInfo {
                 x: chunk_x + 1,
                 y: chunk_y + 1,
                 center: false,
-                closest_point_on_boundary_x: (chunk_x + 1) * self.chunk_size as i32,
-                closest_point_on_boundary_y: (chunk_y + 1) * self.chunk_size as i32,
+                closest_point_on_boundary_x: (chunk_x + 1) * self.chunk_size as i32 - self.offset,
+                closest_point_on_boundary_y: (chunk_y + 1) * self.chunk_size as i32 - self.offset,
             },
             ChunkSearchInfo {
                 x: chunk_x - 1,
                 y: chunk_y + 1,
                 center: false,
-                closest_point_on_boundary_x: chunk_x * self.chunk_size as i32,
-                closest_point_on_boundary_y: (chunk_y + 1) * self.chunk_size as i32,
+                closest_point_on_boundary_x: chunk_x * self.chunk_size as i32 - self.offset,
+                closest_point_on_boundary_y: (chunk_y + 1) * self.chunk_size as i32 - self.offset,
             },
             ChunkSearchInfo {
                 x: chunk_x + 1,
                 y: chunk_y - 1,
                 center: false,
-                closest_point_on_boundary_x: (chunk_x + 1) * self.chunk_size as i32,
-                closest_point_on_boundary_y: chunk_y * self.chunk_size as i32,
+                closest_point_on_boundary_x: (chunk_x + 1) * self.chunk_size as i32 - self.offset,
+                closest_point_on_boundary_y: chunk_y * self.chunk_size as i32 - self.offset,
             },
             ChunkSearchInfo {
                 x: chunk_x - 1,
                 y: chunk_y - 1,
                 center: false,
-                closest_point_on_boundary_x: chunk_x * self.chunk_size as i32,
-                closest_point_on_boundary_y: chunk_y * self.chunk_size as i32,
+                closest_point_on_boundary_x: chunk_x * self.chunk_size as i32 - self.offset,
+                closest_point_on_boundary_y: chunk_y * self.chunk_size as i32 - self.offset,
             },
         ];
         // Note (Peter) I think locking all of them at different times is fine as opposed to

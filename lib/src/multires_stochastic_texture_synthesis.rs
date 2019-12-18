@@ -3,6 +3,7 @@ use rand_pcg::Pcg32;
 use rstar::RTree;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, RwLock};
+use std::cmp::max;
 
 use crate::{img_pyramid::*, unsync::*, CoordinateTransform, Dims, SamplingMethod};
 
@@ -212,7 +213,7 @@ impl Generator {
             output_size: size,
             unresolved: Mutex::new(unresolved),
             resolved: RwLock::new(Vec::new()),
-            tree_grid: TreeGrid::new(size.width, 1, 0),
+            tree_grid: TreeGrid::new(size.width, size.height, max(size.width, size.height), 0, 0),
             locked_resolved: 0,
         }
     }
@@ -250,7 +251,7 @@ impl Generator {
         let mut unresolved: Vec<CoordFlat> = Vec::new();
         let mut resolved: Vec<(CoordFlat, Score)> = Vec::new();
         let mut coord_map = vec![(Coord2D::from(0, 0), MapId(0)); s];
-        let tree_grid = TreeGrid::new(size.width, 1, 0);
+        let tree_grid = TreeGrid::new(size.width, size.height, max(size.width, size.height), 0, 0);
         //populate resolved, unresolved and coord map
         for (i, pixel) in inpaint_map.clone().pixels().enumerate() {
             if pixel[0] < 255 {
@@ -706,10 +707,14 @@ impl Generator {
 
         {
             // now that we have all of the parameters we can setup our initial tree grid
+            let tile_adjusted_width = (self.output_size.width as f32 * 1.1) as u32 + 1;
+            let tile_adjusted_height = (self.output_size.height as f32 * 1.1) as u32 + 1;
             self.tree_grid = TreeGrid::new(
-                (self.output_size.width as f32 * 1.1) as u32 + 1,
-                1,
+                tile_adjusted_width,
+                tile_adjusted_height,
+                max(tile_adjusted_width, tile_adjusted_height),
                 (self.output_size.width as f32 * 0.05) as u32 + 1,
+                (self.output_size.height as f32 * 0.05) as u32 + 1
             );
             // if we already have resolved pixels from an inpaint or multiexample add them to this tree grid
             let resolved_queue = &mut self.resolved.write().unwrap();
@@ -751,11 +756,16 @@ impl Generator {
 
             // Start with serial execution for the first few pixels, then go wide
             let n_workers = if redo_count < 1000 { 1 } else { max_workers };
-            if self.tree_grid.size == 1 && n_workers > 1 {
+            if self.tree_grid.grid_width == 1 && n_workers > 1 {
+                let tile_adjusted_width = (self.output_size.width as f32 * 1.1) as u32 + 1;
+                let tile_adjusted_height = (self.output_size.height as f32 * 1.1) as u32 + 1;
+                let grid_cell_size = 100;
                 let new_tree_grid = TreeGrid::new(
-                    (self.output_size.width as f32 * 1.1) as u32 + 1,
-                    12,
+                    tile_adjusted_width,
+                    tile_adjusted_height,
+                    grid_cell_size,
                     (self.output_size.width as f32 * 0.05) as u32 + 1,
+                    (self.output_size.height as f32 * 0.05) as u32 + 1
                 );
                 self.tree_grid.clone_into_new_tree_grid(&new_tree_grid);
                 self.tree_grid = new_tree_grid;
@@ -1185,8 +1195,10 @@ impl PrerenderedU8Function {
 }
 
 struct TreeGrid {
-    size: u32,
-    offset: i32,
+    grid_width: u32,
+    grid_height: u32,
+    offset_x: i32,
+    offset_y: i32,
     chunk_size: u32,
     rtrees: Vec<RwLock<RTree<[i32; 2]>>>,
 }
@@ -1194,27 +1206,30 @@ struct TreeGrid {
 // This is a grid of rtrees
 // The idea is that most pixels after the first couple steps will have their neighbors close by
 impl TreeGrid {
-    pub fn new(space_size: u32, size: u32, offset: u32) -> TreeGrid {
+    pub fn new(width: u32, height: u32, chunk_size: u32, offset_x: u32, offset_y: u32) -> TreeGrid {
         let mut rtrees: Vec<RwLock<RTree<[i32; 2]>>> = Vec::new();
-        rtrees.resize_with((size * size) as usize, || RwLock::new(RTree::new()));
-        let chunk_size = space_size / size + 1;
+        let grid_width = width / chunk_size + 1;
+        let grid_height = height / chunk_size + 1;
+        rtrees.resize_with((grid_width * grid_height) as usize, || RwLock::new(RTree::new()));
         TreeGrid {
             rtrees,
-            size,
-            offset: (offset as i32),
+            grid_width,
+            grid_height,
+            offset_x: offset_x as i32,
+            offset_y: offset_y as i32,
             chunk_size,
         }
     }
 
     #[inline]
     fn get_space(&self, x: u32, y: u32) -> usize {
-        (x * self.size + y) as usize
+        (x * self.grid_height + y) as usize
     }
 
     pub fn force_insert(&self, x: i32, y: i32) {
         let my_tree_index = self.get_space(
-            ((x + self.offset) as u32) / self.chunk_size,
-            ((y + self.offset) as u32) / self.chunk_size,
+            ((x + self.offset_x) as u32) / self.chunk_size,
+            ((y + self.offset_y) as u32) / self.chunk_size,
         );
         self.rtrees[my_tree_index].write().unwrap().insert([x, y]);
     }
@@ -1234,13 +1249,8 @@ impl TreeGrid {
         k: usize,
         result: &mut Vec<SignedCoord2D>,
     ) {
-        // This function could be made faster
-        // Some quick ideas
-        // - better function to rule out neighbors (see below)
-        // - fast merge of k sorted lists
-
-        let offset_x = x as i32 + self.offset;
-        let offset_y = y as i32 + self.offset;
+        let offset_x = x as i32 + self.offset_x;
+        let offset_y = y as i32 + self.offset_y;
 
         let chunk_x = offset_x / self.chunk_size as i32;
         let chunk_y = offset_y / self.chunk_size as i32;
@@ -1267,14 +1277,14 @@ impl TreeGrid {
                 x: chunk_x + 1,
                 y: chunk_y,
                 center: false,
-                closest_point_on_boundary_x: (chunk_x + 1) * self.chunk_size as i32 - self.offset,
+                closest_point_on_boundary_x: (chunk_x + 1) * self.chunk_size as i32 - self.offset_x,
                 closest_point_on_boundary_y: y as i32,
             },
             ChunkSearchInfo {
                 x: chunk_x - 1,
                 y: chunk_y,
                 center: false,
-                closest_point_on_boundary_x: chunk_x * self.chunk_size as i32 - self.offset,
+                closest_point_on_boundary_x: chunk_x * self.chunk_size as i32 - self.offset_x,
                 closest_point_on_boundary_y: y as i32,
             },
             ChunkSearchInfo {
@@ -1282,58 +1292,57 @@ impl TreeGrid {
                 y: chunk_y - 1,
                 center: false,
                 closest_point_on_boundary_x: x as i32,
-                closest_point_on_boundary_y: chunk_y * self.chunk_size as i32 - self.offset,
+                closest_point_on_boundary_y: chunk_y * self.chunk_size as i32 - self.offset_y,
             },
             ChunkSearchInfo {
                 x: chunk_x,
                 y: chunk_y + 1,
                 center: false,
                 closest_point_on_boundary_x: x as i32,
-                closest_point_on_boundary_y: (chunk_y + 1) * self.chunk_size as i32 - self.offset,
+                closest_point_on_boundary_y: (chunk_y + 1) * self.chunk_size as i32 - self.offset_y,
             },
             ChunkSearchInfo {
                 x: chunk_x + 1,
                 y: chunk_y + 1,
                 center: false,
-                closest_point_on_boundary_x: (chunk_x + 1) * self.chunk_size as i32 - self.offset,
-                closest_point_on_boundary_y: (chunk_y + 1) * self.chunk_size as i32 - self.offset,
+                closest_point_on_boundary_x: (chunk_x + 1) * self.chunk_size as i32 - self.offset_x,
+                closest_point_on_boundary_y: (chunk_y + 1) * self.chunk_size as i32 - self.offset_y,
             },
             ChunkSearchInfo {
                 x: chunk_x - 1,
                 y: chunk_y + 1,
                 center: false,
-                closest_point_on_boundary_x: chunk_x * self.chunk_size as i32 - self.offset,
-                closest_point_on_boundary_y: (chunk_y + 1) * self.chunk_size as i32 - self.offset,
+                closest_point_on_boundary_x: chunk_x * self.chunk_size as i32 - self.offset_x,
+                closest_point_on_boundary_y: (chunk_y + 1) * self.chunk_size as i32 - self.offset_y,
             },
             ChunkSearchInfo {
                 x: chunk_x + 1,
                 y: chunk_y - 1,
                 center: false,
-                closest_point_on_boundary_x: (chunk_x + 1) * self.chunk_size as i32 - self.offset,
-                closest_point_on_boundary_y: chunk_y * self.chunk_size as i32 - self.offset,
+                closest_point_on_boundary_x: (chunk_x + 1) * self.chunk_size as i32 - self.offset_x,
+                closest_point_on_boundary_y: chunk_y * self.chunk_size as i32 - self.offset_y,
             },
             ChunkSearchInfo {
                 x: chunk_x - 1,
                 y: chunk_y - 1,
                 center: false,
-                closest_point_on_boundary_x: chunk_x * self.chunk_size as i32 - self.offset,
-                closest_point_on_boundary_y: chunk_y * self.chunk_size as i32 - self.offset,
+                closest_point_on_boundary_x: chunk_x * self.chunk_size as i32 - self.offset_x,
+                closest_point_on_boundary_y: chunk_y * self.chunk_size as i32 - self.offset_y,
             },
         ];
-        // Note (Peter) I think locking all of them at different times is fine as opposed to
-        // all at once but this should be noted
+        // Note locking all of them at different times is fine as opposed to
+        // all at once but this behavior should be noted
         let mut tmp_result: Vec<(i32, i32, i32)> = Vec::with_capacity(k * 9);
         result.clear();
         result.reserve(k);
 
         // this isn't really the kth best distance but should be good enough for how simple it is
         let mut kth_best_squared_distance = i32::max_value();
-        //let mut num_skipped = 0;
         for place_to_look in places_to_look.iter() {
             if place_to_look.x >= 0
-                && place_to_look.x < self.size as i32
+                && place_to_look.x < self.grid_width as i32
                 && place_to_look.y >= 0
-                && place_to_look.y < self.size as i32
+                && place_to_look.y < self.grid_height as i32
             {
                 let is_center = place_to_look.center;
 
@@ -1372,7 +1381,6 @@ impl TreeGrid {
                 );
 
                 // this isn't really the kth best distance but it's an okay approximation
-                // making this better could definitely make this whole step faster
                 if tmp_result.len() >= k {
                     let furthest_dist_for_chunk = tmp_result[tmp_result.len() - 1].2;
                     if furthest_dist_for_chunk < kth_best_squared_distance {

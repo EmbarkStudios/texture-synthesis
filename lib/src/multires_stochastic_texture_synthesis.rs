@@ -1,9 +1,9 @@
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg32;
 use rstar::RTree;
+use std::cmp::max;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, RwLock};
-use std::cmp::max;
 
 use crate::{img_pyramid::*, unsync::*, CoordinateTransform, Dims, SamplingMethod};
 
@@ -713,7 +713,7 @@ impl Generator {
                 tile_adjusted_height,
                 max(tile_adjusted_width, tile_adjusted_height),
                 (self.output_size.width as f32 * 0.05) as u32 + 1,
-                (self.output_size.height as f32 * 0.05) as u32 + 1
+                (self.output_size.height as f32 * 0.05) as u32 + 1,
             );
             // if we already have resolved pixels from an inpaint or multiexample add them to this tree grid
             let resolved_queue = &mut self.resolved.write().unwrap();
@@ -761,13 +761,18 @@ impl Generator {
                 let tile_adjusted_height = (self.output_size.height as f32 * 1.1) as u32 + 1;
                 // heuristic: pick a cell size so that the expected number of resolved points in any cell is 4 * k
                 // this seems to be a safe overestimate
-                let grid_cell_size = ((params.nearest_neighbors * self.output_size.height * self.output_size.height / redo_count as u32) as f64).sqrt() as u32 * 2 + 1;
+                let grid_cell_size =
+                    ((params.nearest_neighbors * self.output_size.height * self.output_size.height
+                        / redo_count as u32) as f64)
+                        .sqrt() as u32
+                        * 2
+                        + 1;
                 let new_tree_grid = TreeGrid::new(
                     tile_adjusted_width,
                     tile_adjusted_height,
                     grid_cell_size,
                     (self.output_size.width as f32 * 0.05) as u32 + 1,
-                    (self.output_size.height as f32 * 0.05) as u32 + 1
+                    (self.output_size.height as f32 * 0.05) as u32 + 1,
                 );
                 self.tree_grid.clone_into_new_tree_grid(&new_tree_grid);
                 self.tree_grid = new_tree_grid;
@@ -1212,7 +1217,9 @@ impl TreeGrid {
         let mut rtrees: Vec<RwLock<RTree<[i32; 2]>>> = Vec::new();
         let grid_width = width / chunk_size + 1;
         let grid_height = height / chunk_size + 1;
-        rtrees.resize_with((grid_width * grid_height) as usize, || RwLock::new(RTree::new()));
+        rtrees.resize_with((grid_width * grid_height) as usize, || {
+            RwLock::new(RTree::new())
+        });
         TreeGrid {
             rtrees,
             grid_width,

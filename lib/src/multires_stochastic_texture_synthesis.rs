@@ -756,10 +756,12 @@ impl Generator {
 
             // Start with serial execution for the first few pixels, then go wide
             let n_workers = if redo_count < 1000 { 1 } else { max_workers };
-            if self.tree_grid.grid_width == 1 && n_workers > 1 {
+            if self.tree_grid.grid_width == 2 && n_workers > 1 {
                 let tile_adjusted_width = (self.output_size.width as f32 * 1.1) as u32 + 1;
                 let tile_adjusted_height = (self.output_size.height as f32 * 1.1) as u32 + 1;
-                let grid_cell_size = 100;
+                // heuristic: pick a cell size so that the expected number of completed points in any cell is k
+                let grid_cell_size = ((params.nearest_neighbors * self.output_size.height * self.output_size.height / redo_count as u32) as f64).sqrt() as u32 + 1;
+                println!("{} cell\n\n\n", grid_cell_size);
                 let new_tree_grid = TreeGrid::new(
                     tile_adjusted_width,
                     tile_adjusted_height,

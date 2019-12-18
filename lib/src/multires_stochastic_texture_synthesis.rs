@@ -264,7 +264,6 @@ impl Generator {
         }
 
         let locked_resolved = resolved.len();
-        // TODO (Peter) make this support rectangles
         Self {
             color_map: UnsyncRgbaImage::new(color_map.clone()),
             coord_map: UnsyncVec::new(coord_map),
@@ -288,7 +287,6 @@ impl Generator {
         for (a, b, score) in update_queue.iter() {
             tree_grid.force_insert(a[0], a[1]);
 
-            // TODO Peter renable this
             if is_tiling_mode {
                 //if close to border add additional mirrors
                 let x_l = ((self.output_size.width as f32) * 0.05) as i32;
@@ -704,6 +702,7 @@ impl Generator {
         let l2_precomputed = PrerenderedU8Function::new(metric_l2);
         let mut total_processed_pixels = 0;
         let max_workers = params.max_thread_count;
+        let mut has_fanned_out = false;
 
         {
             // now that we have all of the parameters we can setup our initial tree grid
@@ -756,12 +755,12 @@ impl Generator {
 
             // Start with serial execution for the first few pixels, then go wide
             let n_workers = if redo_count < 1000 { 1 } else { max_workers };
-            if self.tree_grid.grid_width == 2 && n_workers > 1 {
+            if !has_fanned_out && n_workers > 1 {
+                has_fanned_out = true;
                 let tile_adjusted_width = (self.output_size.width as f32 * 1.1) as u32 + 1;
                 let tile_adjusted_height = (self.output_size.height as f32 * 1.1) as u32 + 1;
-                // heuristic: pick a cell size so that the expected number of completed points in any cell is k
+                // heuristic: pick a cell size so that the expected number of resolved points in any cell is k
                 let grid_cell_size = ((params.nearest_neighbors * self.output_size.height * self.output_size.height / redo_count as u32) as f64).sqrt() as u32 + 1;
-                println!("{} cell\n\n\n", grid_cell_size);
                 let new_tree_grid = TreeGrid::new(
                     tile_adjusted_width,
                     tile_adjusted_height,

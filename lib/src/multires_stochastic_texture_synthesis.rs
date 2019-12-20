@@ -255,7 +255,7 @@ impl Generator {
         let mut coord_map = vec![(Coord2D::from(0, 0), MapId(0)); s];
         let mut rtree = RTree::new();
         //populate resolved, unresolved and coord map
-        for (i, pixel) in inpaint_map.clone().pixels().enumerate() {
+        for (i, pixel) in inpaint_map.pixels().enumerate() {
             if pixel[0] < 255 {
                 unresolved.push(CoordFlat(i as u32));
             } else {
@@ -268,7 +268,7 @@ impl Generator {
 
         let locked_resolved = resolved.len();
         Self {
-            color_map: UnsyncRgbaImage::new(color_map.clone()),
+            color_map: UnsyncRgbaImage::new(color_map),
             coord_map: UnsyncVec::new(coord_map),
             id_map: UnsyncVec::new(vec![(PatchId(0), MapId(0)); s]),
             output_size: size,

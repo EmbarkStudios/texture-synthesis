@@ -20,7 +20,7 @@ keywords = ["texture", "synthesis", "procedural"]
 exclude = ["/imgs"]
 
 [dependencies]
-crossbeam-utils = "0.6.6"
+crossbeam-utils = "0.7.0"
 num_cpus = "1.11.1"
 rand = { version = "0.7.2", default-features = false } # avoid bringing in OS random gen that we don't use
 rand_pcg = "0.2.1"

@@ -24,7 +24,7 @@ crossbeam-utils = "0.7.0"
 num_cpus = "1.11.1"
 rand = { version = "0.7.2", default-features = false } # avoid bringing in OS random gen that we don't use
 rand_pcg = "0.2.1"
-rstar = "0.5.0"
+rstar = "0.7.0"
 
 [dependencies.image]
 version = "0.22.3"

@@ -510,7 +510,11 @@ impl texture_synthesis::GeneratorProgress for ProgressWindow {
                 };
 
                 // We don't particularly care if this fails
-                let _ = window.update_with_buffer(pixels);
+                let _ = window.update_with_buffer(
+                    pixels,
+                    update.image.width() as usize,
+                    update.image.height() as usize,
+                );
             }
         }
     }

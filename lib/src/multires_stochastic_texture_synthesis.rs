@@ -453,7 +453,11 @@ impl Generator {
         true
     }
 
-    fn get_gaussian_weighted_distances_to_k_neighs(&self, coord: Coord2D, k_neighs_2d: &[SignedCoord2D]) -> Vec<f64> {
+    fn get_gaussian_weighted_distances_to_k_neighs(
+        &self,
+        coord: Coord2D,
+        k_neighs_2d: &[SignedCoord2D],
+    ) -> Vec<f64> {
         let (dimx, dimy) = (
             f64::from(self.output_size.width),
             f64::from(self.output_size.height),
@@ -874,8 +878,11 @@ impl Generator {
                                 &mut k_neighs,
                             ) {
                                 //2.1 get distances to the pattern of neighbors
-                                let weighted_k_neighs_dist =
-                                    self.get_gaussian_weighted_distances_to_k_neighs(unresolved_2d, &k_neighs);
+                                let weighted_k_neighs_dist = self
+                                    .get_gaussian_weighted_distances_to_k_neighs(
+                                        unresolved_2d,
+                                        &k_neighs,
+                                    );
                                 let k_neighs_w_map_id =
                                     k_neighs.iter().map(|a| (*a, MapId(0))).collect::<Vec<_>>();
 

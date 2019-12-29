@@ -32,30 +32,30 @@ pub struct GeneratorParams {
 }
 
 #[derive(Debug, Default, Clone)]
-struct CandidateStruct {
+struct Candidate {
     coord: (SignedCoord2D, MapId), //X, Y, and map_id
     k_neighs: Vec<(SignedCoord2D, MapId)>,
     id: (PatchId, MapId),
 }
 
-impl CandidateStruct {
+impl Candidate {
     fn clear(&mut self) {
         self.k_neighs.clear();
     }
 }
 
-struct GuidesStruct<'a> {
+struct Guides<'a> {
     pub example_guides: Vec<ImageBuffer<'a>>, // as many as there are examples
     pub target_guide: ImageBuffer<'a>,        //single for final color_map
 }
 
-pub(crate) struct GuidesPyramidStruct {
+pub(crate) struct GuidesPyramid {
     pub example_guides: Vec<ImagePyramid>, // as many as there are examples
     pub target_guide: ImagePyramid,        //single for final color_map
 }
 
-impl GuidesPyramidStruct {
-    fn to_guides_struct(&self, level: usize) -> GuidesStruct<'_> {
+impl GuidesPyramid {
+    fn to_guides(&self, level: usize) -> Guides<'_> {
         let tar_guide = ImageBuffer::from(&self.target_guide.pyramid[level]);
         let ex_guide = self
             .example_guides
@@ -63,7 +63,7 @@ impl GuidesPyramidStruct {
             .map(|a| ImageBuffer::from(&a.pyramid[level]))
             .collect();
 
-        GuidesStruct {
+        Guides {
             example_guides: ex_guide,
             target_guide: tar_guide,
         }
@@ -523,14 +523,14 @@ impl Generator {
     #[allow(clippy::too_many_arguments)]
     fn find_candidates<'a>(
         &self,
-        candidates_vec: &'a mut Vec<CandidateStruct>,
+        candidates_vec: &'a mut Vec<Candidate>,
         unresolved_coord: Coord2D,
         k_neighs: &[SignedCoord2D],
         example_maps: &[ImageBuffer<'_>],
         valid_samples_mask: &[SamplingMethod],
         m_rand: u32,
         m_seed: u64,
-    ) -> &'a [CandidateStruct] {
+    ) -> &'a [Candidate] {
         let mut candidate_count = 0;
         let unresolved_coord = unresolved_coord.to_signed();
 
@@ -743,7 +743,7 @@ impl Generator {
         params: &GeneratorParams,
         example_maps_pyramid: &[ImagePyramid],
         mut progress: Option<Box<dyn crate::GeneratorProgress>>,
-        guides_pyramid: &Option<GuidesPyramidStruct>,
+        guides_pyramid: &Option<GuidesPyramid>,
         valid_samples: &[SamplingMethod],
     ) {
         let total_pixels_to_resolve = self.unresolved.lock().unwrap().len();
@@ -812,7 +812,7 @@ impl Generator {
             crossbeam_utils::thread::scope(|scope| {
                 for _ in 0..n_workers {
                     scope.spawn(|_| {
-                        let mut candidates: Vec<CandidateStruct> = Vec::new();
+                        let mut candidates: Vec<Candidate> = Vec::new();
                         let mut my_pattern: ColorPattern = ColorPattern::new();
                         let mut k_neighs: Vec<SignedCoord2D> =
                             Vec::with_capacity(params.nearest_neighbors as usize);
@@ -820,7 +820,7 @@ impl Generator {
                         let max_candidate_count = params.nearest_neighbors as usize
                             + params.random_sample_locations as usize;
 
-                        candidates.resize(max_candidate_count, CandidateStruct::default());
+                        candidates.resize(max_candidate_count, Candidate::default());
 
                         //alloc storage for our guides (regardless of whether we have them or not)
                         let mut my_guide_pattern: ColorPattern = ColorPattern::new();
@@ -874,7 +874,7 @@ impl Generator {
                                     k_neighs.iter().map(|a| (*a, MapId(0))).collect::<Vec<_>>();
 
                                 // 3. find candidate for each resolved neighs + m random locations
-                                let candidates: &[CandidateStruct] = self.find_candidates(
+                                let candidates: &[Candidate] = self.find_candidates(
                                     &mut candidates,
                                     unresolved_2d,
                                     &k_neighs,
@@ -1068,14 +1068,14 @@ fn k_neighs_to_precomputed_reference_pattern(
 fn find_best_match<'a>(
     outside_color: image::Rgba<u8>,
     source_maps: &[ImageBuffer<'_>],
-    guides: &Option<GuidesStruct<'_>>,
-    candidates: &'a [CandidateStruct],
+    guides: &Option<Guides<'_>>,
+    candidates: &'a [Candidate],
     my_precomputed_pattern: &ColorPattern,
     my_precomputed_guide_pattern: &ColorPattern,
     k_distances: &[f64], //weight by distance
     my_cost: &PrerenderedU8Function,
     guide_cost: Option<&PrerenderedU8Function>,
-) -> (&'a CandidateStruct, Score) {
+) -> (&'a Candidate, Score) {
     let mut best_match = 0;
     let mut lowest_cost = std::f32::MAX;
 
@@ -1112,7 +1112,7 @@ fn better_match(
     k_neighs: &[(SignedCoord2D, MapId)],
     outside_color: image::Rgba<u8>,
     source_maps: &[ImageBuffer<'_>],
-    guides: &Option<GuidesStruct<'_>>,
+    guides: &Option<Guides<'_>>,
     my_precomputed_pattern: &ColorPattern,
     my_precomputed_guide_pattern: &ColorPattern,
     distance_gaussians: &[f32], //weight by distance
@@ -1227,10 +1227,10 @@ fn get_single_example_level<'a>(
 
 //get all the guide images from a single pyramid level
 fn get_single_guide_level(
-    guides_pyramid: &Option<GuidesPyramidStruct>,
+    guides_pyramid: &Option<GuidesPyramid>,
     pyramid_level: usize,
-) -> Option<GuidesStruct<'_>> {
+) -> Option<Guides<'_>> {
     guides_pyramid
         .as_ref()
-        .map(|guides_pyr| guides_pyr.to_guides_struct(pyramid_level))
+        .map(|guides_pyr| guides_pyr.to_guides(pyramid_level))
 }

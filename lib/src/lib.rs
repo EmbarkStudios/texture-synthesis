@@ -748,7 +748,7 @@ impl<'a> SessionBuilder<'a> {
 
         let session = Session {
             examples,
-            guides: target_guide.map(|tg| GuidesPyramidStruct {
+            guides: target_guide.map(|tg| GuidesPyramid {
                 target_guide: tg,
                 example_guides: guides,
             }),
@@ -863,7 +863,7 @@ struct ResolvedExample {
 /// ```
 pub struct Session {
     examples: Vec<ImagePyramid>,
-    guides: Option<GuidesPyramidStruct>,
+    guides: Option<GuidesPyramid>,
     sampling_methods: Vec<SamplingMethod>,
     generator: Generator,
     params: Parameters,

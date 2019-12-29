@@ -1,6 +1,6 @@
 #[derive(Clone)]
 pub struct ImagePyramid {
-    pub pyramid: Vec<image::RgbaImage>
+    pub pyramid: Vec<image::RgbaImage>,
 }
 
 impl ImagePyramid {
@@ -12,7 +12,7 @@ impl ImagePyramid {
         });
 
         Self {
-            pyramid: ImagePyramid::build_gaussian(lvls, in_img)
+            pyramid: ImagePyramid::build_gaussian(lvls, in_img),
         }
     }
 

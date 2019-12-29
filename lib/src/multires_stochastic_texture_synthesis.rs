@@ -98,10 +98,9 @@ impl SignedCoord2D {
 
     #[inline]
     fn wrap(self, (dimx, dimy): (i32, i32)) -> SignedCoord2D {
-        let mut c = self;
-        c.x = modulo(c.x, dimx);
-        c.y = modulo(c.y, dimy);
-        c
+        let x = modulo(self.x, dimx);
+        let y = modulo(self.y, dimy);
+        SignedCoord2D { x, y }
     }
 }
 

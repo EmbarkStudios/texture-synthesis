@@ -1168,6 +1168,8 @@ fn better_match(
     Some(score)
 }
 
+/// Results of computing a Fn(u8, u8) -> f32 on all possible inputs.
+/// Stored in row-major form: `data[0] = f(0, 0)`, `data[1] = f(0, 1)`, etc.
 struct PrerenderedU8Function {
     data: Vec<f32>,
 }

@@ -41,7 +41,7 @@
 //! let generated_img = session.run(None);
 //!
 //! // Save the generated image to disk
-//! generated_img.save("my_generated_img.jpg").expect("failed to save generated image");
+//! generated_img.save("generated_img.jpg").expect("failed to save generated image");
 //! ```
 mod errors;
 mod img_pyramid;
@@ -859,7 +859,7 @@ struct ResolvedExample {
 ///     .build().expect("failed to build session");
 ///
 /// let generated_img = tex_synth.run(None);
-/// generated_img.save("my_generated_img.jpg").expect("failed to save image");
+/// generated_img.save("generated_img.jpg").expect("failed to save image");
 /// ```
 pub struct Session {
     examples: Vec<ImagePyramid>,

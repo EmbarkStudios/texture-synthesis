@@ -497,7 +497,7 @@ impl Generator {
         self.locked_resolved += steps; //lock these pixels from being re-resolved
     }
 
-    fn resolve_at_random(&self, my_coord: Coord2D, example_maps: &[ImageBuffer<'_>], seed: u64) {
+    fn resolve_at_random(&self, coord: Coord2D, example_maps: &[ImageBuffer<'_>], seed: u64) {
         let rand_map: u32 = Pcg32::seed_from_u64(seed).gen_range(0, example_maps.len()) as u32;
         let rand_x: u32 =
             Pcg32::seed_from_u64(seed).gen_range(0, example_maps[rand_map as usize].width as u32);
@@ -505,7 +505,7 @@ impl Generator {
             Pcg32::seed_from_u64(seed).gen_range(0, example_maps[rand_map as usize].height as u32);
 
         self.update(
-            my_coord,
+            coord,
             (Coord2D::from(rand_x, rand_y), MapId(rand_map)),
             example_maps,
             true,
@@ -513,7 +513,7 @@ impl Generator {
             // initializing
             Score(0.0),
             (
-                PatchId(my_coord.to_flat(self.output_size).0),
+                PatchId(coord.to_flat(self.output_size).0),
                 MapId(rand_map),
             ),
             false,
@@ -801,7 +801,7 @@ impl Generator {
             let guide_cost_precomputed =
                 PrerenderedU8Function::new(|a, b| adaptive_alpha * l2_precomputed.get(a, b));
 
-            let my_inverse_alpha_cost_precomputed = PrerenderedU8Function::new(|a, b| {
+            let inverse_alpha_cost_precomputed = PrerenderedU8Function::new(|a, b| {
                 (1.0 - adaptive_alpha) * cauchy_precomputed.get(a, b)
             });
 
@@ -813,7 +813,7 @@ impl Generator {
                 for _ in 0..n_workers {
                     scope.spawn(|_| {
                         let mut candidates: Vec<Candidate> = Vec::new();
-                        let mut my_pattern: ColorPattern = ColorPattern::new();
+                        let mut pattern: ColorPattern = ColorPattern::new();
                         let mut k_neighs: Vec<SignedCoord2D> =
                             Vec::with_capacity(params.nearest_neighbors as usize);
 
@@ -823,7 +823,7 @@ impl Generator {
                         candidates.resize(max_candidate_count, Candidate::default());
 
                         //alloc storage for our guides (regardless of whether we have them or not)
-                        let mut my_guide_pattern: ColorPattern = ColorPattern::new();
+                        let mut guide_pattern: ColorPattern = ColorPattern::new();
 
                         let out_color_map = &[ImageBuffer::from(self.color_map.as_ref())];
 
@@ -888,23 +888,23 @@ impl Generator {
                                     &k_neighs_w_map_id, //feed into the function with always 0 index of the sample map
                                     image::Rgba([0, 0, 0, 255]),
                                     out_color_map,
-                                    &mut my_pattern,
+                                    &mut pattern,
                                     is_tiling_mode,
                                 );
 
                                 // 3.2 get pattern for guide map if we have them
-                                let (my_cost, guide_cost) = if let Some(ref in_guides) = guides {
+                                let (cost, guide_cost) = if let Some(ref in_guides) = guides {
                                     //get example pattern to compare to
                                     k_neighs_to_precomputed_reference_pattern(
                                         &k_neighs_w_map_id,
                                         image::Rgba([0, 0, 0, 255]),
                                         &[in_guides.target_guide.clone()],
-                                        &mut my_guide_pattern,
+                                        &mut guide_pattern,
                                         is_tiling_mode,
                                     );
 
                                     (
-                                        &my_inverse_alpha_cost_precomputed,
+                                        &inverse_alpha_cost_precomputed,
                                         Some(&guide_cost_precomputed),
                                     )
                                 } else {
@@ -917,10 +917,10 @@ impl Generator {
                                     &example_maps,
                                     &guides,
                                     &candidates,
-                                    &my_pattern,
-                                    &my_guide_pattern,
+                                    &pattern,
+                                    &guide_pattern,
                                     &k_neighs_dist,
-                                    &my_cost,
+                                    &cost,
                                     guide_cost,
                                 );
 
@@ -1070,10 +1070,10 @@ fn find_best_match<'a>(
     source_maps: &[ImageBuffer<'_>],
     guides: &Option<Guides<'_>>,
     candidates: &'a [Candidate],
-    my_precomputed_pattern: &ColorPattern,
-    my_precomputed_guide_pattern: &ColorPattern,
+    precomputed_pattern: &ColorPattern,
+    precomputed_guide_pattern: &ColorPattern,
     k_distances: &[f64], //weight by distance
-    my_cost: &PrerenderedU8Function,
+    cost: &PrerenderedU8Function,
     guide_cost: Option<&PrerenderedU8Function>,
 ) -> (&'a Candidate, Score) {
     let mut best_match = 0;
@@ -1092,10 +1092,10 @@ fn find_best_match<'a>(
             outside_color,
             source_maps,
             &guides,
-            &my_precomputed_pattern,
-            &my_precomputed_guide_pattern,
+            &precomputed_pattern,
+            &precomputed_guide_pattern,
             distance_gaussians.as_slice(),
-            my_cost,
+            cost,
             guide_cost,
             lowest_cost,
         ) {
@@ -1113,10 +1113,10 @@ fn better_match(
     outside_color: image::Rgba<u8>,
     source_maps: &[ImageBuffer<'_>],
     guides: &Option<Guides<'_>>,
-    my_precomputed_pattern: &ColorPattern,
-    my_precomputed_guide_pattern: &ColorPattern,
+    precomputed_pattern: &ColorPattern,
+    precomputed_guide_pattern: &ColorPattern,
     distance_gaussians: &[f32], //weight by distance
-    my_cost: &PrerenderedU8Function,
+    cost: &PrerenderedU8Function,
     guide_cost: Option<&PrerenderedU8Function>,
     current_best: f32,
 ) -> Option<f32> {
@@ -1141,7 +1141,7 @@ fn better_match(
         );
 
         for (channel_n, &channel) in next_pixel.iter().enumerate() {
-            next_pixel_score += my_cost.get(my_precomputed_pattern.0[i + channel_n], channel);
+            next_pixel_score += cost.get(precomputed_pattern.0[i + channel_n], channel);
         }
 
         if let Some(guide_cost) = guide_cost {
@@ -1158,7 +1158,7 @@ fn better_match(
 
             for (channel_n, &channel) in next_pixel.iter().enumerate() {
                 next_pixel_score +=
-                    guide_cost.get(my_precomputed_guide_pattern.0[i + channel_n], channel);
+                    guide_cost.get(precomputed_guide_pattern.0[i + channel_n], channel);
             }
         }
         score += next_pixel_score * distance_gaussians[i];

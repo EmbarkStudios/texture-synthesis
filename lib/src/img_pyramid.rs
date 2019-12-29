@@ -1,7 +1,6 @@
 #[derive(Clone)]
 pub struct ImagePyramid {
     pub pyramid: Vec<image::RgbaImage>,
-    pub levels: u32,
 }
 
 impl ImagePyramid {
@@ -14,7 +13,6 @@ impl ImagePyramid {
 
         Self {
             pyramid: ImagePyramid::build_gaussian(lvls, in_img),
-            levels: lvls,
         }
     }
 
@@ -39,6 +37,6 @@ impl ImagePyramid {
     }
 
     pub fn bottom(&self) -> &image::RgbaImage {
-        &self.pyramid[self.levels as usize - 1]
+        &self.pyramid[self.pyramid.len() - 1]
     }
 }

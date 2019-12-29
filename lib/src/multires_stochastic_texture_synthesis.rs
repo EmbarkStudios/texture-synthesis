@@ -511,10 +511,7 @@ impl Generator {
             // NOTE: giving score 0.0 which is absolutely imaginery since we're randomly
             // initializing
             Score(0.0),
-            (
-                PatchId(coord.to_flat(self.output_size).0),
-                MapId(rand_map),
-            ),
+            (PatchId(coord.to_flat(self.output_size).0), MapId(rand_map)),
             false,
         );
     }

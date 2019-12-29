@@ -140,8 +140,11 @@ impl CoordFlat {
 
 #[derive(Clone, Copy, Debug, Default)]
 struct PatchId(u32);
+
+/// The id of an input example image.
 #[derive(Clone, Copy, Debug, Default)]
 struct MapId(u32);
+
 #[derive(Clone, Copy, Debug, Default)]
 struct Score(f32);
 

@@ -98,9 +98,9 @@ impl SignedCoord2D {
     }
 
     #[inline]
-    fn wrap(self, (dimx, dimy): (i32, i32)) -> SignedCoord2D {
-        let x = modulo(self.x, dimx);
-        let y = modulo(self.y, dimy);
+    fn wrap(self, dims: Dims) -> SignedCoord2D {
+        let x = modulo(self.x, dims.width as i32);
+        let y = modulo(self.y, dims.height as i32);
         SignedCoord2D { x, y }
     }
 }
@@ -199,8 +199,11 @@ impl<'a> ImageBuffer<'a> {
     }
 
     #[inline]
-    fn dimensions(&self) -> (u32, u32) {
-        (self.width as u32, self.height as u32)
+    fn dimensions(&self) -> Dims {
+        Dims {
+            width: self.width as u32,
+            height: self.height as u32,
+        }
     }
 }
 
@@ -553,11 +556,6 @@ impl Generator {
         let mut candidate_count = 0;
         let unresolved_coord = unresolved_coord.to_signed();
 
-        let wrap_dim = (
-            self.output_size.width as i32,
-            self.output_size.height as i32,
-        );
-
         //neighborhood based candidates
         for neigh_coord in k_neighs {
             //calculate the shift between the center coord and its found neighbor
@@ -565,7 +563,7 @@ impl Generator {
 
             //find center coord original location in the example map
             let n_flat_coord = neigh_coord
-                .wrap(wrap_dim)
+                .wrap(self.output_size)
                 .to_unsigned()
                 .to_flat(self.output_size)
                 .0 as usize;
@@ -608,10 +606,6 @@ impl Generator {
         for _ in 0..m_rand {
             let rand_map = (rng.gen_range(0, example_maps.len())) as u32;
             let dims = example_maps[rand_map as usize].dimensions();
-            let dims = Dims {
-                width: dims.0,
-                height: dims.1,
-            };
             //generate a random valid candidate
             let candidate_coord = loop {
                 let coord = SignedCoord2D::new(
@@ -1018,7 +1012,7 @@ fn get_color_of_neighbor(
     n_map: MapId,
     neighbor_color: &mut [u8],
     is_wrap_mode: bool,
-    wrap_dim: (i32, i32),
+    wrap_dim: Dims,
 ) {
     let coord = if is_wrap_mode {
         n_coord.wrap(wrap_dim)
@@ -1049,10 +1043,7 @@ fn k_neighs_to_precomputed_reference_pattern(
     pattern.0.resize(k_neighs.len() * 4, 0);
     let mut i = 0;
 
-    let wrap_dim = (
-        source_maps[0].dimensions().0 as i32,
-        source_maps[0].dimensions().1 as i32,
-    );
+    let wrap_dim = source_maps[0].dimensions();
 
     for (n_coord, n_map) in k_neighs {
         let end = i + 4;
@@ -1144,7 +1135,7 @@ fn better_match(
             *n_map,
             &mut next_pixel,
             false,
-            (0, 0),
+            Dims::new(0, 0),
         );
 
         for (channel_n, &channel) in next_pixel.iter().enumerate() {
@@ -1160,7 +1151,7 @@ fn better_match(
                 *n_map,
                 &mut next_pixel,
                 false,
-                (0, 0),
+                Dims::new(0, 0),
             );
 
             for (channel_n, &channel) in next_pixel.iter().enumerate() {

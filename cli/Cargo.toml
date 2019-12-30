@@ -29,7 +29,7 @@ bench = false
 atty = "0.2.13"
 indicatif = "0.13.0"
 minifb = { version = "0.15.1", optional = true }
-structopt = "0.3.5"
+structopt = "0.3.7"
 texture-synthesis = { version = "0.7.1", path = "../lib" }
 
 [features]

@@ -38,12 +38,6 @@ struct CandidateStruct {
     id: (PatchId, MapId),
 }
 
-impl CandidateStruct {
-    fn clear(&mut self) {
-        self.k_neighs.clear();
-    }
-}
-
 struct GuidesStruct<'a> {
     pub example_guides: Vec<ImageBuffer<'a>>, // as many as there are examples
     pub target_guide: ImageBuffer<'a>,        //single for final color_map
@@ -853,9 +847,6 @@ impl Generator {
                             let unresolved_2d = next_unresolved.to_2d(self.output_size);
 
                             // Clear previously found candidate neighbors
-                            for cand in candidates.iter_mut() {
-                                cand.clear();
-                            }
                             k_neighs.clear();
 
                             // 2. find K nearest resolved neighs

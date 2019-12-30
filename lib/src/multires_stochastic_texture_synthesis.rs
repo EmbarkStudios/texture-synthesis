@@ -602,7 +602,7 @@ impl Generator {
             let candidate_coord = loop {
                 let coord = SignedCoord2D::new(
                     rng.gen_range(0, dims.width) as i32,
-                    rng.gen_range(0, dims.height) as i32
+                    rng.gen_range(0, dims.height) as i32,
                 );
                 if check_coord_validity(
                     coord,

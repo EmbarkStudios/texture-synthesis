@@ -598,23 +598,21 @@ impl Generator {
                 width: dims.0,
                 height: dims.1,
             };
-            let mut rand_x: i32;
-            let mut rand_y: i32;
-            let mut candidate_coord;
             //generate a random valid candidate
-            loop {
-                rand_x = rng.gen_range(0, dims.width) as i32;
-                rand_y = rng.gen_range(0, dims.height) as i32;
-                candidate_coord = SignedCoord2D::new(rand_x, rand_y);
+            let candidate_coord = loop {
+                let coord = SignedCoord2D::new(
+                    rng.gen_range(0, dims.width) as i32,
+                    rng.gen_range(0, dims.height) as i32
+                );
                 if check_coord_validity(
-                    candidate_coord,
+                    coord,
                     MapId(rand_map),
                     &example_maps,
                     &valid_samples_mask[rand_map as usize],
                 ) {
-                    break;
+                    break coord;
                 }
-            }
+            };
             //for patch id (since we are not copying from a generated patch anymore), we take the pixel location in the example map
             let map_id = MapId(rand_map);
             let patch_id = PatchId(candidate_coord.to_unsigned().to_flat(dims).0);

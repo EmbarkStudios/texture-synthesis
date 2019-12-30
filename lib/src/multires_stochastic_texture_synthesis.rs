@@ -1,6 +1,7 @@
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg32;
 use rstar::RTree;
+use std::ops::{Add, Sub};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, RwLock};
 
@@ -101,6 +102,28 @@ impl SignedCoord2D {
         let x = modulo(self.x, dimx);
         let y = modulo(self.y, dimy);
         SignedCoord2D { x, y }
+    }
+}
+
+impl Add<Self> for SignedCoord2D {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        SignedCoord2D {
+            x: self.x + other.x,
+            y: self.y + other.y,
+        }
+    }
+}
+
+impl Sub<Self> for SignedCoord2D {
+    type Output = Self;
+
+    fn sub(self, other: Self) -> Self {
+        SignedCoord2D {
+            x: self.x - other.x,
+            y: self.y - other.y,
+        }
     }
 }
 
@@ -538,10 +561,7 @@ impl Generator {
         //neighborhood based candidates
         for neigh_coord in k_neighs {
             //calculate the shift between the center coord and its found neighbor
-            let shift = (
-                unresolved_coord.x - (*neigh_coord).x,
-                unresolved_coord.y - (*neigh_coord).y,
-            );
+            let shift = unresolved_coord - *neigh_coord;
 
             //find center coord original location in the example map
             let n_flat_coord = neigh_coord
@@ -552,10 +572,7 @@ impl Generator {
             let (n_original_coord, _) = self.coord_map.as_ref()[n_flat_coord];
             let (n_patch_id, n_map_id) = self.id_map.as_ref()[n_flat_coord];
             //candidate coord is the original location of the neighbor + neighbor's shift to the center
-            let candidate_coord = SignedCoord2D::new(
-                n_original_coord.x as i32 + shift.0,
-                n_original_coord.y as i32 + shift.1,
-            );
+            let candidate_coord = n_original_coord.to_signed() + shift;
             //check if the shifted coord is valid (discard if not)
             if check_coord_validity(
                 candidate_coord,
@@ -573,11 +590,8 @@ impl Generator {
                     .iter_mut()
                     .zip(k_neighs)
                 {
-                    let shift = (n2.x - unresolved_coord.x, n2.y - unresolved_coord.y);
-                    let n2_coord = SignedCoord2D::new(
-                        candidate_coord.x + shift.0,
-                        candidate_coord.y + shift.1,
-                    );
+                    let shift = *n2 - unresolved_coord;
+                    let n2_coord = candidate_coord + shift;
 
                     *output = (n2_coord, n_map_id)
                 }
@@ -626,9 +640,8 @@ impl Generator {
                 .iter_mut()
                 .zip(k_neighs)
             {
-                let shift = (unresolved_coord.x - n2.x, unresolved_coord.y - n2.y);
-                let n2_coord =
-                    SignedCoord2D::new(candidate_coord.x + shift.0, candidate_coord.y + shift.1);
+                let shift = unresolved_coord - *n2;
+                let n2_coord = candidate_coord + shift;
 
                 *output = (n2_coord, map_id)
             }

@@ -1230,10 +1230,6 @@ impl TreeGrid {
         let mut rtrees: Vec<RwLock<RTree<[i32; 2]>>> = Vec::new();
         let grid_width = max((width + chunk_size - 1) / chunk_size, 1);
         let grid_height = max((height + chunk_size - 1) / chunk_size, 1);
-        println!(
-            "grid width {} width {} chunk_size {}",
-            grid_width, width, chunk_size
-        );
         rtrees.resize_with((grid_width * grid_height) as usize, || {
             RwLock::new(RTree::new())
         });

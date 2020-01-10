@@ -709,8 +709,12 @@ impl Generator {
 
         {
             // now that we have all of the parameters we can setup our initial tree grid
-            let tile_adjusted_width = (self.output_size.width as f32 * (1.0 + TILING_BOUNDARY_PERCENTAGE * 2.0)) as u32 + 1;
-            let tile_adjusted_height = (self.output_size.height as f32 * (1.0 + TILING_BOUNDARY_PERCENTAGE * 2.0)) as u32 + 1;
+            let tile_adjusted_width =
+                (self.output_size.width as f32 * (1.0 + TILING_BOUNDARY_PERCENTAGE * 2.0)) as u32
+                    + 1;
+            let tile_adjusted_height =
+                (self.output_size.height as f32 * (1.0 + TILING_BOUNDARY_PERCENTAGE * 2.0)) as u32
+                    + 1;
             self.tree_grid = TreeGrid::new(
                 tile_adjusted_width,
                 tile_adjusted_height,
@@ -760,8 +764,14 @@ impl Generator {
             let n_workers = if redo_count < 1000 { 1 } else { max_workers };
             if !has_fanned_out && n_workers > 1 {
                 has_fanned_out = true;
-                let tile_adjusted_width = (self.output_size.width as f32 * (1.0 + TILING_BOUNDARY_PERCENTAGE * 2.0)) as u32 + 1;
-                let tile_adjusted_height = (self.output_size.height as f32 * (1.0 + TILING_BOUNDARY_PERCENTAGE * 2.0)) as u32 + 1;
+                let tile_adjusted_width = (self.output_size.width as f32
+                    * (1.0 + TILING_BOUNDARY_PERCENTAGE * 2.0))
+                    as u32
+                    + 1;
+                let tile_adjusted_height = (self.output_size.height as f32
+                    * (1.0 + TILING_BOUNDARY_PERCENTAGE * 2.0))
+                    as u32
+                    + 1;
                 // heuristic: pick a cell size so that the expected number of resolved points in any cell is 4 * k
                 // this seems to be a safe overestimate
                 let grid_cell_size =
@@ -1220,7 +1230,10 @@ impl TreeGrid {
         let mut rtrees: Vec<RwLock<RTree<[i32; 2]>>> = Vec::new();
         let grid_width = max((width + chunk_size - 1) / chunk_size, 1);
         let grid_height = max((height + chunk_size - 1) / chunk_size, 1);
-        println!("grid width {} width {} chunk_size {}", grid_width, width, chunk_size);
+        println!(
+            "grid width {} width {} chunk_size {}",
+            grid_width, width, chunk_size
+        );
         rtrees.resize_with((grid_width * grid_height) as usize, || {
             RwLock::new(RTree::new())
         });
@@ -1290,14 +1303,16 @@ impl TreeGrid {
                 x: chunk_x + 1,
                 y: chunk_y,
                 center: false,
-                closest_point_on_boundary_x: ((chunk_x + 1) * self.chunk_size as i32 - self.offset_x) as i64,
+                closest_point_on_boundary_x: ((chunk_x + 1) * self.chunk_size as i32
+                    - self.offset_x) as i64,
                 closest_point_on_boundary_y: y as i64,
             },
             ChunkSearchInfo {
                 x: chunk_x - 1,
                 y: chunk_y,
                 center: false,
-                closest_point_on_boundary_x: (chunk_x * self.chunk_size as i32 - self.offset_x) as i64,
+                closest_point_on_boundary_x: (chunk_x * self.chunk_size as i32 - self.offset_x)
+                    as i64,
                 closest_point_on_boundary_y: y as i64,
             },
             ChunkSearchInfo {
@@ -1305,42 +1320,52 @@ impl TreeGrid {
                 y: chunk_y - 1,
                 center: false,
                 closest_point_on_boundary_x: x as i64,
-                closest_point_on_boundary_y: (chunk_y * self.chunk_size as i32 - self.offset_y) as i64,
+                closest_point_on_boundary_y: (chunk_y * self.chunk_size as i32 - self.offset_y)
+                    as i64,
             },
             ChunkSearchInfo {
                 x: chunk_x,
                 y: chunk_y + 1,
                 center: false,
                 closest_point_on_boundary_x: x as i64,
-                closest_point_on_boundary_y: ((chunk_y + 1) * self.chunk_size as i32 - self.offset_y) as i64,
+                closest_point_on_boundary_y: ((chunk_y + 1) * self.chunk_size as i32
+                    - self.offset_y) as i64,
             },
             ChunkSearchInfo {
                 x: chunk_x + 1,
                 y: chunk_y + 1,
                 center: false,
-                closest_point_on_boundary_x: ((chunk_x + 1) * self.chunk_size as i32 - self.offset_x) as i64,
-                closest_point_on_boundary_y: ((chunk_y + 1) * self.chunk_size as i32 - self.offset_y) as i64,
+                closest_point_on_boundary_x: ((chunk_x + 1) * self.chunk_size as i32
+                    - self.offset_x) as i64,
+                closest_point_on_boundary_y: ((chunk_y + 1) * self.chunk_size as i32
+                    - self.offset_y) as i64,
             },
             ChunkSearchInfo {
                 x: chunk_x - 1,
                 y: chunk_y + 1,
                 center: false,
-                closest_point_on_boundary_x: (chunk_x * self.chunk_size as i32 - self.offset_x) as i64,
-                closest_point_on_boundary_y: ((chunk_y + 1) * self.chunk_size as i32 - self.offset_y) as i64,
+                closest_point_on_boundary_x: (chunk_x * self.chunk_size as i32 - self.offset_x)
+                    as i64,
+                closest_point_on_boundary_y: ((chunk_y + 1) * self.chunk_size as i32
+                    - self.offset_y) as i64,
             },
             ChunkSearchInfo {
                 x: chunk_x + 1,
                 y: chunk_y - 1,
                 center: false,
-                closest_point_on_boundary_x: ((chunk_x + 1) * self.chunk_size as i32 - self.offset_x) as i64,
-                closest_point_on_boundary_y: (chunk_y * self.chunk_size as i32 - self.offset_y) as i64,
+                closest_point_on_boundary_x: ((chunk_x + 1) * self.chunk_size as i32
+                    - self.offset_x) as i64,
+                closest_point_on_boundary_y: (chunk_y * self.chunk_size as i32 - self.offset_y)
+                    as i64,
             },
             ChunkSearchInfo {
                 x: chunk_x - 1,
                 y: chunk_y - 1,
                 center: false,
-                closest_point_on_boundary_x: (chunk_x * self.chunk_size as i32 - self.offset_x) as i64,
-                closest_point_on_boundary_y: (chunk_y * self.chunk_size as i32 - self.offset_y) as i64,
+                closest_point_on_boundary_x: (chunk_x * self.chunk_size as i32 - self.offset_x)
+                    as i64,
+                closest_point_on_boundary_y: (chunk_y * self.chunk_size as i32 - self.offset_y)
+                    as i64,
             },
         ];
         // Note locking all of them at different times seems to be the best way
@@ -1375,7 +1400,8 @@ impl TreeGrid {
                     }
                 }
 
-                let my_tree_index = self.get_tree_index(place_to_look.x as u32, place_to_look.y as u32);
+                let my_tree_index =
+                    self.get_tree_index(place_to_look.x as u32, place_to_look.y as u32);
                 let my_rtree = &self.rtrees[my_tree_index];
                 tmp_result.extend(
                     my_rtree

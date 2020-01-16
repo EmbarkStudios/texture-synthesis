@@ -1,10 +1,13 @@
 use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg32;
 use rstar::RTree;
+use std::cmp::max;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, RwLock};
 
 use crate::{img_pyramid::*, unsync::*, CoordinateTransform, Dims, SamplingMethod};
+
+const TILING_BOUNDARY_PERCENTAGE: f32 = 0.05;
 
 #[derive(Debug)]
 pub struct GeneratorParams {
@@ -197,9 +200,8 @@ pub struct Generator {
     pub(crate) output_size: Dims,           // size of the generated image
     unresolved: Mutex<Vec<CoordFlat>>,      //for us to pick from
     resolved: RwLock<Vec<(CoordFlat, Score)>>, //a list of resolved coordinates in our canvas and their scores
-    rtree: RwLock<RTree<[i32; 2]>>,            //R* tree
-    update_queue: Mutex<Vec<([i32; 2], CoordFlat, Score)>>,
-    locked_resolved: usize, //used for inpainting, to not backtrack these pixels
+    tree_grid: TreeGrid,                       // grid of R*Trees
+    locked_resolved: usize,                    //used for inpainting, to not backtrack these pixels
 }
 
 impl Generator {
@@ -213,8 +215,7 @@ impl Generator {
             output_size: size,
             unresolved: Mutex::new(unresolved),
             resolved: RwLock::new(Vec::new()),
-            rtree: RwLock::new(RTree::new()),
-            update_queue: Mutex::new(Vec::new()),
+            tree_grid: TreeGrid::new(size.width, size.height, max(size.width, size.height), 0, 0),
             locked_resolved: 0,
         }
     }
@@ -248,12 +249,11 @@ impl Generator {
             color_map
         };
 
-        //
         let s = (size.width as usize) * (size.height as usize);
         let mut unresolved: Vec<CoordFlat> = Vec::new();
         let mut resolved: Vec<(CoordFlat, Score)> = Vec::new();
         let mut coord_map = vec![(Coord2D::from(0, 0), MapId(0)); s];
-        let mut rtree = RTree::new();
+        let tree_grid = TreeGrid::new(size.width, size.height, max(size.width, size.height), 0, 0);
         //populate resolved, unresolved and coord map
         for (i, pixel) in inpaint_map.pixels().enumerate() {
             if pixel[0] < 255 {
@@ -262,7 +262,6 @@ impl Generator {
                 resolved.push((CoordFlat(i as u32), Score(0.0)));
                 let coord = CoordFlat(i as u32).to_2d(size);
                 coord_map[i] = (coord, MapId(color_map_index as u32)); //this absolutely requires the input image and output image to be the same size!!!!
-                rtree.insert([coord.x as i32, coord.y as i32]);
             }
         }
 
@@ -274,8 +273,7 @@ impl Generator {
             output_size: size,
             unresolved: Mutex::new(unresolved),
             resolved: RwLock::new(resolved),
-            rtree: RwLock::new(rtree),
-            update_queue: Mutex::new(Vec::new()),
+            tree_grid,
             locked_resolved,
         }
     }
@@ -283,58 +281,45 @@ impl Generator {
     // Write resolved pixels from the update queue to an already write-locked `rtree` and `resolved` array.
     fn flush_resolved(
         &self,
-        rtree: &mut RTree<[i32; 2]>,
+        my_resolved_list: &mut Vec<(CoordFlat, Score)>,
+        tree_grid: &TreeGrid,
         update_queue: &[([i32; 2], CoordFlat, Score)],
         is_tiling_mode: bool,
     ) {
-        let mut resolved = self.resolved.write().unwrap();
-
         for (a, b, score) in update_queue.iter() {
-            rtree.insert(*a);
+            tree_grid.insert(a[0], a[1]);
 
             if is_tiling_mode {
                 //if close to border add additional mirrors
-                let x_l = ((self.output_size.width as f32) * 0.05) as i32;
+                let x_l = ((self.output_size.width as f32) * TILING_BOUNDARY_PERCENTAGE) as i32;
                 let x_r = self.output_size.width as i32 - x_l;
-                let y_b = ((self.output_size.height as f32) * 0.05) as i32;
+                let y_b = ((self.output_size.height as f32) * TILING_BOUNDARY_PERCENTAGE) as i32;
                 let y_t = self.output_size.height as i32 - y_b;
 
                 if a[0] < x_l {
-                    rtree.insert([a[0] + (self.output_size.width as i32), a[1]]);
+                    tree_grid.insert(a[0] + (self.output_size.width as i32), a[1]);
                 // +x
                 } else if a[0] > x_r {
-                    rtree.insert([a[0] - (self.output_size.width as i32), a[1]]);
+                    tree_grid.insert(a[0] - (self.output_size.width as i32), a[1]);
                     // -x
                 }
 
                 if a[1] < y_b {
-                    rtree.insert([a[0], a[1] + (self.output_size.height as i32)]);
+                    tree_grid.insert(a[0], a[1] + (self.output_size.height as i32));
                 // +Y
                 } else if a[1] > y_t {
-                    rtree.insert([a[0], a[1] - (self.output_size.height as i32)]);
+                    tree_grid.insert(a[0], a[1] - (self.output_size.height as i32));
                     // -Y
                 }
             }
-            resolved.push((*b, *score));
+            my_resolved_list.push((*b, *score));
         }
-    }
-
-    fn force_flush_resolved(&self, is_tiling_mode: bool) {
-        self.flush_resolved(
-            &mut *self.rtree.write().unwrap(),
-            &self
-                .update_queue
-                .lock()
-                .unwrap()
-                .drain(..)
-                .collect::<Vec<_>>(),
-            is_tiling_mode,
-        );
     }
 
     #[allow(clippy::too_many_arguments)]
     fn update(
         &self,
+        my_resolved_list: &mut Vec<(CoordFlat, Score)>,
         update_coord: Coord2D,
         (example_coord, example_map_id): (Coord2D, MapId),
         example_maps: &[ImageBuffer<'_>],
@@ -364,44 +349,16 @@ impl Generator {
         );
 
         if update_resolved_list {
-            const FORCE_FLUSH_THRESHOLD: usize = 32;
-
-            let force_flush_items: Option<Vec<_>> = {
-                let mut update_queue = self.update_queue.lock().unwrap();
-
-                // Don't immediately resolve the pixel. Instead, add it to a list, to be resolved at the right time.
-                update_queue.push((
+            self.flush_resolved(
+                my_resolved_list,
+                &self.tree_grid,
+                &[(
                     [update_coord.x as i32, update_coord.y as i32],
                     flat_coord,
                     score,
-                ));
-
-                // If the list is getting sizeable, force flush it.
-                if update_queue.len() >= FORCE_FLUSH_THRESHOLD {
-                    // We drain the items out of the queue, and immediately unlock it for other threads.
-                    // We can then proceed to flush the items from our local copy of the queue.
-                    Some(update_queue.drain(..).collect())
-                } else {
-                    None
-                }
-            };
-
-            if let Some(force_flush_items) = force_flush_items {
-                self.flush_resolved(
-                    &mut *self.rtree.write().unwrap(),
-                    &force_flush_items,
-                    is_tiling_mode,
-                );
-            } else {
-                // Otherwise, check if we can get a lock on the rtree, and only then flush the list.
-                // The rtree lock has moderate contention, so we might not get it this time around.
-                if let Ok(ref mut rtree) = self.rtree.try_write() {
-                    let update_queue: Vec<_> =
-                        self.update_queue.lock().unwrap().drain(..).collect();
-
-                    self.flush_resolved(&mut *rtree, &update_queue, is_tiling_mode);
-                }
-            }
+                )],
+                is_tiling_mode,
+            );
         }
     }
 
@@ -423,33 +380,11 @@ impl Generator {
         k: u32,
         k_neighs_2d: &mut Vec<SignedCoord2D>,
     ) -> bool {
-        {
-            let resolved = self.resolved.read().unwrap();
-
-            //check how many resolved neighbors we have
-            let total_resolved = resolved.len() as u32;
-            if total_resolved == 0 {
-                return false;
-            } else if total_resolved <= k {
-                //just return the resolved neighs we have
-                k_neighs_2d.extend(
-                    resolved
-                        .iter()
-                        .map(|(coord_flat, _)| coord_flat.to_2d(self.output_size).to_signed()),
-                );
-                return true;
-            }
+        self.tree_grid
+            .get_k_nearest_neighbors(coord.x, coord.y, k as usize, k_neighs_2d);
+        if k_neighs_2d.is_empty() {
+            return false;
         }
-
-        //return the search of the tree
-        k_neighs_2d.extend(
-            self.rtree
-                .read()
-                .unwrap()
-                .nearest_neighbor_iter(&[coord.x as i32, coord.y as i32])
-                .take(k as usize)
-                .map(|a| SignedCoord2D::from((*a)[0], (*a)[1])),
-        );
         true
     }
 
@@ -485,6 +420,7 @@ impl Generator {
             if let Some(ref unresolved_flat) = self.pick_random_unresolved(seed + i as u64) {
                 //no resolved neighs? resolve at random!
                 self.resolve_at_random(
+                    &mut self.resolved.write().unwrap(),
                     unresolved_flat.to_2d(self.output_size),
                     example_maps,
                     seed + i as u64 + u64::from(unresolved_flat.0),
@@ -494,7 +430,13 @@ impl Generator {
         self.locked_resolved += steps; //lock these pixels from being re-resolved
     }
 
-    fn resolve_at_random(&self, my_coord: Coord2D, example_maps: &[ImageBuffer<'_>], seed: u64) {
+    fn resolve_at_random(
+        &self,
+        my_resolved_list: &mut Vec<(CoordFlat, Score)>,
+        my_coord: Coord2D,
+        example_maps: &[ImageBuffer<'_>],
+        seed: u64,
+    ) {
         let rand_map: u32 = Pcg32::seed_from_u64(seed).gen_range(0, example_maps.len()) as u32;
         let rand_x: u32 =
             Pcg32::seed_from_u64(seed).gen_range(0, example_maps[rand_map as usize].width as u32);
@@ -502,6 +444,7 @@ impl Generator {
             Pcg32::seed_from_u64(seed).gen_range(0, example_maps[rand_map as usize].height as u32);
 
         self.update(
+            my_resolved_list,
             my_coord,
             (Coord2D::from(rand_x, rand_y), MapId(rand_map)),
             example_maps,
@@ -761,6 +704,40 @@ impl Generator {
         let l2_precomputed = PrerenderedU8Function::new(metric_l2);
         let mut total_processed_pixels = 0;
         let max_workers = params.max_thread_count;
+        // Use a single R*-tree initially, and fan out to a grid of them later?
+        let mut has_fanned_out = false;
+
+        {
+            // now that we have all of the parameters we can setup our initial tree grid
+            let tile_adjusted_width =
+                (self.output_size.width as f32 * (1.0 + TILING_BOUNDARY_PERCENTAGE * 2.0)) as u32
+                    + 1;
+            let tile_adjusted_height =
+                (self.output_size.height as f32 * (1.0 + TILING_BOUNDARY_PERCENTAGE * 2.0)) as u32
+                    + 1;
+            self.tree_grid = TreeGrid::new(
+                tile_adjusted_width,
+                tile_adjusted_height,
+                max(tile_adjusted_width, tile_adjusted_height),
+                (self.output_size.width as f32 * TILING_BOUNDARY_PERCENTAGE) as u32 + 1,
+                (self.output_size.height as f32 * TILING_BOUNDARY_PERCENTAGE) as u32 + 1,
+            );
+            // if we already have resolved pixels from an inpaint or multiexample add them to this tree grid
+            let resolved_queue = &mut self.resolved.write().unwrap();
+            let pixels_to_update: Vec<([i32; 2], CoordFlat, Score)> = resolved_queue
+                .drain(..)
+                .map(|a| {
+                    let coord_2d = a.0.to_2d(self.output_size);
+                    ([coord_2d.x as i32, coord_2d.y as i32], a.0, a.1)
+                })
+                .collect();
+            self.flush_resolved(
+                resolved_queue,
+                &self.tree_grid,
+                &pixels_to_update[..],
+                is_tiling_mode,
+            );
+        }
 
         for p_stage in (0..=params.p_stages).rev() {
             //get maps from current pyramid level (for now it will be p-stage dependant)
@@ -785,6 +762,34 @@ impl Generator {
 
             // Start with serial execution for the first few pixels, then go wide
             let n_workers = if redo_count < 1000 { 1 } else { max_workers };
+            if !has_fanned_out && n_workers > 1 {
+                has_fanned_out = true;
+                let tile_adjusted_width = (self.output_size.width as f32
+                    * (1.0 + TILING_BOUNDARY_PERCENTAGE * 2.0))
+                    as u32
+                    + 1;
+                let tile_adjusted_height = (self.output_size.height as f32
+                    * (1.0 + TILING_BOUNDARY_PERCENTAGE * 2.0))
+                    as u32
+                    + 1;
+                // heuristic: pick a cell size so that the expected number of resolved points in any cell is 4 * k
+                // this seems to be a safe overestimate
+                let grid_cell_size =
+                    ((params.nearest_neighbors * self.output_size.height * self.output_size.height
+                        / redo_count as u32) as f64)
+                        .sqrt() as u32
+                        * 2
+                        + 1;
+                let new_tree_grid = TreeGrid::new(
+                    tile_adjusted_width,
+                    tile_adjusted_height,
+                    grid_cell_size,
+                    (self.output_size.width as f32 * TILING_BOUNDARY_PERCENTAGE) as u32 + 1,
+                    (self.output_size.height as f32 * TILING_BOUNDARY_PERCENTAGE) as u32 + 1,
+                );
+                self.tree_grid.clone_into_new_tree_grid(&new_tree_grid);
+                self.tree_grid = new_tree_grid;
+            }
 
             //calculate the guidance alpha
             let adaptive_alpha = if guides.is_some() && p_stage > 0 {
@@ -806,6 +811,10 @@ impl Generator {
             let processed_pixel_count = AtomicUsize::new(0);
             let remaining_threads = AtomicUsize::new(n_workers);
 
+            let mut pixels_resolved_this_stage: Vec<Mutex<Vec<(CoordFlat, Score)>>> = Vec::new();
+            pixels_resolved_this_stage.resize_with(n_workers, || Mutex::new(Vec::new()));
+            let thread_counter = AtomicUsize::new(0);
+
             crossbeam_utils::thread::scope(|scope| {
                 for _ in 0..n_workers {
                     scope.spawn(|_| {
@@ -816,6 +825,10 @@ impl Generator {
 
                         let max_candidate_count = params.nearest_neighbors as usize
                             + params.random_sample_locations as usize;
+
+                        let my_thread_id = thread_counter.fetch_add(1, Ordering::Relaxed);
+                        let mut my_resolved_list =
+                            pixels_resolved_this_stage[my_thread_id].lock().unwrap();
 
                         candidates.resize(max_candidate_count, CandidateStruct::default());
 
@@ -926,6 +939,7 @@ impl Generator {
 
                                 // 5. resolve our pixel
                                 self.update(
+                                    &mut my_resolved_list,
                                     unresolved_2d,
                                     (best_match_coord, best_match_map_id),
                                     &example_maps,
@@ -936,10 +950,14 @@ impl Generator {
                                 );
                             } else {
                                 //no resolved neighs? resolve at random!
-                                self.resolve_at_random(unresolved_2d, &example_maps, p_stage_seed);
+                                self.resolve_at_random(
+                                    &mut my_resolved_list,
+                                    unresolved_2d,
+                                    &example_maps,
+                                    p_stage_seed,
+                                );
                             }
                         }
-
                         remaining_threads.fetch_sub(1, Ordering::Relaxed);
                     });
                 }
@@ -981,8 +999,13 @@ impl Generator {
             })
             .unwrap();
 
-            // Some items might still be pending a resolve flush. Do it now before we start the next stage.
-            self.force_flush_resolved(is_tiling_mode);
+            {
+                // append all per-thread resolved lists to the global list
+                let mut resolved = self.resolved.write().unwrap();
+                for thread_resolved in pixels_resolved_this_stage {
+                    resolved.append(&mut thread_resolved.into_inner().unwrap());
+                }
+            }
         }
     }
 }
@@ -1188,6 +1211,226 @@ impl PrerenderedU8Function {
     #[inline]
     pub fn get(&self, a: u8, b: u8) -> f32 {
         self.data[a as usize * 256usize + b as usize]
+    }
+}
+
+struct TreeGrid {
+    grid_width: u32,
+    grid_height: u32,
+    offset_x: i32,
+    offset_y: i32,
+    chunk_size: u32,
+    rtrees: Vec<RwLock<RTree<[i32; 2]>>>,
+}
+
+// This is a grid of rtrees
+// The idea is that most pixels after the first couple steps will have their neighbors close by
+impl TreeGrid {
+    pub fn new(width: u32, height: u32, chunk_size: u32, offset_x: u32, offset_y: u32) -> TreeGrid {
+        let mut rtrees: Vec<RwLock<RTree<[i32; 2]>>> = Vec::new();
+        let grid_width = max((width + chunk_size - 1) / chunk_size, 1);
+        let grid_height = max((height + chunk_size - 1) / chunk_size, 1);
+        rtrees.resize_with((grid_width * grid_height) as usize, || {
+            RwLock::new(RTree::new())
+        });
+        TreeGrid {
+            rtrees,
+            grid_width,
+            grid_height,
+            offset_x: offset_x as i32,
+            offset_y: offset_y as i32,
+            chunk_size,
+        }
+    }
+
+    #[inline]
+    fn get_tree_index(&self, x: u32, y: u32) -> usize {
+        (x * self.grid_height + y) as usize
+    }
+
+    pub fn insert(&self, x: i32, y: i32) {
+        let my_tree_index = self.get_tree_index(
+            ((x + self.offset_x) as u32) / self.chunk_size,
+            ((y + self.offset_y) as u32) / self.chunk_size,
+        );
+        self.rtrees[my_tree_index].write().unwrap().insert([x, y]);
+    }
+
+    pub fn clone_into_new_tree_grid(&self, other: &TreeGrid) {
+        for tree in &self.rtrees {
+            for coord in tree.read().unwrap().iter() {
+                other.insert((*coord)[0], (*coord)[1]);
+            }
+        }
+    }
+
+    pub fn get_k_nearest_neighbors(
+        &self,
+        x: u32,
+        y: u32,
+        k: usize,
+        result: &mut Vec<SignedCoord2D>,
+    ) {
+        let offset_x = x as i32 + self.offset_x;
+        let offset_y = y as i32 + self.offset_y;
+
+        let chunk_x = offset_x / self.chunk_size as i32;
+        let chunk_y = offset_y / self.chunk_size as i32;
+
+        struct ChunkSearchInfo {
+            x: i32,
+            y: i32,
+            center: bool,
+            closest_point_on_boundary_x: i64,
+            closest_point_on_boundary_y: i64,
+        }
+
+        // Assume that all k nearest neighbors are in these cells
+        // it looks like we are rarely wrong once enough pixels are filled in
+        let places_to_look = [
+            ChunkSearchInfo {
+                x: chunk_x,
+                y: chunk_y,
+                center: true,
+                closest_point_on_boundary_x: 0,
+                closest_point_on_boundary_y: 0,
+            },
+            ChunkSearchInfo {
+                x: chunk_x + 1,
+                y: chunk_y,
+                center: false,
+                closest_point_on_boundary_x: ((chunk_x + 1) * self.chunk_size as i32
+                    - self.offset_x) as i64,
+                closest_point_on_boundary_y: y as i64,
+            },
+            ChunkSearchInfo {
+                x: chunk_x - 1,
+                y: chunk_y,
+                center: false,
+                closest_point_on_boundary_x: (chunk_x * self.chunk_size as i32 - self.offset_x)
+                    as i64,
+                closest_point_on_boundary_y: y as i64,
+            },
+            ChunkSearchInfo {
+                x: chunk_x,
+                y: chunk_y - 1,
+                center: false,
+                closest_point_on_boundary_x: x as i64,
+                closest_point_on_boundary_y: (chunk_y * self.chunk_size as i32 - self.offset_y)
+                    as i64,
+            },
+            ChunkSearchInfo {
+                x: chunk_x,
+                y: chunk_y + 1,
+                center: false,
+                closest_point_on_boundary_x: x as i64,
+                closest_point_on_boundary_y: ((chunk_y + 1) * self.chunk_size as i32
+                    - self.offset_y) as i64,
+            },
+            ChunkSearchInfo {
+                x: chunk_x + 1,
+                y: chunk_y + 1,
+                center: false,
+                closest_point_on_boundary_x: ((chunk_x + 1) * self.chunk_size as i32
+                    - self.offset_x) as i64,
+                closest_point_on_boundary_y: ((chunk_y + 1) * self.chunk_size as i32
+                    - self.offset_y) as i64,
+            },
+            ChunkSearchInfo {
+                x: chunk_x - 1,
+                y: chunk_y + 1,
+                center: false,
+                closest_point_on_boundary_x: (chunk_x * self.chunk_size as i32 - self.offset_x)
+                    as i64,
+                closest_point_on_boundary_y: ((chunk_y + 1) * self.chunk_size as i32
+                    - self.offset_y) as i64,
+            },
+            ChunkSearchInfo {
+                x: chunk_x + 1,
+                y: chunk_y - 1,
+                center: false,
+                closest_point_on_boundary_x: ((chunk_x + 1) * self.chunk_size as i32
+                    - self.offset_x) as i64,
+                closest_point_on_boundary_y: (chunk_y * self.chunk_size as i32 - self.offset_y)
+                    as i64,
+            },
+            ChunkSearchInfo {
+                x: chunk_x - 1,
+                y: chunk_y - 1,
+                center: false,
+                closest_point_on_boundary_x: (chunk_x * self.chunk_size as i32 - self.offset_x)
+                    as i64,
+                closest_point_on_boundary_y: (chunk_y * self.chunk_size as i32 - self.offset_y)
+                    as i64,
+            },
+        ];
+        // Note locking all of them at different times seems to be the best way
+        // Naively trying to lock all at once could easily result in deadlocks
+        let mut tmp_result: Vec<(i32, i32, i64)> = Vec::with_capacity(k * 9);
+        result.clear();
+        result.reserve(k);
+
+        // an upper bound is good enough here
+        let mut upper_bound_kth_best_squared_distance = i64::max_value();
+        for place_to_look in places_to_look.iter() {
+            if place_to_look.x >= 0
+                && place_to_look.x < self.grid_width as i32
+                && place_to_look.y >= 0
+                && place_to_look.y < self.grid_height as i32
+            {
+                let is_center = place_to_look.center;
+
+                // a tiny optimization to help us throw far away neighbors
+                // saves us a decent amount of reads
+                if !is_center {
+                    let squared_distance_to_closest_possible_point_on_chunk = (x as i64
+                        - place_to_look.closest_point_on_boundary_x)
+                        * (x as i64 - place_to_look.closest_point_on_boundary_x)
+                        + (y as i64 - place_to_look.closest_point_on_boundary_y)
+                            * (y as i64 - place_to_look.closest_point_on_boundary_y);
+
+                    if squared_distance_to_closest_possible_point_on_chunk
+                        > upper_bound_kth_best_squared_distance
+                    {
+                        continue;
+                    }
+                }
+
+                let my_tree_index =
+                    self.get_tree_index(place_to_look.x as u32, place_to_look.y as u32);
+                let my_rtree = &self.rtrees[my_tree_index];
+                tmp_result.extend(
+                    my_rtree
+                        .read()
+                        .unwrap()
+                        .nearest_neighbor_iter(&[x as i32, y as i32])
+                        .take(k)
+                        .map(|a| {
+                            (
+                                (*a)[0],
+                                (*a)[1],
+                                ((*a)[0] as i64 - x as i64) * ((*a)[0] as i64 - x as i64)
+                                    + ((*a)[1] as i64 - y as i64) * ((*a)[1] as i64 - y as i64),
+                            )
+                        }),
+                );
+
+                // this isn't really the kth best distance but it's an okay approximation
+                if tmp_result.len() >= k {
+                    let furthest_dist_for_chunk = tmp_result[tmp_result.len() - 1].2;
+                    if furthest_dist_for_chunk < upper_bound_kth_best_squared_distance {
+                        upper_bound_kth_best_squared_distance = furthest_dist_for_chunk;
+                    }
+                }
+            }
+        }
+        tmp_result.sort_by_key(|k| k.2);
+        result.extend(
+            tmp_result
+                .iter()
+                .take(k)
+                .map(|a| SignedCoord2D::from(a.0, a.1)),
+        );
     }
 }
 

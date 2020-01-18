@@ -1,3 +1,5 @@
+use texture_synthesis::{Dims, Error};
+
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 #[cfg(feature = "progress")]
 use minifb::Window;

@@ -1,3 +1,4 @@
+#[cfg(feature = "progress")]
 use texture_synthesis::{Dims, Error};
 
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};

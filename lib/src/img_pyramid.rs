@@ -12,7 +12,7 @@ impl ImagePyramid {
         });
 
         Self {
-            pyramid: ImagePyramid::build_gaussian(lvls, in_img),
+            pyramid: Self::build_gaussian(lvls, in_img),
         }
     }
 

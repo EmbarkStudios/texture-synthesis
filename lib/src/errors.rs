@@ -59,8 +59,8 @@ pub enum Error {
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Error::Image(err) => Some(err),
-            Error::Io(err) => Some(err),
+            Self::Image(err) => Some(err),
+            Self::Io(err) => Some(err),
             _ => None,
         }
     }

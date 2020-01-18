@@ -1,11 +1,26 @@
-#![warn(clippy::all)]
-#![warn(rust_2018_idioms)]
+#![warn(
+    clippy::all,
+    clippy::doc_markdown,
+    clippy::dbg_macro,
+    clippy::todo,
+    clippy::empty_enum,
+    clippy::enum_glob_use,
+    clippy::pub_enum_variant_names,
+    clippy::mem_forget,
+    clippy::use_self,
+    clippy::filter_map_next,
+    clippy::needless_continue,
+    clippy::needless_borrow,
+    rust_2018_idioms,
+    future_incompatible,
+    nonstandard_style
+)]
 
 //! `texture-synthesis` is a light API for Multiresolution Stochastic Texture Synthesis,
 //! a non-parametric example-based algorithm for image generation.
 //!
 //! First, you build a `Session` via a `SessionBuilder`, which follows the builder pattern. Calling
-//! `build` on the SessionBuilder loads all of the input images and checks for various errors.
+//! `build` on the `SessionBuilder` loads all of the input images and checks for various errors.
 //!
 //! `Session` has a `run()` method that takes all of the parameters and inputs added in the session
 //! builder to generated an image, which is returned as a `GeneratedImage`.
@@ -437,7 +452,7 @@ impl<'a> SessionBuilder<'a> {
 
     /// Adds an `Example` from which a generator will synthesize a new image.
     ///
-    /// See [examples/01_single_example_synthesis](https://github.com/EmbarkStudios/texture-synthesis/tree/master/lib/examples/01_single_example_synthesis.rs)
+    /// See [`examples/01_single_example_synthesis`](https://github.com/EmbarkStudios/texture-synthesis/tree/master/lib/examples/01_single_example_synthesis.rs)
     ///
     /// # Examples
     ///
@@ -453,7 +468,7 @@ impl<'a> SessionBuilder<'a> {
 
     /// Adds Examples from which a generator will synthesize a new image.
     ///
-    /// See [examples/02_multi_example_synthesis](https://github.com/EmbarkStudios/texture-synthesis/tree/master/lib/examples/02_multi_example_synthesis.rs)
+    /// See [`examples/02_multi_example_synthesis`](https://github.com/EmbarkStudios/texture-synthesis/tree/master/lib/examples/02_multi_example_synthesis.rs)
     ///
     /// # Examples
     ///
@@ -477,7 +492,7 @@ impl<'a> SessionBuilder<'a> {
     ///
     /// To prevent sampling from the example, you can specify `SamplingMethod::Ignore` with `Example::set_sample_method`.
     ///
-    /// See [examples/05_inpaint](https://github.com/EmbarkStudios/texture-synthesis/tree/master/lib/examples/05_inpaint.rs)
+    /// See [`examples/05_inpaint`](https://github.com/EmbarkStudios/texture-synthesis/tree/master/lib/examples/05_inpaint.rs)
     ///
     /// # Examples
     ///
@@ -543,8 +558,8 @@ impl<'a> SessionBuilder<'a> {
     /// If no `Example` guide maps are provided, this will produce a style transfer effect,
     /// where the Examples are styles and the target guide is content.
     ///
-    /// See [examples/03_guided_synthesis](https://github.com/EmbarkStudios/texture-synthesis/tree/master/lib/examples/03_guided_synthesis.rs),
-    /// or [examples/04_style_transfer](https://github.com/EmbarkStudios/texture-synthesis/tree/master/lib/examples/04_style_transfer.rs),
+    /// See [`examples/03_guided_synthesis`](https://github.com/EmbarkStudios/texture-synthesis/tree/master/lib/examples/03_guided_synthesis.rs),
+    /// or [`examples/04_style_transfer`](https://github.com/EmbarkStudios/texture-synthesis/tree/master/lib/examples/04_style_transfer.rs),
     pub fn load_target_guide<I: Into<ImageSource<'a>>>(mut self, guide: I) -> Self {
         self.target_guide = Some(guide.into());
         self
@@ -610,7 +625,7 @@ impl<'a> SessionBuilder<'a> {
         self
     }
 
-    /// The percentage of pixels to be backtracked during each p_stage. Range (0,1).
+    /// The percentage of pixels to be backtracked during each `p_stage`. Range (0,1).
     /// Default: 0.5
     pub fn backtrack_percent(mut self, value: f32) -> Self {
         self.params.backtrack_percent = value;

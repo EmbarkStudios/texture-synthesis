@@ -1,5 +1,20 @@
-#![warn(clippy::all)]
-#![warn(rust_2018_idioms)]
+#![warn(
+    clippy::all,
+    clippy::doc_markdown,
+    clippy::dbg_macro,
+    clippy::todo,
+    clippy::empty_enum,
+    clippy::enum_glob_use,
+    clippy::pub_enum_variant_names,
+    clippy::mem_forget,
+    clippy::use_self,
+    clippy::filter_map_next,
+    clippy::needless_continue,
+    clippy::needless_borrow,
+    rust_2018_idioms,
+    future_incompatible,
+    nonstandard_style
+)]
 
 use structopt::StructOpt;
 
@@ -294,7 +309,7 @@ fn real_main() -> Result<(), Error> {
                 "ALL" => example.set_sample_method(SampleMethod::All),
                 "IGNORE" => example.set_sample_method(SampleMethod::Ignore),
                 path => example.set_sample_method(SampleMethod::Image(ImageSource::from_path(
-                    &std::path::Path::new(path),
+                    std::path::Path::new(path),
                 ))),
             };
         }
@@ -340,7 +355,7 @@ fn real_main() -> Result<(), Error> {
         sb = sb.max_thread_count(mt);
     }
 
-    if let Some(ref tg) = target_guide {
+    if let Some(tg) = target_guide {
         sb = sb.load_target_guide(tg);
     }
 

@@ -100,7 +100,7 @@ impl SignedCoord2D {
     }
 
     #[inline]
-    fn wrap(self, (dimx, dimy): (i32, i32)) -> SignedCoord2D {
+    fn wrap(self, (dimx, dimy): (i32, i32)) -> Self {
         let mut c = self;
         c.x = modulo(c.x, dimx);
         c.y = modulo(c.y, dimy);
@@ -504,7 +504,7 @@ impl Generator {
             if check_coord_validity(
                 candidate_coord,
                 n_map_id,
-                &example_maps,
+                example_maps,
                 &valid_samples_mask[n_map_id.0 as usize],
             ) {
                 //lets construct the full candidate pattern of neighbors identical to the center coord
@@ -553,7 +553,7 @@ impl Generator {
                 if check_coord_validity(
                     candidate_coord,
                     MapId(rand_map),
-                    &example_maps,
+                    example_maps,
                     &valid_samples_mask[rand_map as usize],
                 ) {
                     break;
@@ -738,8 +738,8 @@ impl Generator {
         for p_stage in (0..=params.p_stages).rev() {
             //get maps from current pyramid level (for now it will be p-stage dependant)
             let example_maps =
-                get_single_example_level(&example_maps_pyramid, pyramid_level as usize);
-            let guides = get_single_guide_level(&guides_pyramid, pyramid_level as usize);
+                get_single_example_level(example_maps_pyramid, pyramid_level as usize);
+            let guides = get_single_guide_level(guides_pyramid, pyramid_level as usize);
 
             //update pyramid level
             if pyramid_level > 0 {
@@ -882,7 +882,7 @@ impl Generator {
                             unresolved_2d,
                             &k_neighs,
                             &example_maps,
-                            &valid_samples,
+                            valid_samples,
                             params.random_sample_locations as u32,
                             loop_seed + 1,
                         );
@@ -919,11 +919,11 @@ impl Generator {
                             image::Rgba([0, 0, 0, 255]),
                             &example_maps,
                             &guides,
-                            &candidates,
+                            candidates,
                             &my_pattern,
                             &my_guide_pattern,
                             &k_neighs_dist,
-                            &my_cost,
+                            my_cost,
                             guide_cost,
                         );
 
@@ -1120,9 +1120,9 @@ fn find_best_match<'a>(
             &cand.k_neighs,
             outside_color,
             source_maps,
-            &guides,
-            &my_precomputed_pattern,
-            &my_precomputed_guide_pattern,
+            guides,
+            my_precomputed_pattern,
+            my_precomputed_guide_pattern,
             distance_gaussians.as_slice(),
             my_cost,
             guide_cost,
@@ -1205,7 +1205,7 @@ struct PrerenderedU8Function {
 }
 
 impl PrerenderedU8Function {
-    pub fn new<F: Fn(u8, u8) -> f32>(function: F) -> PrerenderedU8Function {
+    pub fn new<F: Fn(u8, u8) -> f32>(function: F) -> Self {
         let mut data = vec![0f32; 65536];
 
         for a in 0..=255u8 {
@@ -1214,7 +1214,7 @@ impl PrerenderedU8Function {
             }
         }
 
-        PrerenderedU8Function { data }
+        Self { data }
     }
 
     #[inline]
@@ -1235,14 +1235,14 @@ struct TreeGrid {
 // This is a grid of rtrees
 // The idea is that most pixels after the first couple steps will have their neighbors close by
 impl TreeGrid {
-    pub fn new(width: u32, height: u32, chunk_size: u32, offset_x: u32, offset_y: u32) -> TreeGrid {
+    pub fn new(width: u32, height: u32, chunk_size: u32, offset_x: u32, offset_y: u32) -> Self {
         let mut rtrees: Vec<RwLock<RTree<[i32; 2]>>> = Vec::new();
         let grid_width = max((width + chunk_size - 1) / chunk_size, 1);
         let grid_height = max((height + chunk_size - 1) / chunk_size, 1);
         rtrees.resize_with((grid_width * grid_height) as usize, || {
             RwLock::new(RTree::new())
         });
-        TreeGrid {
+        Self {
             rtrees,
             grid_width,
             grid_height,
@@ -1265,7 +1265,7 @@ impl TreeGrid {
         self.rtrees[my_tree_index].write().unwrap().insert([x, y]);
     }
 
-    pub fn clone_into_new_tree_grid(&self, other: &TreeGrid) {
+    pub fn clone_into_new_tree_grid(&self, other: &Self) {
         for tree in &self.rtrees {
             for coord in tree.read().unwrap().iter() {
                 other.insert((*coord)[0], (*coord)[1]);

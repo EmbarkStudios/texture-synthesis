@@ -20,7 +20,6 @@ keywords = ["texture", "synthesis", "procedural"]
 exclude = ["/imgs"]
 
 [dependencies]
-crossbeam-utils = "0.7.0"
 num_cpus = "1.11.1"
 rand = { version = "0.7.3", default-features = false } # avoid bringing in OS random gen that we don't use
 rand_pcg = "0.2.1"
@@ -30,6 +29,9 @@ rstar = "0.7.0"
 version = "0.22.3"
 default-features = false
 features = ["jpeg", "png_codec", "bmp"]
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+crossbeam-utils = "0.7.0"
 
 [dev-dependencies]
 criterion = "0.3.0"

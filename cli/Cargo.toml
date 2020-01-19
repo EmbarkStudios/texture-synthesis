@@ -22,6 +22,10 @@ path = "src/main.rs"
 bench = false
 
 [dependencies]
+structopt = "0.3.7"
+texture-synthesis = { version = "0.7.1", path = "../lib" }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # We unfortunately can't use clicolors-control which is used by indicatif
 # because it only ever operates on stdout, even though we only ever print
 # to stderr. This is also why indicatif colors don't work if you pipe
@@ -29,8 +33,6 @@ bench = false
 atty = "0.2.13"
 indicatif = "0.13.0"
 minifb = { version = "0.15.1", optional = true }
-structopt = "0.3.7"
-texture-synthesis = { version = "0.7.1", path = "../lib" }
 
 [features]
 default = []

@@ -435,7 +435,7 @@ dependencies = [
 
 [[package]]
 name = "num_cpus"
-version = "1.11.1"
+version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "hermit-abi 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -705,7 +705,7 @@ dependencies = [
  "crossbeam-queue 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "crossbeam-utils 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "num_cpus 1.11.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "num_cpus 1.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -915,7 +915,7 @@ dependencies = [
  "crossbeam-utils 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "image 0.22.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "img_hash 2.1.0 (git+https://github.com/EmbarkStudios/img_hash.git?rev=c40da78)",
- "num_cpus 1.11.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "num_cpus 1.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand_pcg 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "rstar 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1083,7 +1083,7 @@ dependencies = [
 "checksum num-iter 0.1.39 (registry+https://github.com/rust-lang/crates.io-index)" = "76bd5272412d173d6bf9afdf98db8612bbabc9a7a830b7bfc9c188911716132e"
 "checksum num-rational 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "f2885278d5fe2adc2f75ced642d52d879bffaceb5a2e0b1d4309ffdfb239b454"
 "checksum num-traits 0.2.10 (registry+https://github.com/rust-lang/crates.io-index)" = "d4c81ffc11c212fa327657cb19dd85eb7419e163b5b076bede2bdb5c974c07e4"
-"checksum num_cpus 1.11.1 (registry+https://github.com/rust-lang/crates.io-index)" = "76dac5ed2a876980778b8b85f75a71b6cbf0db0b1232ee12f826bccb00d09d72"
+"checksum num_cpus 1.12.0 (registry+https://github.com/rust-lang/crates.io-index)" = "46203554f085ff89c235cd12f7075f3233af9b11ed7c9e16dfe2560d03313ce6"
 "checksum number_prefix 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "17b02fc0ff9a9e4b35b3342880f48e896ebf69f2967921fe8646bf5b7125956a"
 "checksum orbclient 0.3.27 (registry+https://github.com/rust-lang/crates.io-index)" = "f8b18f57ab94fbd058e30aa57f712ec423c0bb7403f8493a6c58eef0c36d9402"
 "checksum pdqselect 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "4ec91767ecc0a0bbe558ce8c9da33c068066c57ecc8bb8477ef8c1ad3ef77c27"

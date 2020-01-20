@@ -26,7 +26,7 @@ rand_pcg = "0.2.1"
 rstar = "0.7.1"
 
 [dependencies.image]
-version = "0.22.3"
+version = "0.22.4"
 default-features = false
 features = ["jpeg", "png_codec", "bmp"]
 

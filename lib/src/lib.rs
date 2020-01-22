@@ -98,11 +98,14 @@ pub struct CoordinateTransform {
 }
 
 impl<'a> CoordinateTransform {
-    /// Applies the coordinate transformation from new source images. Important to ensure that you have same number and sizes of the images as during synthesis where the coordinate transform was saved from
-    pub fn apply<E: Into<ImageSource<'a>>, I: IntoIterator<Item = E>>(
-        &self,
-        source: I,
-    ) -> Result<image::RgbaImage, Error> {
+    /// Applies the coordinate transformation from new source images.
+    /// It's imporant to ensure that you have same number and sizes of the
+    /// images as during synthesis where the coordinate transform was saved from
+    pub fn apply<E, I>(&self, source: I) -> Result<image::RgbaImage, Error>
+    where
+        I: IntoIterator<Item = E>,
+        E: Into<ImageSource<'a>>,
+    {
         let ref_maps: Vec<image::RgbaImage> = source
             .into_iter()
             .map(|t| load_image(t.into(), None))
@@ -223,16 +226,20 @@ impl GeneratedImage {
     }
 
     /// Get coordinate transform of this generated image, which can be repeated on a new image
+    ///
     /// ```no_run
     /// use texture_synthesis as ts;
-    ///  //create a new session
+    ///
+    /// // create a new session
     /// let texsynth = ts::Session::builder()
-    /// //load a single example image
-    /// .add_example(&"imgs/1.jpg")
-    /// .build().unwrap();
-    /// //generate an image
+    ///     //load a single example image
+    ///     .add_example(&"imgs/1.jpg")
+    ///     .build().unwrap();
+    ///
+    /// // generate an image
     /// let generated = texsynth.run(None);
-    /// //now we can repeat the same transformation on a different image
+    ///
+    /// // now we can repeat the same transformation on a different image
     /// let repeated_transform_image = generated.get_coordinate_transform().apply(&["imgs/2.jpg"]);
     /// ```
     pub fn get_coordinate_transform(&self) -> CoordinateTransform {
@@ -340,9 +347,11 @@ impl<'a> Example<'a> {
     pub fn builder<I: Into<ImageSource<'a>>>(img: I) -> ExampleBuilder<'a> {
         ExampleBuilder::new(img)
     }
+
     pub fn image_source(&self) -> &ImageSource<'a> {
         &self.img
     }
+
     /// Creates a new example input from the specified image source
     pub fn new<I: Into<ImageSource<'a>>>(img: I) -> Self {
         Self {

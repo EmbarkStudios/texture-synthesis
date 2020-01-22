@@ -264,6 +264,56 @@ fn tiling(c: &mut Criterion) {
     group.finish();
 }
 
+fn repeat(c: &mut Criterion) {
+    static DIM: u32 = 25;
+
+    // Load the example image once to reduce variation between runs,
+    // though we still do a memcpy each run
+    let example_img = ts::load_dynamic_image(ts::ImageSource::from(&"../imgs/bricks.png")).unwrap();
+
+    let mut group = c.benchmark_group("repeat");
+    group.sample_size(10);
+
+    let mut gen = Vec::with_capacity(5);
+
+    for dim in [DIM, 2 * DIM, 4 * DIM, 8 * DIM, 16 * DIM].iter() {
+        let sess = ts::Session::builder()
+            .add_example(example_img.clone())
+            .output_size(ts::Dims::square(*dim))
+            .build()
+            .unwrap();
+
+        let genned = sess.run(None);
+        gen.push(genned);
+    }
+
+    for (genned, dim) in gen
+        .into_iter()
+        .zip([DIM, 2 * DIM, 4 * DIM, 8 * DIM, 16 * DIM].iter())
+    {
+        group.bench_with_input(BenchmarkId::from_parameter(dim), dim, |b, &dim| {
+            b.iter_custom(|iters| {
+                let mut total_elapsed = Duration::new(0, 0);
+
+                for _i in 0..iters {
+                    let img = example_img.clone();
+                    let start = Instant::now();
+                    black_box(
+                        genned
+                            .get_coordinate_transform()
+                            .apply(std::iter::once(img))
+                            .unwrap(),
+                    );
+                    total_elapsed += start.elapsed();
+                }
+
+                total_elapsed
+            });
+        });
+    }
+    group.finish();
+}
+
 criterion_group!(
     benches,
     single_example,
@@ -273,5 +323,6 @@ criterion_group!(
     inpaint,
     inpaint_channel,
     tiling,
+    repeat,
 );
 criterion_main!(benches);

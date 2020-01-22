@@ -639,21 +639,31 @@ impl Generator {
     }
 
     pub fn get_coord_transform(&self) -> CoordinateTransform {
-        //init empty 32bit image
+        // init empty 32bit image
+        let coord_map = self.coord_map.as_ref();
+
         let mut buffer: Vec<u32> = Vec::new();
         let mut max_map_id = 1;
+
+        // presize the vector for our final size
+        buffer.resize(coord_map.len() * 3, 0);
+
         //populate the image with colors
-        for (coord, map_id) in self.coord_map.as_ref().iter() {
-            // coord to color
-            let r = coord.x;
-            let g = coord.y;
+        for (i, (coord, map_id)) in self.coord_map.as_ref().iter().enumerate() {
             let b = map_id.0;
             if max_map_id < b {
                 max_map_id = b;
             }
+
             //record the color
-            buffer.extend_from_slice(&[r, g, b]);
+            let ind = i * 3;
+            let color = &mut buffer[ind..ind + 3];
+
+            color[0] = coord.x;
+            color[1] = coord.y;
+            color[2] = b;
         }
+
         CoordinateTransform {
             buffer,
             dims: Dims::new(self.output_size.width, self.output_size.height),

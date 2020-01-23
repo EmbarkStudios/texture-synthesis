@@ -1,3 +1,10 @@
+targets = [
+    { triple = "x86_64-unknown-linux-gnu" },
+    { triple = "x86_64-unknown-linux-musl" },
+    { triple = "x86_64-apple-darwin" },
+    { triple = "x86_64-pc-windows-msvc" },
+]
+
 [bans]
 multiple-versions = "deny"
 deny = [
@@ -14,16 +21,6 @@ deny = [
     # term is not fully maintained, and termcolor is replacing it
     { name = "term" },
 ]
-skip = [
-    # minifb orbclient uses an older version rand 0.6.5
-    { name = "rand",        version = "=0.6.5" },
-    { name = "rand_chacha", version = "=0.1.1" },
-    { name = "rand_core",   version = "=0.4.2" },
-    { name = "rand_core",   version = "=0.3.1" },
-    { name = "rand_hc",     version = "=0.1.0" },
-    { name = "rand_pcg",    version = "=0.1.2" },
-    { name = "rand_os",     version = "=0.1.3" },
-]
 
 [licenses]
 unlicensed = "deny"
@@ -31,10 +28,15 @@ unlicensed = "deny"
 confidence-threshold = 0.92
 allow = [
     "Apache-2.0",
-    "BSD-2-Clause",
-    "BSD-3-Clause",
-    "CC0-1.0",
-    "ISC",
     "MIT",
-    "Zlib",
+]
+exceptions = [
+    { allow = ["Zlib"], name = "adler32" },
+    { allow = ["CC0-1.0"], name = "x11-dl" },
+]
+
+[sources]
+unknown-git = "deny"
+allow-git = [
+    "https://github.com/EmbarkStudios/img_hash.git",
 ]

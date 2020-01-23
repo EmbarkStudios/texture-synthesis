@@ -775,7 +775,7 @@ impl Generator {
                 // heuristic: pick a cell size so that the expected number of resolved points in any cell is 4 * k
                 // this seems to be a safe overestimate
                 let grid_cell_size =
-                    ((params.nearest_neighbors * self.output_size.height * self.output_size.height
+                    ((params.nearest_neighbors * self.output_size.width * self.output_size.height
                         / redo_count as u32) as f64)
                         .sqrt() as u32
                         * 2

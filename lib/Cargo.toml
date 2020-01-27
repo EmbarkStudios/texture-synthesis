@@ -34,7 +34,7 @@ features = ["jpeg", "png_codec", "bmp"]
 crossbeam-utils = "0.7.0"
 
 [dev-dependencies]
-criterion = "0.3.0"
+criterion = "0.3.1"
 img_hash = { version = "2.1.0", default-features = false }
 
 [lib]

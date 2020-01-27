@@ -536,13 +536,13 @@ impl Generator {
         //random candidates
         for _ in 0..m_rand {
             let mut rand_map = (rng.gen_range(0, example_maps.len())) as u32;
-            /*loop {
+            loop {
                 if valid_samples_mask[rand_map as usize].is_ignore() {
                     rand_map = (rng.gen_range(0, example_maps.len())) as u32;
                 } else {
                     break;
                 }
-            }*/
+            }
             let dims = example_maps[rand_map as usize].dimensions();
             let dims = Dims {
                 width: dims.0,

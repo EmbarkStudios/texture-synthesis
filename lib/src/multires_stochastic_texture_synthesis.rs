@@ -533,10 +533,16 @@ impl Generator {
         }
 
         let mut rng = Pcg32::seed_from_u64(m_seed);
-
         //random candidates
         for _ in 0..m_rand {
-            let rand_map = (rng.gen_range(0, example_maps.len())) as u32;
+            let mut rand_map = (rng.gen_range(0, example_maps.len())) as u32;
+            /*loop {
+                if valid_samples_mask[rand_map as usize].is_ignore() {
+                    rand_map = (rng.gen_range(0, example_maps.len())) as u32;
+                } else {
+                    break;
+                }
+            }*/
             let dims = example_maps[rand_map as usize].dimensions();
             let dims = Dims {
                 width: dims.0,

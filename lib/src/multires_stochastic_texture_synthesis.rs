@@ -100,7 +100,7 @@ impl SignedCoord2D {
     }
 
     #[inline]
-    fn wrap(self, (dimx, dimy): (i32, i32)) -> SignedCoord2D {
+    fn wrap(self, (dimx, dimy): (i32, i32)) -> Self {
         let mut c = self;
         c.x = modulo(c.x, dimx);
         c.y = modulo(c.y, dimy);
@@ -504,7 +504,7 @@ impl Generator {
             if check_coord_validity(
                 candidate_coord,
                 n_map_id,
-                &example_maps,
+                example_maps,
                 &valid_samples_mask[n_map_id.0 as usize],
             ) {
                 //lets construct the full candidate pattern of neighbors identical to the center coord
@@ -559,7 +559,7 @@ impl Generator {
                 if check_coord_validity(
                     candidate_coord,
                     MapId(rand_map),
-                    &example_maps,
+                    example_maps,
                     &valid_samples_mask[rand_map as usize],
                 ) {
                     break;
@@ -699,16 +699,12 @@ impl Generator {
             (params.p.powf(p_stage as f32) * (total_pixels_to_resolve as f32)) as usize
         };
 
-        let actual_total_pixels_to_resolve =
-            (0..=params.p_stages).map(stage_pixels_to_resolve).sum();
-
         let is_tiling_mode = params.tiling_mode;
 
         let cauchy_precomputed = PrerenderedU8Function::new(|a, b| {
             metric_cauchy(a, b, params.cauchy_dispersion * params.cauchy_dispersion)
         });
         let l2_precomputed = PrerenderedU8Function::new(metric_l2);
-        let mut total_processed_pixels = 0;
         let max_workers = params.max_thread_count;
         // Use a single R*-tree initially, and fan out to a grid of them later?
         let mut has_fanned_out = false;
@@ -748,8 +744,8 @@ impl Generator {
         for p_stage in (0..=params.p_stages).rev() {
             //get maps from current pyramid level (for now it will be p-stage dependant)
             let example_maps =
-                get_single_example_level(&example_maps_pyramid, pyramid_level as usize);
-            let guides = get_single_guide_level(&guides_pyramid, pyramid_level as usize);
+                get_single_example_level(example_maps_pyramid, pyramid_level as usize);
+            let guides = get_single_guide_level(guides_pyramid, pyramid_level as usize);
 
             //update pyramid level
             if pyramid_level > 0 {
@@ -821,189 +817,202 @@ impl Generator {
             pixels_resolved_this_stage.resize_with(n_workers, || Mutex::new(Vec::new()));
             let thread_counter = AtomicUsize::new(0);
 
-            crossbeam_utils::thread::scope(|scope| {
-                for _ in 0..n_workers {
-                    scope.spawn(|_| {
-                        let mut candidates: Vec<CandidateStruct> = Vec::new();
-                        let mut my_pattern: ColorPattern = ColorPattern::new();
-                        let mut k_neighs: Vec<SignedCoord2D> =
-                            Vec::with_capacity(params.nearest_neighbors as usize);
+            let worker_fn = || {
+                let mut candidates: Vec<CandidateStruct> = Vec::new();
+                let mut my_pattern: ColorPattern = ColorPattern::new();
+                let mut k_neighs: Vec<SignedCoord2D> =
+                    Vec::with_capacity(params.nearest_neighbors as usize);
 
-                        let max_candidate_count = params.nearest_neighbors as usize
-                            + params.random_sample_locations as usize;
+                let max_candidate_count =
+                    params.nearest_neighbors as usize + params.random_sample_locations as usize;
 
-                        let my_thread_id = thread_counter.fetch_add(1, Ordering::Relaxed);
-                        let mut my_resolved_list =
-                            pixels_resolved_this_stage[my_thread_id].lock().unwrap();
+                let my_thread_id = thread_counter.fetch_add(1, Ordering::Relaxed);
+                let mut my_resolved_list = pixels_resolved_this_stage[my_thread_id].lock().unwrap();
 
-                        candidates.resize(max_candidate_count, CandidateStruct::default());
+                candidates.resize(max_candidate_count, CandidateStruct::default());
 
-                        //alloc storage for our guides (regardless of whether we have them or not)
-                        let mut my_guide_pattern: ColorPattern = ColorPattern::new();
+                //alloc storage for our guides (regardless of whether we have them or not)
+                let mut my_guide_pattern: ColorPattern = ColorPattern::new();
 
-                        let out_color_map = &[ImageBuffer::from(self.color_map.as_ref())];
+                let out_color_map = &[ImageBuffer::from(self.color_map.as_ref())];
+
+                loop {
+                    // Get the next work item
+                    let i = processed_pixel_count.fetch_add(1, Ordering::Relaxed);
+
+                    let update_resolved_list: bool;
+
+                    if i >= pixels_to_resolve {
+                        // We've processed everything, so finish the worker
+                        break;
+                    }
+
+                    let loop_seed = p_stage_seed + i as u64;
+
+                    // 1. Get a pixel to resolve. Check if we have already resolved pixel i; if yes, resolve again; if no, pick a new one
+                    let next_unresolved = if i < redo_count {
+                        update_resolved_list = false;
+                        self.resolved.read().unwrap()[i + self.locked_resolved].0
+                    } else {
+                        update_resolved_list = true;
+                        if let Some(pixel) = self.pick_random_unresolved(loop_seed) {
+                            pixel
+                        } else {
+                            break;
+                        }
+                    };
+
+                    let unresolved_2d = next_unresolved.to_2d(self.output_size);
+
+                    // Clear previously found candidate neighbors
+                    for cand in candidates.iter_mut() {
+                        cand.clear();
+                    }
+                    k_neighs.clear();
+
+                    // 2. find K nearest resolved neighs
+                    if self.find_k_nearest_resolved_neighs(
+                        unresolved_2d,
+                        params.nearest_neighbors,
+                        &mut k_neighs,
+                    ) {
+                        //2.1 get distances to the pattern of neighbors
+                        let k_neighs_dist =
+                            self.get_distances_to_k_neighs(unresolved_2d, &k_neighs);
+                        let k_neighs_w_map_id =
+                            k_neighs.iter().map(|a| (*a, MapId(0))).collect::<Vec<_>>();
+
+                        // 3. find candidate for each resolved neighs + m random locations
+                        let candidates: &[CandidateStruct] = self.find_candidates(
+                            &mut candidates,
+                            unresolved_2d,
+                            &k_neighs,
+                            &example_maps,
+                            valid_samples,
+                            params.random_sample_locations as u32,
+                            loop_seed + 1,
+                        );
+
+                        k_neighs_to_precomputed_reference_pattern(
+                            &k_neighs_w_map_id, //feed into the function with always 0 index of the sample map
+                            image::Rgba([0, 0, 0, 255]),
+                            out_color_map,
+                            &mut my_pattern,
+                            is_tiling_mode,
+                        );
+
+                        // 3.2 get pattern for guide map if we have them
+                        let (my_cost, guide_cost) = if let Some(ref in_guides) = guides {
+                            //get example pattern to compare to
+                            k_neighs_to_precomputed_reference_pattern(
+                                &k_neighs_w_map_id,
+                                image::Rgba([0, 0, 0, 255]),
+                                &[in_guides.target_guide.clone()],
+                                &mut my_guide_pattern,
+                                is_tiling_mode,
+                            );
+
+                            (
+                                &my_inverse_alpha_cost_precomputed,
+                                Some(&guide_cost_precomputed),
+                            )
+                        } else {
+                            (&cauchy_precomputed, None)
+                        };
+
+                        // 4. find best match based on the candidate patterns
+                        let (best_match, score) = find_best_match(
+                            image::Rgba([0, 0, 0, 255]),
+                            &example_maps,
+                            &guides,
+                            candidates,
+                            &my_pattern,
+                            &my_guide_pattern,
+                            &k_neighs_dist,
+                            my_cost,
+                            guide_cost,
+                        );
+
+                        let best_match_coord = best_match.coord.0.to_unsigned();
+                        let best_match_map_id = best_match.coord.1;
+
+                        // 5. resolve our pixel
+                        self.update(
+                            &mut my_resolved_list,
+                            unresolved_2d,
+                            (best_match_coord, best_match_map_id),
+                            &example_maps,
+                            update_resolved_list,
+                            score,
+                            best_match.id,
+                            is_tiling_mode,
+                        );
+                    } else {
+                        //no resolved neighs? resolve at random!
+                        self.resolve_at_random(
+                            &mut my_resolved_list,
+                            unresolved_2d,
+                            &example_maps,
+                            p_stage_seed,
+                        );
+                    }
+                }
+                remaining_threads.fetch_sub(1, Ordering::Relaxed);
+            };
+
+            // for WASM we do not have threads and crossbeam panics,
+            // so let's just run the worker function directly and don't give progress
+            #[cfg(target_arch = "wasm32")]
+            (worker_fn)();
+
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                let actual_total_pixels_to_resolve: usize =
+                    (0..=params.p_stages).map(stage_pixels_to_resolve).sum();
+                let mut total_processed_pixels = 0;
+
+                crossbeam_utils::thread::scope(|scope| {
+                    for _ in 0..n_workers {
+                        scope.spawn(|_| (worker_fn)());
+                    }
+
+                    if let Some(ref mut progress) = progress {
+                        let mut last_pcnt = 0;
 
                         loop {
-                            // Get the next work item
-                            let i = processed_pixel_count.fetch_add(1, Ordering::Relaxed);
+                            let stage_progress = processed_pixel_count.load(Ordering::Relaxed);
 
-                            let update_resolved_list: bool;
-
-                            if i >= pixels_to_resolve {
-                                // We've processed everything, so finish the worker
+                            if remaining_threads.load(Ordering::Relaxed) == 0 {
                                 break;
                             }
 
-                            let loop_seed = p_stage_seed + i as u64;
+                            let pcnt = ((total_processed_pixels + stage_progress) as f32
+                                / actual_total_pixels_to_resolve as f32
+                                * 100f32)
+                                .round() as u32;
 
-                            // 1. Get a pixel to resolve. Check if we have already resolved pixel i; if yes, resolve again; if no, pick a new one
-                            let next_unresolved = if i < redo_count {
-                                update_resolved_list = false;
-                                self.resolved.read().unwrap()[i + self.locked_resolved].0
-                            } else {
-                                update_resolved_list = true;
-                                if let Some(pixel) = self.pick_random_unresolved(loop_seed) {
-                                    pixel
-                                } else {
-                                    break;
-                                }
-                            };
+                            if pcnt != last_pcnt {
+                                progress.update(crate::ProgressUpdate {
+                                    image: self.color_map.as_ref(),
+                                    total: crate::ProgressStat {
+                                        total: actual_total_pixels_to_resolve,
+                                        current: total_processed_pixels + stage_progress,
+                                    },
+                                    stage: crate::ProgressStat {
+                                        total: pixels_to_resolve,
+                                        current: stage_progress,
+                                    },
+                                });
 
-                            let unresolved_2d = next_unresolved.to_2d(self.output_size);
-
-                            // Clear previously found candidate neighbors
-                            for cand in candidates.iter_mut() {
-                                cand.clear();
-                            }
-                            k_neighs.clear();
-
-                            // 2. find K nearest resolved neighs
-                            if self.find_k_nearest_resolved_neighs(
-                                unresolved_2d,
-                                params.nearest_neighbors,
-                                &mut k_neighs,
-                            ) {
-                                //2.1 get distances to the pattern of neighbors
-                                let k_neighs_dist =
-                                    self.get_distances_to_k_neighs(unresolved_2d, &k_neighs);
-                                let k_neighs_w_map_id =
-                                    k_neighs.iter().map(|a| (*a, MapId(0))).collect::<Vec<_>>();
-
-                                // 3. find candidate for each resolved neighs + m random locations
-                                let candidates: &[CandidateStruct] = self.find_candidates(
-                                    &mut candidates,
-                                    unresolved_2d,
-                                    &k_neighs,
-                                    &example_maps,
-                                    &valid_samples,
-                                    params.random_sample_locations as u32,
-                                    loop_seed + 1,
-                                );
-
-                                k_neighs_to_precomputed_reference_pattern(
-                                    &k_neighs_w_map_id, //feed into the function with always 0 index of the sample map
-                                    image::Rgba([0, 0, 0, 255]),
-                                    out_color_map,
-                                    &mut my_pattern,
-                                    is_tiling_mode,
-                                );
-
-                                // 3.2 get pattern for guide map if we have them
-                                let (my_cost, guide_cost) = if let Some(ref in_guides) = guides {
-                                    //get example pattern to compare to
-                                    k_neighs_to_precomputed_reference_pattern(
-                                        &k_neighs_w_map_id,
-                                        image::Rgba([0, 0, 0, 255]),
-                                        &[in_guides.target_guide.clone()],
-                                        &mut my_guide_pattern,
-                                        is_tiling_mode,
-                                    );
-
-                                    (
-                                        &my_inverse_alpha_cost_precomputed,
-                                        Some(&guide_cost_precomputed),
-                                    )
-                                } else {
-                                    (&cauchy_precomputed, None)
-                                };
-
-                                // 4. find best match based on the candidate patterns
-                                let (best_match, score) = find_best_match(
-                                    image::Rgba([0, 0, 0, 255]),
-                                    &example_maps,
-                                    &guides,
-                                    &candidates,
-                                    &my_pattern,
-                                    &my_guide_pattern,
-                                    &k_neighs_dist,
-                                    &my_cost,
-                                    guide_cost,
-                                );
-
-                                let best_match_coord = best_match.coord.0.to_unsigned();
-                                let best_match_map_id = best_match.coord.1;
-
-                                // 5. resolve our pixel
-                                self.update(
-                                    &mut my_resolved_list,
-                                    unresolved_2d,
-                                    (best_match_coord, best_match_map_id),
-                                    &example_maps,
-                                    update_resolved_list,
-                                    score,
-                                    best_match.id,
-                                    is_tiling_mode,
-                                );
-                            } else {
-                                //no resolved neighs? resolve at random!
-                                self.resolve_at_random(
-                                    &mut my_resolved_list,
-                                    unresolved_2d,
-                                    &example_maps,
-                                    p_stage_seed,
-                                );
+                                last_pcnt = pcnt;
                             }
                         }
-                        remaining_threads.fetch_sub(1, Ordering::Relaxed);
-                    });
-                }
 
-                if let Some(ref mut progress) = progress {
-                    let mut last_pcnt = 0;
-
-                    loop {
-                        let stage_progress = processed_pixel_count.load(Ordering::Relaxed);
-
-                        if remaining_threads.load(Ordering::Relaxed) == 0 {
-                            break;
-                        }
-
-                        let pcnt = ((total_processed_pixels + stage_progress) as f32
-                            / actual_total_pixels_to_resolve as f32
-                            * 100f32)
-                            .round() as u32;
-
-                        if pcnt != last_pcnt {
-                            progress.update(crate::ProgressUpdate {
-                                image: self.color_map.as_ref(),
-                                total: crate::ProgressStat {
-                                    total: actual_total_pixels_to_resolve,
-                                    current: total_processed_pixels + stage_progress,
-                                },
-                                stage: crate::ProgressStat {
-                                    total: pixels_to_resolve,
-                                    current: stage_progress,
-                                },
-                            });
-
-                            last_pcnt = pcnt;
-                        }
+                        total_processed_pixels += pixels_to_resolve;
                     }
-
-                    total_processed_pixels += pixels_to_resolve;
-                }
-            })
-            .unwrap();
+                })
+                .unwrap();
+            }
 
             {
                 // append all per-thread resolved lists to the global list
@@ -1117,9 +1126,9 @@ fn find_best_match<'a>(
             &cand.k_neighs,
             outside_color,
             source_maps,
-            &guides,
-            &my_precomputed_pattern,
-            &my_precomputed_guide_pattern,
+            guides,
+            my_precomputed_pattern,
+            my_precomputed_guide_pattern,
             distance_gaussians.as_slice(),
             my_cost,
             guide_cost,
@@ -1202,7 +1211,7 @@ struct PrerenderedU8Function {
 }
 
 impl PrerenderedU8Function {
-    pub fn new<F: Fn(u8, u8) -> f32>(function: F) -> PrerenderedU8Function {
+    pub fn new<F: Fn(u8, u8) -> f32>(function: F) -> Self {
         let mut data = vec![0f32; 65536];
 
         for a in 0..=255u8 {
@@ -1211,7 +1220,7 @@ impl PrerenderedU8Function {
             }
         }
 
-        PrerenderedU8Function { data }
+        Self { data }
     }
 
     #[inline]
@@ -1232,14 +1241,14 @@ struct TreeGrid {
 // This is a grid of rtrees
 // The idea is that most pixels after the first couple steps will have their neighbors close by
 impl TreeGrid {
-    pub fn new(width: u32, height: u32, chunk_size: u32, offset_x: u32, offset_y: u32) -> TreeGrid {
+    pub fn new(width: u32, height: u32, chunk_size: u32, offset_x: u32, offset_y: u32) -> Self {
         let mut rtrees: Vec<RwLock<RTree<[i32; 2]>>> = Vec::new();
         let grid_width = max((width + chunk_size - 1) / chunk_size, 1);
         let grid_height = max((height + chunk_size - 1) / chunk_size, 1);
         rtrees.resize_with((grid_width * grid_height) as usize, || {
             RwLock::new(RTree::new())
         });
-        TreeGrid {
+        Self {
             rtrees,
             grid_width,
             grid_height,
@@ -1262,7 +1271,7 @@ impl TreeGrid {
         self.rtrees[my_tree_index].write().unwrap().insert([x, y]);
     }
 
-    pub fn clone_into_new_tree_grid(&self, other: &TreeGrid) {
+    pub fn clone_into_new_tree_grid(&self, other: &Self) {
         for tree in &self.rtrees {
             for coord in tree.read().unwrap().iter() {
                 other.insert((*coord)[0], (*coord)[1]);

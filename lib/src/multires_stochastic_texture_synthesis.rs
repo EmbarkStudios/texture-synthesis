@@ -1418,6 +1418,8 @@ impl TreeGrid {
                     } else if coord.0 < tmp_result.peek().unwrap().0 {
                         tmp_result.pop();
                         tmp_result.push(coord);
+                    } else {
+                        break;
                     }
                 }
             }

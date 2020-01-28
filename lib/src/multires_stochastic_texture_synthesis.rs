@@ -2,6 +2,7 @@ use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg32;
 use rstar::RTree;
 use std::cmp::max;
+use std::collections::BinaryHeap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, RwLock};
 
@@ -762,7 +763,7 @@ impl Generator {
 
             // Start with serial execution for the first few pixels, then go wide
             let n_workers = if redo_count < 1000 { 1 } else { max_workers };
-            if !has_fanned_out && n_workers > 1 {
+            if !has_fanned_out && redo_count > 999/*&& n_workers > 1*/ {
                 has_fanned_out = true;
                 let tile_adjusted_width = (self.output_size.width as f32
                     * (1.0 + TILING_BOUNDARY_PERCENTAGE * 2.0))
@@ -1366,12 +1367,10 @@ impl TreeGrid {
         ];
         // Note locking all of them at different times seems to be the best way
         // Naively trying to lock all at once could easily result in deadlocks
-        let mut tmp_result: Vec<(i32, i32, i64)> = Vec::with_capacity(k * 9);
+        let mut tmp_result: BinaryHeap<(i64, i32, i32)> = BinaryHeap::with_capacity(k);
         result.clear();
         result.reserve(k);
 
-        // an upper bound is good enough here
-        let mut upper_bound_kth_best_squared_distance = i64::max_value();
         for place_to_look in places_to_look.iter() {
             if place_to_look.x >= 0
                 && place_to_look.x < self.grid_width as i32
@@ -1389,8 +1388,9 @@ impl TreeGrid {
                         + (y as i64 - place_to_look.closest_point_on_boundary_y)
                             * (y as i64 - place_to_look.closest_point_on_boundary_y);
 
-                    if squared_distance_to_closest_possible_point_on_chunk
-                        > upper_bound_kth_best_squared_distance
+                    if !tmp_result.is_empty()
+                        && squared_distance_to_closest_possible_point_on_chunk
+                            > tmp_result.peek().unwrap().0
                     {
                         continue;
                     }
@@ -1399,37 +1399,34 @@ impl TreeGrid {
                 let my_tree_index =
                     self.get_tree_index(place_to_look.x as u32, place_to_look.y as u32);
                 let my_rtree = &self.rtrees[my_tree_index];
-                tmp_result.extend(
-                    my_rtree
-                        .read()
-                        .unwrap()
-                        .nearest_neighbor_iter(&[x as i32, y as i32])
-                        .take(k)
-                        .map(|a| {
-                            (
-                                (*a)[0],
-                                (*a)[1],
-                                ((*a)[0] as i64 - x as i64) * ((*a)[0] as i64 - x as i64)
-                                    + ((*a)[1] as i64 - y as i64) * ((*a)[1] as i64 - y as i64),
-                            )
-                        }),
-                );
-
-                // this isn't really the kth best distance but it's an okay approximation
-                if tmp_result.len() >= k {
-                    let furthest_dist_for_chunk = tmp_result[tmp_result.len() - 1].2;
-                    if furthest_dist_for_chunk < upper_bound_kth_best_squared_distance {
-                        upper_bound_kth_best_squared_distance = furthest_dist_for_chunk;
+                for coord in my_rtree
+                    .read()
+                    .unwrap()
+                    .nearest_neighbor_iter(&[x as i32, y as i32])
+                    .take(k)
+                    .map(|a| {
+                        (
+                            (((*a)[0] as i64 - x as i64) * ((*a)[0] as i64 - x as i64)
+                                + ((*a)[1] as i64 - y as i64) * ((*a)[1] as i64 - y as i64)),
+                            (*a)[0],
+                            (*a)[1],
+                        )
+                    })
+                {
+                    if tmp_result.len() < k {
+                        tmp_result.push(coord);
+                    } else if coord.0 < tmp_result.peek().unwrap().0 {
+                        tmp_result.pop();
+                        tmp_result.push(coord);
                     }
                 }
             }
         }
-        tmp_result.sort_by_key(|k| k.2);
         result.extend(
             tmp_result
                 .iter()
                 .take(k)
-                .map(|a| SignedCoord2D::from(a.0, a.1)),
+                .map(|a| SignedCoord2D::from(a.1, a.2)),
         );
     }
 }

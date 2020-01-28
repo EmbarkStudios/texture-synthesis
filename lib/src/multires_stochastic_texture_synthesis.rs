@@ -505,7 +505,7 @@ impl Generator {
                 candidate_coord,
                 n_map_id,
                 example_maps,
-                &valid_non_ignored_samples_mask[n_map_id.0 as usize],
+                valid_non_ignored_samples_mask[n_map_id.0 as usize],
             ) {
                 //lets construct the full candidate pattern of neighbors identical to the center coord
                 candidates_vec[candidate_count]
@@ -553,7 +553,7 @@ impl Generator {
                     candidate_coord,
                     MapId(rand_map),
                     example_maps,
-                    &valid_non_ignored_samples_mask[rand_map as usize],
+                    valid_non_ignored_samples_mask[rand_map as usize],
                 ) {
                     break;
                 }

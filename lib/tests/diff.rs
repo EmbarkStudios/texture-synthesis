@@ -239,8 +239,12 @@ diff_hash!(sample_masks, "JLO1hQBEpakECqIXDiCkqBME", {
 
 diff_hash!(sample_masks_ignore, "JGgWBEwJiqCaKpEiAonGkQRE", {
     ts::Session::builder()
-        .add_example(ts::Example::builder(&"../imgs/4.png").set_sample_method(ts::SampleMethod::Ignore))
-        .add_example(ts::Example::builder(&"../imgs/5.png").set_sample_method(ts::SampleMethod::All))
+        .add_example(
+            ts::Example::builder(&"../imgs/4.png").set_sample_method(ts::SampleMethod::Ignore),
+        )
+        .add_example(
+            ts::Example::builder(&"../imgs/5.png").set_sample_method(ts::SampleMethod::All),
+        )
         .seed(211)
         .output_size(Dims::square(200))
 });

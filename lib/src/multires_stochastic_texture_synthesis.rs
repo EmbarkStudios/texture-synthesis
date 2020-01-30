@@ -687,6 +687,11 @@ impl Generator {
         valid_samples: &[SamplingMethod],
     ) {
         let total_pixels_to_resolve = self.unresolved.lock().unwrap().len();
+
+        // Currently we do not give progress for wasm
+        #[cfg(not(target_arch = "wasm32"))]
+        let mut total_processed_pixels = 0;
+
         let mut pyramid_level = 0;
 
         let stage_pixels_to_resolve = |p_stage: i32| {
@@ -963,7 +968,6 @@ impl Generator {
             {
                 let actual_total_pixels_to_resolve: usize =
                     (0..=params.p_stages).map(stage_pixels_to_resolve).sum();
-                let mut total_processed_pixels = 0;
 
                 crossbeam_utils::thread::scope(|scope| {
                     for _ in 0..n_workers {

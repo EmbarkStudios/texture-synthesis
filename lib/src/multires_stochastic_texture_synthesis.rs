@@ -763,7 +763,7 @@ impl Generator {
 
             // Start with serial execution for the first few pixels, then go wide
             let n_workers = if redo_count < 1000 { 1 } else { max_workers };
-            if !has_fanned_out && redo_count > 999/*&& n_workers > 1*/ {
+            if !has_fanned_out && n_workers > 1 {
                 has_fanned_out = true;
                 let tile_adjusted_width = (self.output_size.width as f32
                     * (1.0 + TILING_BOUNDARY_PERCENTAGE * 2.0))
@@ -1419,6 +1419,7 @@ impl TreeGrid {
                         tmp_result.pop();
                         tmp_result.push(coord);
                     } else {
+                        // coords are ordered by distance so nothing else in the list will be closer
                         break;
                     }
                 }

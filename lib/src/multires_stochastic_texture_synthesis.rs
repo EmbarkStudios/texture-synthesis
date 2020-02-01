@@ -1368,7 +1368,7 @@ impl TreeGrid {
         // Note locking all of them at different times seems to be the best way
         // Naively trying to lock all at once could easily result in deadlocks
         // TODO Peter make sure this case covers when there aren't k elements
-        let mut tmp_result: Vec<(i64, i32, i32)> = vec![(0, 0, 0); k];
+        let mut tmp_result: Vec<(i64, i32, i32)> = Vec::with_capacity(k);
         result.clear();
         result.reserve(k);
 
@@ -1389,9 +1389,9 @@ impl TreeGrid {
                         + (y as i64 - place_to_look.closest_point_on_boundary_y)
                             * (y as i64 - place_to_look.closest_point_on_boundary_y);
 
-                    if tmp_result.len() > k
+                    if tmp_result.len() >= k
                         && squared_distance_to_closest_possible_point_on_chunk
-                            >= tmp_result[k].0
+                            >= tmp_result[k - 1].0
                     {
                         continue;
                     }
@@ -1417,23 +1417,24 @@ impl TreeGrid {
                         }).peekable();
                     let current_best_k = tmp_result.clone();
                     let mut current_best_k_iter = current_best_k.iter().peekable();
+                    tmp_result.clear();
                     for next_element in 0..k {
                         match (current_best_k_iter.peek(), tree_best_k_iter.peek()) {
                             (Some(a), Some(b)) => {
                                 if a.0 > b.0 {
-                                    tmp_result[next_element] = *b;
+                                    tmp_result.push(*b);
                                     tree_best_k_iter.next();
                                 } else {
-                                    tmp_result[next_element] = **a;
+                                    tmp_result.push(**a);
                                     current_best_k_iter.next();
                                 }
                             },
                             (Some(a), None) => {
-                                tmp_result[next_element] = **a;
+                                tmp_result.push(**a);
                                 current_best_k_iter.next();
                             },
                             (None, Some(b)) => {
-                                tmp_result[next_element] = *b;
+                                tmp_result.push(*b);
                                 tree_best_k_iter.next();
                             },
                             (None, None) => {}

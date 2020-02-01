@@ -1389,7 +1389,7 @@ impl TreeGrid {
                         + (y as i64 - place_to_look.closest_point_on_boundary_y)
                             * (y as i64 - place_to_look.closest_point_on_boundary_y);
 
-                    if tmp_result.len() >= k
+                    if tmp_result.len() == k
                         && squared_distance_to_closest_possible_point_on_chunk
                             >= tmp_result[k - 1].0
                     {

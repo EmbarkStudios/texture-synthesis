@@ -2,7 +2,6 @@ use rand::{Rng, SeedableRng};
 use rand_pcg::Pcg32;
 use rstar::RTree;
 use std::cmp::max;
-use std::collections::BinaryHeap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, RwLock};
 
@@ -1401,10 +1400,8 @@ impl TreeGrid {
                     self.get_tree_index(place_to_look.x as u32, place_to_look.y as u32);
                 let my_rtree = &self.rtrees[my_tree_index];
                 {
-                    let locked_tree = my_rtree
-                        .read()
-                        .unwrap();
-                    let mut tree_best_k_iter = locked_tree
+                    let locked_tree = my_rtree.read().unwrap();
+                    let mut cell_closest_iter = locked_tree
                         .nearest_neighbor_iter(&[x as i32, y as i32])
                         .take(k)
                         .map(|a| {
@@ -1414,29 +1411,31 @@ impl TreeGrid {
                                 (*a)[0],
                                 (*a)[1],
                             )
-                        }).peekable();
-                    let current_best_k = tmp_result.clone();
-                    let mut current_best_k_iter = current_best_k.iter().peekable();
+                        })
+                        .peekable();
+                    let old_closest = tmp_result.clone();
+                    let mut old_closest_iter = old_closest.iter().peekable();
                     tmp_result.clear();
-                    for next_element in 0..k {
-                        match (current_best_k_iter.peek(), tree_best_k_iter.peek()) {
-                            (Some(a), Some(b)) => {
-                                if a.0 > b.0 {
-                                    tmp_result.push(*b);
-                                    tree_best_k_iter.next();
+                    // merge the closest k values of the two sorted lists
+                    for _ in 0..k {
+                        match (old_closest_iter.peek(), cell_closest_iter.peek()) {
+                            (Some(old_closest_next), Some(cell_closest_next)) => {
+                                if old_closest_next.0 > cell_closest_next.0 {
+                                    tmp_result.push(*cell_closest_next);
+                                    cell_closest_iter.next();
                                 } else {
-                                    tmp_result.push(**a);
-                                    current_best_k_iter.next();
+                                    tmp_result.push(**old_closest_next);
+                                    old_closest_iter.next();
                                 }
-                            },
+                            }
                             (Some(a), None) => {
                                 tmp_result.push(**a);
-                                current_best_k_iter.next();
-                            },
+                                old_closest_iter.next();
+                            }
                             (None, Some(b)) => {
                                 tmp_result.push(*b);
-                                tree_best_k_iter.next();
-                            },
+                                cell_closest_iter.next();
+                            }
                             (None, None) => {}
                         }
                     }

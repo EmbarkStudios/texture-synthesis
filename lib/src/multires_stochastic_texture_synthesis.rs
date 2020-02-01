@@ -1367,7 +1367,8 @@ impl TreeGrid {
         ];
         // Note locking all of them at different times seems to be the best way
         // Naively trying to lock all at once could easily result in deadlocks
-        let mut tmp_result: BinaryHeap<(i64, i32, i32)> = BinaryHeap::with_capacity(k);
+        // TODO Peter make sure this case covers when there aren't k elements
+        let mut tmp_result: Vec<(i64, i32, i32)> = vec![(0, 0, 0); k];
         result.clear();
         result.reserve(k);
 
@@ -1388,9 +1389,9 @@ impl TreeGrid {
                         + (y as i64 - place_to_look.closest_point_on_boundary_y)
                             * (y as i64 - place_to_look.closest_point_on_boundary_y);
 
-                    if !tmp_result.is_empty()
+                    if tmp_result.len() > k
                         && squared_distance_to_closest_possible_point_on_chunk
-                            > tmp_result.peek().unwrap().0
+                            >= tmp_result[k].0
                     {
                         continue;
                     }
@@ -1399,28 +1400,44 @@ impl TreeGrid {
                 let my_tree_index =
                     self.get_tree_index(place_to_look.x as u32, place_to_look.y as u32);
                 let my_rtree = &self.rtrees[my_tree_index];
-                for coord in my_rtree
-                    .read()
-                    .unwrap()
-                    .nearest_neighbor_iter(&[x as i32, y as i32])
-                    .take(k)
-                    .map(|a| {
-                        (
-                            (((*a)[0] as i64 - x as i64) * ((*a)[0] as i64 - x as i64)
-                                + ((*a)[1] as i64 - y as i64) * ((*a)[1] as i64 - y as i64)),
-                            (*a)[0],
-                            (*a)[1],
-                        )
-                    })
                 {
-                    if tmp_result.len() < k {
-                        tmp_result.push(coord);
-                    } else if coord.0 < tmp_result.peek().unwrap().0 {
-                        tmp_result.pop();
-                        tmp_result.push(coord);
-                    } else {
-                        // coords are ordered by distance so nothing else in the list will be closer
-                        break;
+                    let locked_tree = my_rtree
+                        .read()
+                        .unwrap();
+                    let mut tree_best_k_iter = locked_tree
+                        .nearest_neighbor_iter(&[x as i32, y as i32])
+                        .take(k)
+                        .map(|a| {
+                            (
+                                (((*a)[0] as i64 - x as i64) * ((*a)[0] as i64 - x as i64)
+                                    + ((*a)[1] as i64 - y as i64) * ((*a)[1] as i64 - y as i64)),
+                                (*a)[0],
+                                (*a)[1],
+                            )
+                        }).peekable();
+                    let current_best_k = tmp_result.clone();
+                    let mut current_best_k_iter = current_best_k.iter().peekable();
+                    for next_element in 0..k {
+                        match (current_best_k_iter.peek(), tree_best_k_iter.peek()) {
+                            (Some(a), Some(b)) => {
+                                if a.0 > b.0 {
+                                    tmp_result[next_element] = *b;
+                                    tree_best_k_iter.next();
+                                } else {
+                                    tmp_result[next_element] = **a;
+                                    current_best_k_iter.next();
+                                }
+                            },
+                            (Some(a), None) => {
+                                tmp_result[next_element] = **a;
+                                current_best_k_iter.next();
+                            },
+                            (None, Some(b)) => {
+                                tmp_result[next_element] = *b;
+                                tree_best_k_iter.next();
+                            },
+                            (None, None) => {}
+                        }
                     }
                 }
             }

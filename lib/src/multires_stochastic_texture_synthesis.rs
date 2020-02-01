@@ -1366,7 +1366,6 @@ impl TreeGrid {
         ];
         // Note locking all of them at different times seems to be the best way
         // Naively trying to lock all at once could easily result in deadlocks
-        // TODO Peter make sure this case covers when there aren't k elements
         let mut tmp_result: Vec<(i64, i32, i32)> = Vec::with_capacity(k);
         result.clear();
         result.reserve(k);

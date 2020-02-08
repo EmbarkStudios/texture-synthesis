@@ -22,7 +22,9 @@ use ts::Dims;
 // You would copy `JKc2MqWo1iNWeJ856Ty6+a1M` and paste it over the hash for `single_example` to
 // update the hash
 
-use image::{imageops, DynamicImage, FilterType, GenericImageView, GrayImage, Pixel, RgbaImage};
+use image::{
+    imageops, imageops::FilterType, DynamicImage, GenericImageView, GrayImage, Pixel, RgbaImage,
+};
 use img_hash::HashImage;
 const FILTER_TYPE: FilterType = FilterType::Nearest;
 
@@ -44,7 +46,7 @@ impl HashImage for MyPrecious<DynamicImage> {
     }
 
     fn to_bytes(self) -> Vec<u8> {
-        self.0.raw_pixels()
+        self.0.to_bytes()
     }
 
     fn channel_count() -> u8 {

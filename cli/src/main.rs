@@ -41,9 +41,9 @@ fn parse_size(input: &str) -> Result<Dims, std::num::ParseIntError> {
 
 fn parse_img_fmt(input: &str) -> Result<ImgFmt, String> {
     let fmt = match input {
-        "png" => ImgFmt::PNG,
-        "jpg" => ImgFmt::JPEG(75),
-        "bmp" => ImgFmt::BMP,
+        "png" => ImgFmt::Png,
+        "jpg" => ImgFmt::Jpeg(75),
+        "bmp" => ImgFmt::Bmp,
         other => {
             return Err(format!(
                 "image format `{}` not one of: 'png', 'jpg', 'bmp'",

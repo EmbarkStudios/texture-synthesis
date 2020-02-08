@@ -26,9 +26,9 @@ rand_pcg = "0.2.1"
 rstar = "0.7.1"
 
 [dependencies.image]
-version = "0.22.4"
+version = "0.23"
 default-features = false
-features = ["jpeg", "png_codec", "bmp"]
+features = ["jpeg", "png", "bmp"]
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 crossbeam-utils = "0.7.0"

@@ -7,7 +7,7 @@ targets = [
 
 [advisories]
 unmaintained = "deny"
-yanked = "deny"
+#yanked = "deny" action isn't updating :(
 ignore = [
     "RUSTSEC-2019-0031",
 ]

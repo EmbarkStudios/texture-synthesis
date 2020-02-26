@@ -5,6 +5,13 @@ targets = [
     { triple = "x86_64-pc-windows-msvc" },
 ]
 
+[advisories]
+unmaintained = "deny"
+yanked = "deny"
+ignore = [
+    "RUSTSEC-2019-0031",
+]
+
 [bans]
 multiple-versions = "deny"
 deny = [
@@ -32,7 +39,7 @@ allow = [
 ]
 exceptions = [
     { allow = ["Zlib"], name = "adler32" },
-    { allow = ["CC0-1.0"], name = "x11-dl" },
+    { allow = ["Zlib"], name = "bytemuck" },
 ]
 
 [sources]

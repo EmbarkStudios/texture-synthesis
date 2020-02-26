@@ -467,7 +467,7 @@ impl Generator {
         unresolved_coord: Coord2D,
         k_neighs: &[SignedCoord2D],
         example_maps: &[ImageBuffer<'_>],
-        valid_samples_mask: &[SamplingMethod],
+        valid_non_ignored_samples_mask: &[&SamplingMethod],
         m_rand: u32,
         m_seed: u64,
     ) -> &'a [CandidateStruct] {
@@ -505,7 +505,7 @@ impl Generator {
                 candidate_coord,
                 n_map_id,
                 example_maps,
-                &valid_samples_mask[n_map_id.0 as usize],
+                valid_non_ignored_samples_mask[n_map_id.0 as usize],
             ) {
                 //lets construct the full candidate pattern of neighbors identical to the center coord
                 candidates_vec[candidate_count]
@@ -533,7 +533,6 @@ impl Generator {
         }
 
         let mut rng = Pcg32::seed_from_u64(m_seed);
-
         //random candidates
         for _ in 0..m_rand {
             let rand_map = (rng.gen_range(0, example_maps.len())) as u32;
@@ -554,7 +553,7 @@ impl Generator {
                     candidate_coord,
                     MapId(rand_map),
                     example_maps,
-                    &valid_samples_mask[rand_map as usize],
+                    valid_non_ignored_samples_mask[rand_map as usize],
                 ) {
                     break;
                 }
@@ -694,6 +693,11 @@ impl Generator {
 
         let mut pyramid_level = 0;
 
+        let valid_non_ignored_samples: Vec<&SamplingMethod> = valid_samples[..]
+            .iter()
+            .filter(|s| !s.is_ignore())
+            .collect();
+
         let stage_pixels_to_resolve = |p_stage: i32| {
             (params.p.powf(p_stage as f32) * (total_pixels_to_resolve as f32)) as usize
         };
@@ -742,8 +746,11 @@ impl Generator {
 
         for p_stage in (0..=params.p_stages).rev() {
             //get maps from current pyramid level (for now it will be p-stage dependant)
-            let example_maps =
-                get_single_example_level(example_maps_pyramid, pyramid_level as usize);
+            let example_maps = get_single_example_level(
+                example_maps_pyramid,
+                valid_samples,
+                pyramid_level as usize,
+            );
             let guides = get_single_guide_level(guides_pyramid, pyramid_level as usize);
 
             //update pyramid level
@@ -887,7 +894,7 @@ impl Generator {
                             unresolved_2d,
                             &k_neighs,
                             &example_maps,
-                            valid_samples,
+                            &valid_non_ignored_samples,
                             params.random_sample_locations as u32,
                             loop_seed + 1,
                         );
@@ -1454,7 +1461,7 @@ fn check_coord_validity(
     example_maps: &[ImageBuffer<'_>],
     mask: &SamplingMethod,
 ) -> bool {
-    if mask.is_ignore() || !example_maps[map_id.0 as usize].is_in_bounds(coord) {
+    if !example_maps[map_id.0 as usize].is_in_bounds(coord) {
         return false;
     }
 
@@ -1468,11 +1475,14 @@ fn check_coord_validity(
 //get all the example images from a single pyramid level
 fn get_single_example_level<'a>(
     example_maps_pyramid: &'a [ImagePyramid],
+    valid_samples_mask: &[SamplingMethod],
     pyramid_level: usize,
 ) -> Vec<ImageBuffer<'a>> {
     example_maps_pyramid
         .iter()
-        .map(|a| ImageBuffer::from(&a.pyramid[pyramid_level]))
+        .enumerate()
+        .filter(|&(i, _)| !valid_samples_mask[i].is_ignore())
+        .map(|(_, a)| ImageBuffer::from(&a.pyramid[pyramid_level]))
         .collect()
 }
 

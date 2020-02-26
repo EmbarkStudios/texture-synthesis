@@ -229,6 +229,28 @@ diff_hash!(tiling, "JFSVUUmMaMzhWSttmlwojR1q", {
         .tiling_mode(true)
 });
 
+diff_hash!(sample_masks, "JLO1hQBEpakECqIXDiCkqBME", {
+    ts::Session::builder()
+        .add_example(
+            ts::Example::builder(&"../imgs/4.png")
+                .set_sample_method(&"../imgs/masks/4_sample_mask.png"),
+        )
+        .seed(211)
+        .output_size(Dims::square(100))
+});
+
+diff_hash!(sample_masks_ignore, "JGgWBEwJiqCaKpEiAonGkQRE", {
+    ts::Session::builder()
+        .add_example(
+            ts::Example::builder(&"../imgs/4.png").set_sample_method(ts::SampleMethod::Ignore),
+        )
+        .add_example(
+            ts::Example::builder(&"../imgs/5.png").set_sample_method(ts::SampleMethod::All),
+        )
+        .seed(211)
+        .output_size(Dims::square(200))
+});
+
 #[test]
 fn repeat_transform() {
     //create a new session

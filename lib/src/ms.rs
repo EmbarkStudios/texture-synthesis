@@ -22,9 +22,11 @@ pub struct GeneratorParams {
     /// 'harsh' borders between generated 'chunks'. Values  closer to 1.0 will
     /// produce a smoother gradient on those borders.
     pub(crate) cauchy_dispersion: f32,
-    /// The percentage of pixels to be backtracked during each p_stage. Range (0,1).
+    /// The percentage of pixels to be backtracked during each p_stage.
+    /// Range (0,1).
     pub(crate) p: f32,
-    /// Controls the number of backtracking stages. Backtracking prevents 'garbage' generation
+    /// Controls the number of backtracking stages. Backtracking prevents
+    /// 'garbage' generation
     pub(crate) p_stages: i32,
     /// random seed
     pub(crate) seed: u64,

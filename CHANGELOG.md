@@ -8,10 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added the [09_sample_masks](lib/examples/09_sample_masks.rs) example
 - CLI: Resolved [#38](https://github.com/EmbarkStudios/texture-synthesis/issues/38) by adding the `repeat` subcommand, which can be used to repeat transforms with different input images
+- [PR#91](https://github.com/EmbarkStudios/texture-synthesis/pull/91) Added support for compiling and running texture-synthesis as WASM.
 
 ### Fixed
 - [PR#69](https://github.com/EmbarkStudios/texture-synthesis/pull/69) Improved performance by 1x-2x, especially for smaller inputs. Thanks [@Mr4k](https://github.com/Mr4k)!
 - [PR#70](https://github.com/EmbarkStudios/texture-synthesis/pull/70) Improved performance by **another** 1x-2.7x, especially for larger numbers of threads. Thanks (again!) [@Mr4k](https://github.com/Mr4k)!
+- CLI: [PR#71](https://github.com/EmbarkStudios/texture-synthesis/pull/71) The prebuilt binary for Windows is now packaged in a zip file isntead of a gzipped tarball to improve end user experience. Thanks [@moppius](https://github.com/moppius)!
 - [PR#98](https://github.com/EmbarkStudios/texture-synthesis/pull/98) fixed [#85](https://github.com/EmbarkStudios/texture-synthesis/issues/85), sample masks could hang image generation. Thanks [@Mr4k](https://github.com/Mr4k)!
 
 ## [0.7.1] - 2019-11-19

@@ -335,7 +335,7 @@ fn main() -> Result<(), ts::Error> {
 
     // now we can apply the same transformation of the generated image
     // onto a new image (which can be used to ensure 1-1 mapping between multiple images)
-    // NOTE: it is important to provide same number and image dimensions as the examples used for synthesis
+    // NOTE: it is important to provide same number of input images as the 
     // otherwise, there will be coordinates mismatch
     let repeat_transform_img = generated
         .get_coordinate_transform()
@@ -347,6 +347,34 @@ fn main() -> Result<(), ts::Error> {
     generated.save("out/08.jpg")
 }
 ```
+
+#### CLI
+
+1. First, we need to create a transform that can be reused
+
+The notable bit here is the `--save-transform out/multi.xform` which creates the
+file that can be used to generate new outputs with.
+
+`cargo run --release -- --rand-init 10 --seed 211 --in-size 300x300 -o
+out/02.png generate --save-transform out/multi.xform imgs/multiexample/1.jpg imgs/multiexample/2.jpg imgs/multiexample/3.jpg
+imgs/multiexample/4.jpg`
+
+2. Next, we use the `repeat` subcommand to repeat transform with different
+inputs
+
+The important bits here are the use of the `repeat` subcommand instead of
+`generate`, and `--transform out/multi.xform` which tells what transform to
+apply to the inputs. The only restriction is that the number of images you
+specify must match the original number of examples **exactly**. If the input
+images have different dimensions than the example images, they will be
+automatically resized for you.
+
+`cargo run --release -- -o out/02-repeated.png repeat --transform
+out/multi.xform imgs/multiexample/1.jpg imgs/multiexample/2.jpg
+imgs/multiexample/4.jpg imgs/multiexample/3.jpg`
+
+Also note that the normal parameters that are used with `generate` don't apply
+to the `repeat` subcommand and will be ignored.
 
 ### 9. Combining texture synthesis 'verbs'
 

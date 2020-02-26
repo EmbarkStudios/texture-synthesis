@@ -19,6 +19,8 @@
 #[cfg(not(target_arch = "wasm32"))]
 mod progress_window;
 
+mod repeat;
+
 use structopt::StructOpt;
 
 use std::path::PathBuf;
@@ -81,6 +83,11 @@ struct Generate {
     /// Path(s) to guide maps for the example output.
     #[structopt(long = "guides", parse(from_os_str))]
     example_guides: Vec<PathBuf>,
+    /// Saves the transforms used to generate the final output image from the
+    /// input examples. This can be used by the `repeat` subcommand to reapply
+    /// the same transform to different examples to get a new output image.
+    #[structopt(long = "save-transform")]
+    save_transform: Option<PathBuf>,
     /// Path(s) to example images used to synthesize a new image
     #[structopt(parse(from_os_str))]
     examples: Vec<PathBuf>,
@@ -119,6 +126,10 @@ enum Subcommand {
     /// flipped and rotated versions
     #[structopt(name = "flip-and-rotate")]
     FlipAndRotate(FlipAndRotate),
+    /// Repeats transforms from a previous generate command onto the provided
+    /// inputs to generate a new output image
+    #[structopt(name = "repeat")]
+    Repeat(repeat::Args),
 }
 
 #[derive(StructOpt)]
@@ -293,6 +304,9 @@ fn real_main() -> Result<(), Error> {
             (examples, None)
         }
         Subcommand::TransferStyle(ts) => (vec![Example::new(&ts.style)], Some(&ts.guide)),
+        Subcommand::Repeat(rep) => {
+            return repeat::cmd(rep, &args);
+        }
     };
 
     if !args.sample_masks.is_empty() {
@@ -394,6 +408,20 @@ fn real_main() -> Result<(), Error> {
 
     if let Some(ref dir) = args.debug_out_dir {
         generated.save_debug(dir)?;
+    }
+
+    if let Subcommand::Generate(gen) = args.cmd {
+        if let Some(ref st_path) = gen.save_transform {
+            if let Err(e) = repeat::save_coordinate_transform(&generated, st_path) {
+                // Continue going, presumably the user will be ok with this
+                // failing if they can at least get the actual generated image
+                eprintln!(
+                    "unable to save coordinate transform to '{}': {}",
+                    st_path.display(),
+                    e
+                );
+            }
+        }
     }
 
     if args.output_path.to_str() == Some("-") {

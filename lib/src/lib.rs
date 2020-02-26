@@ -63,8 +63,8 @@ mod img_pyramid;
 use img_pyramid::*;
 mod utils;
 use utils::*;
-mod multires_stochastic_texture_synthesis;
-use multires_stochastic_texture_synthesis::*;
+mod ms;
+use ms::*;
 use std::path::Path;
 mod unsync;
 
@@ -73,7 +73,9 @@ pub use utils::{load_dynamic_image, ChannelMask, ImageSource};
 
 pub use errors::Error;
 
+/// Simple dimensions struct
 #[derive(Copy, Clone)]
+#[cfg_attr(test, derive(Debug, PartialEq))]
 pub struct Dims {
     pub width: u32,
     pub height: u32,
@@ -91,32 +93,48 @@ impl Dims {
     }
 }
 
+/// A buffer of transforms that were used to generate an image from a set of
+/// examples, which can be applied to a different set of input images to get
+/// a different output image.
 pub struct CoordinateTransform {
     buffer: Vec<u32>,
-    dims: Dims,
-    max_map_id: u32, // total number of maps required to perform transformation
+    pub output_size: Dims,
+    original_maps: Vec<Dims>,
 }
 
+const TRANSFORM_MAGIC: u32 = 0x1234_0001;
+
 impl<'a> CoordinateTransform {
-    /// Applies the coordinate transformation from new source images. Important to ensure that you have same number and sizes of the images as during synthesis where the coordinate transform was saved from
-    pub fn apply<E: Into<ImageSource<'a>>, I: IntoIterator<Item = E>>(
-        &self,
-        source: I,
-    ) -> Result<image::RgbaImage, Error> {
+    /// Applies the coordinate transformation from new source images. This
+    /// method will fail if the the provided source images aren't the same
+    /// number of example images that generated the transform.
+    ///
+    /// The input images are automatically resized to the dimensions of the
+    /// original example images used in the generation of this coordinate
+    /// transform
+    pub fn apply<E, I>(&self, source: I) -> Result<image::RgbaImage, Error>
+    where
+        I: IntoIterator<Item = E>,
+        E: Into<ImageSource<'a>>,
+    {
         let ref_maps: Vec<image::RgbaImage> = source
             .into_iter()
-            .map(|t| load_image(t.into(), None))
+            .zip(self.original_maps.iter())
+            .map(|(is, dims)| load_image(is.into(), Some(*dims)))
             .collect::<Result<Vec<_>, Error>>()?;
-        //assert same number of maps
-        if ref_maps.len() as u32 != self.max_map_id {
+
+        // Ensure the number of inputs match the number in that generated this
+        // transform, otherwise we would get weird results
+        if ref_maps.len() != self.original_maps.len() {
             return Err(Error::MapsCountMismatch(
                 ref_maps.len() as u32,
-                self.max_map_id,
+                self.original_maps.len() as u32,
             ));
         }
-        //init new empty image
-        let mut img = image::RgbaImage::new(self.dims.width, self.dims.height);
-        // populate with pixels from ref maps
+
+        let mut img = image::RgbaImage::new(self.output_size.width, self.output_size.height);
+
+        // Populate with pixels from ref maps
         for (i, pix) in img.pixels_mut().enumerate() {
             let x = self.buffer[i * 3];
             let y = self.buffer[i * 3 + 1];
@@ -126,6 +144,119 @@ impl<'a> CoordinateTransform {
         }
 
         Ok(img)
+    }
+
+    pub fn write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<usize> {
+        use std::mem;
+        let mut written = 0;
+
+        // Sanity check that that buffer length corresponds correctly with the
+        // supposed dimensions
+        if self.buffer.len()
+            != self.output_size.width as usize * self.output_size.height as usize * 3
+        {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "buffer length doesn't match dimensions",
+            ));
+        }
+
+        let header = [
+            TRANSFORM_MAGIC,
+            self.output_size.width,
+            self.output_size.height,
+            self.original_maps.len() as u32,
+        ];
+
+        fn cast(ina: &[u32]) -> &[u8] {
+            unsafe {
+                let p = ina.as_ptr();
+                let len = ina.len();
+
+                std::slice::from_raw_parts(p as *const u8, len * mem::size_of::<u32>())
+            }
+        }
+
+        w.write_all(cast(&header))?;
+        written += mem::size_of_val(&header);
+
+        for om in &self.original_maps {
+            let dims = [om.width, om.height];
+            w.write_all(cast(&dims))?;
+            written += mem::size_of_val(&dims);
+        }
+
+        w.write_all(cast(&self.buffer))?;
+        written += 4 * self.buffer.len();
+
+        Ok(written)
+    }
+
+    pub fn read<R: std::io::Read>(r: &mut R) -> std::io::Result<Self> {
+        use std::{
+            io::{Error, ErrorKind, Read},
+            mem,
+        };
+
+        fn do_read<R: Read>(r: &mut R, buf: &mut [u32]) -> std::io::Result<()> {
+            unsafe {
+                let p = buf.as_mut_ptr();
+                let len = buf.len();
+
+                let mut slice =
+                    std::slice::from_raw_parts_mut(p as *mut u8, len * mem::size_of::<u32>());
+
+                r.read(&mut slice).map(|_| ())
+            }
+        }
+
+        let mut magic = [0u32];
+        do_read(r, &mut magic)?;
+
+        if magic[0] >> 16 != 0x1234 {
+            return Err(Error::new(ErrorKind::InvalidData, "invalid magic"));
+        }
+
+        let (output_size, original_maps) = match magic[0] & 0x0000_ffff {
+            0x1 => {
+                let mut header = [0u32; 3];
+                do_read(r, &mut header)?;
+
+                let mut omaps = Vec::with_capacity(header[2] as usize);
+                for _ in 0..header[2] {
+                    let mut dims = [0u32; 2];
+                    do_read(r, &mut dims)?;
+                    omaps.push(Dims {
+                        width: dims[0],
+                        height: dims[1],
+                    });
+                }
+
+                (
+                    Dims {
+                        width: header[0],
+                        height: header[1],
+                    },
+                    omaps,
+                )
+            }
+            _ => return Err(Error::new(ErrorKind::InvalidData, "invalid version")),
+        };
+
+        let buffer = unsafe {
+            let len = output_size.width as usize * output_size.height as usize * 3;
+            let mut buffer = Vec::with_capacity(len);
+            buffer.set_len(len);
+
+            do_read(r, &mut buffer)?;
+            buffer
+        };
+
+        Ok(Self {
+            output_size,
+            original_maps,
+            buffer,
+        })
     }
 }
 
@@ -181,7 +312,7 @@ impl Parameters {
 
 /// An image generated by a `Session::run()`
 pub struct GeneratedImage {
-    inner: multires_stochastic_texture_synthesis::Generator,
+    inner: ms::Generator,
 }
 
 impl GeneratedImage {
@@ -206,8 +337,9 @@ impl GeneratedImage {
         Ok(dyn_img.write_to(writer, fmt)?)
     }
 
-    /// Saves debug information such as copied patches ids, map ids (if you have multi example generation)
-    /// and a map indicating generated pixels the generator was "uncertain" of.
+    /// Saves debug information such as copied patches ids, map ids (if you have
+    /// multi example generation) and a map indicating generated pixels the
+    /// generator was "uncertain" of.
     pub fn save_debug<P: AsRef<Path>>(&self, dir: P) -> Result<(), Error> {
         let dir = dir.as_ref();
         std::fs::create_dir_all(&dir)?;
@@ -222,18 +354,25 @@ impl GeneratedImage {
         Ok(())
     }
 
-    /// Get coordinate transform of this generated image, which can be repeated on a new image
+    /// Get the coordinate transform of this generated image, which can be
+    /// applied to new example images to get a different output image.
+    ///
     /// ```no_run
     /// use texture_synthesis as ts;
-    ///  //create a new session
+    ///
+    /// // create a new session
     /// let texsynth = ts::Session::builder()
-    /// //load a single example image
-    /// .add_example(&"imgs/1.jpg")
-    /// .build().unwrap();
-    /// //generate an image
+    ///     //load a single example image
+    ///     .add_example(&"imgs/1.jpg")
+    ///     .build().unwrap();
+    ///
+    /// // generate an image
     /// let generated = texsynth.run(None);
-    /// //now we can repeat the same transformation on a different image
-    /// let repeated_transform_image = generated.get_coordinate_transform().apply(&["imgs/2.jpg"]);
+    ///
+    /// // now we can repeat the same transformation on a different image
+    /// let repeated_transform_image = generated
+    ///     .get_coordinate_transform()
+    ///     .apply(&["imgs/2.jpg"]);
     /// ```
     pub fn get_coordinate_transform(&self) -> CoordinateTransform {
         self.inner.get_coord_transform()
@@ -340,9 +479,11 @@ impl<'a> Example<'a> {
     pub fn builder<I: Into<ImageSource<'a>>>(img: I) -> ExampleBuilder<'a> {
         ExampleBuilder::new(img)
     }
+
     pub fn image_source(&self) -> &ImageSource<'a> {
         &self.img
     }
+
     /// Creates a new example input from the specified image source
     pub fn new<I: Into<ImageSource<'a>>>(img: I) -> Self {
         Self {
@@ -445,7 +586,8 @@ pub struct SessionBuilder<'a> {
 }
 
 impl<'a> SessionBuilder<'a> {
-    /// Creates a new `SessionBuilder`, can also be created via `Session::builder()`
+    /// Creates a new `SessionBuilder`, can also be created via
+    /// `Session::builder()`
     pub fn new() -> Self {
         Self::default()
     }
@@ -485,12 +627,13 @@ impl<'a> SessionBuilder<'a> {
         self
     }
 
-    /// Inpaints an example. Due to how inpainting works, a size must also be provided, as
-    /// all examples, as well as the inpaint mask, must be the same size as each other, as
-    /// well as the final output image. Using `resize_input` or `output_size` is ignored
-    /// if this method is called.
+    /// Inpaints an example. Due to how inpainting works, a size must also be
+    /// provided, as all examples, as well as the inpaint mask, must be the same
+    /// size as each other, as well as the final output image. Using
+    /// `resize_input` or `output_size` is ignored if this method is called.
     ///
-    /// To prevent sampling from the example, you can specify `SamplingMethod::Ignore` with `Example::set_sample_method`.
+    /// To prevent sampling from the example, you can specify
+    /// `SamplingMethod::Ignore` with `Example::set_sample_method`.
     ///
     /// See [`examples/05_inpaint`](https://github.com/EmbarkStudios/texture-synthesis/tree/master/lib/examples/05_inpaint.rs)
     ///
@@ -524,7 +667,8 @@ impl<'a> SessionBuilder<'a> {
         self
     }
 
-    /// Inpaints an example, using a specific channel in the example image as the inpaint mask
+    /// Inpaints an example, using a specific channel in the example image as
+    /// the inpaint mask
     ///
     /// # Examples
     ///
@@ -555,8 +699,9 @@ impl<'a> SessionBuilder<'a> {
 
     /// Loads a target guide map.
     ///
-    /// If no `Example` guide maps are provided, this will produce a style transfer effect,
-    /// where the Examples are styles and the target guide is content.
+    /// If no `Example` guide maps are provided, this will produce a style
+    /// transfer effect, where the Examples are styles and the target guide is
+    /// content.
     ///
     /// See [`examples/03_guided_synthesis`](https://github.com/EmbarkStudios/texture-synthesis/tree/master/lib/examples/03_guided_synthesis.rs),
     /// or [`examples/04_style_transfer`](https://github.com/EmbarkStudios/texture-synthesis/tree/master/lib/examples/04_style_transfer.rs),
@@ -572,69 +717,98 @@ impl<'a> SessionBuilder<'a> {
     }
 
     /// Changes pseudo-deterministic seed.
-    /// Global structures will stay same, if same seed is provided, but smaller details may change due to undeterministic nature of multithreading.
+    ///
+    /// Global structures will stay same, if the same seed is provided, but
+    /// smaller details may change due to undeterministic nature of
+    /// multithreading.
     pub fn seed(mut self, value: u64) -> Self {
         self.params.seed = value;
         self
     }
 
     /// Makes the generator output tiling image.
+    ///
     /// Default: false.
     pub fn tiling_mode(mut self, is_tiling: bool) -> Self {
         self.params.tiling_mode = is_tiling;
         self
     }
 
-    /// How many neighboring pixels each pixel is aware of during the generation (bigger number -> more global structures are captured).
+    /// How many neighboring pixels each pixel is aware of during generation.
+    ///
+    /// A larger number means more global structures are captured.
+    ///
     /// Default: 50
     pub fn nearest_neighbors(mut self, count: u32) -> Self {
         self.params.nearest_neighbors = count;
         self
     }
 
-    /// How many random locations will be considered during a pixel resolution apart from its immediate neighbors.
+    /// The number of random locations that will be considered during a pixel
+    /// resolution apart from its immediate neighbors.
+    ///
     /// If unsure, keep same as nearest neighbors.
+    ///
     /// Default: 50
     pub fn random_sample_locations(mut self, count: u64) -> Self {
         self.params.random_sample_locations = count;
         self
     }
 
-    /// Make first X pixels to be randomly resolved and prevent them from being overwritten.
+    /// Forces the first `n` pixels to be randomly resolved, and prevents them
+    /// from being overwritten.
+    ///
     /// Can be an enforcing factor of remixing multiple images together.
     pub fn random_init(mut self, count: u64) -> Self {
         self.params.random_resolve = Some(count);
         self
     }
 
-    /// The distribution dispersion used for picking best candidate (controls the distribution 'tail flatness').
-    /// Values close to 0.0 will produce 'harsh' borders between generated 'chunks'. Values closer to 1.0 will produce a smoother gradient on those borders.
+    /// The distribution dispersion used for picking best candidate (controls
+    /// the distribution 'tail flatness').
+    ///
+    /// Values close to 0.0 will produce 'harsh' borders between generated
+    /// 'chunks'. Values closer to 1.0 will produce a smoother gradient on those
+    /// borders.
+    ///
     /// For futher reading, check out P.Harrison's "Image Texture Tools".
+    ///
     /// Default: 1.0
     pub fn cauchy_dispersion(mut self, value: f32) -> Self {
         self.params.cauchy_dispersion = value;
         self
     }
 
-    /// Controls the trade-off between guide and example map.
-    /// If doing style transfer, set to about 0.8-0.6 to allow for more global structures of the style.
-    /// If you'd like the guide maps to be considered through all generation stages, set to 1.0 (which would prevent guide maps weight "decay" during the score calculation).
+    /// Controls the trade-off between guide and example maps.
+    ///
+    /// If doing style transfer, set to about 0.8-0.6 to allow for more global
+    /// structures of the style.
+    ///
+    /// If you'd like the guide maps to be considered through all generation
+    /// stages, set to 1.0, which will prevent guide maps weight "decay" during
+    /// the score calculation.
+    ///
     /// Default: 0.8
     pub fn guide_alpha(mut self, value: f32) -> Self {
         self.params.guide_alpha = value;
         self
     }
 
-    /// The percentage of pixels to be backtracked during each `p_stage`. Range (0,1).
+    /// The percentage of pixels to be backtracked during each `p_stage`.
+    /// Range (0,1).
+    ///
     /// Default: 0.5
     pub fn backtrack_percent(mut self, value: f32) -> Self {
         self.params.backtrack_percent = value;
         self
     }
 
-    /// Controls the number of backtracking stages. Backtracking prevents 'garbage' generation.
-    /// Right now, the depth of image pyramid for multiresolution synthesis
-    /// depends on this parameter as well.
+    /// Controls the number of backtracking stages.
+    ///
+    /// Backtracking prevents 'garbage' generation. Right now, the depth of the
+    /// image pyramid for multiresolution synthesis depends on this parameter as
+    /// well.
+    ///
     /// Default: 5
     pub fn backtrack_stages(mut self, stages: u32) -> Self {
         self.params.backtrack_stages = stages;
@@ -642,16 +816,22 @@ impl<'a> SessionBuilder<'a> {
     }
 
     /// Specify size of the generated image.
+    ///
     /// Default: 500x500
     pub fn output_size(mut self, dims: Dims) -> Self {
         self.params.output_size = dims;
         self
     }
 
-    /// Specify the maximum number of threads that will be spawned
-    /// at any one time in parallel. This number is allowed to exceed
-    /// the number of logical cores on the system, but it should
-    /// generally be kept at or below that number.
+    /// Controls the maximum number of threads that will be spawned at any one
+    /// time in parallel.
+    ///
+    /// This number is allowed to exceed the number of logical cores on the
+    /// system, but it should generally be kept at or below that number.
+    ///
+    /// Setting this number to `1` will result in completely deterministic
+    /// image generation, meaning that redoing generation with the same inputs
+    /// will always give you the same outputs.
     ///
     /// Default: The number of logical cores on this system.
     pub fn max_thread_count(mut self, count: usize) -> Self {
@@ -860,10 +1040,11 @@ struct ResolvedExample {
 
 /// Texture synthesis session.
 ///
-/// Calling `run()` will generate a new image and return it, consuming the session in the
-/// process. You can provide a `GeneratorProgress` implementation to periodically get
-/// updates with the currently generated image and the number of pixels that
-/// have been resolved both in the current stage and globally
+/// Calling `run()` will generate a new image and return it, consuming the
+/// session in the process. You can provide a `GeneratorProgress` implementation
+/// to periodically get updates with the currently generated image and the
+/// number of pixels that have been resolved both in the current stage and
+/// globally.
 ///
 /// # Example
 /// ```no_run
@@ -891,8 +1072,6 @@ impl Session {
     }
 
     /// Runs the generator and outputs a generated image.
-    /// Now, only runs Multiresolution Stochastic Texture Synthesis.
-    /// Might be interesting to include more algorithms in the future.
     pub fn run(mut self, progress: Option<Box<dyn GeneratorProgress>>) -> GeneratedImage {
         // random resolve
         // TODO: Instead of consuming the generator, we could instead make the
@@ -911,7 +1090,7 @@ impl Session {
         }
 
         // run generator
-        self.generator.main_resolve_loop(
+        self.generator.resolve(
             &self.params.to_generator_params(),
             &self.examples,
             progress,
@@ -955,5 +1134,58 @@ where
 {
     fn update(&mut self, info: ProgressUpdate<'_>) {
         self(info)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn coord_tx_serde() {
+        use super::CoordinateTransform as CT;
+
+        let fake_buffer = vec![1, 2, 3, 4, 5, 6];
+
+        let input = CT {
+            buffer: fake_buffer.clone(),
+            output_size: super::Dims {
+                width: 2,
+                height: 1,
+            },
+            original_maps: vec![
+                super::Dims {
+                    width: 9001,
+                    height: 9002,
+                },
+                super::Dims {
+                    width: 20,
+                    height: 5,
+                },
+            ],
+        };
+
+        let mut buffer = Vec::new();
+        input.write(&mut buffer).unwrap();
+
+        let mut cursor = std::io::Cursor::new(&buffer);
+        let deserialized = CT::read(&mut cursor).unwrap();
+
+        assert_eq!(deserialized.buffer, fake_buffer);
+        assert_eq!(deserialized.output_size.width, 2);
+        assert_eq!(deserialized.output_size.height, 1);
+
+        assert_eq!(
+            super::Dims {
+                width: 9001,
+                height: 9002,
+            },
+            deserialized.original_maps[0]
+        );
+        assert_eq!(
+            super::Dims {
+                width: 20,
+                height: 5,
+            },
+            deserialized.original_maps[1]
+        );
     }
 }

@@ -1134,7 +1134,7 @@ dependencies = [
 
 [[package]]
 name = "texture-synthesis"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "criterion",
  "crossbeam-utils",
@@ -1148,7 +1148,7 @@ dependencies = [
 
 [[package]]
 name = "texture-synthesis-cli"
-version = "0.7.1"
+version = "0.8.0"
 dependencies = [
  "atty",
  "indicatif",

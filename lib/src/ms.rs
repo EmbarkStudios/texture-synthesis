@@ -204,6 +204,7 @@ pub struct Generator {
     resolved: RwLock<Vec<(CoordFlat, Score)>>, //a list of resolved coordinates in our canvas and their scores
     tree_grid: TreeGrid,                       // grid of R*Trees
     locked_resolved: usize,                    //used for inpainting, to not backtrack these pixels
+    input_dimensions: Vec<Dims>,
 }
 
 impl Generator {
@@ -219,6 +220,7 @@ impl Generator {
             resolved: RwLock::new(Vec::new()),
             tree_grid: TreeGrid::new(size.width, size.height, max(size.width, size.height), 0, 0),
             locked_resolved: 0,
+            input_dimensions: Vec::new(),
         }
     }
 
@@ -277,6 +279,7 @@ impl Generator {
             resolved: RwLock::new(resolved),
             tree_grid,
             locked_resolved,
+            input_dimensions: Vec::new(),
         }
     }
 
@@ -645,7 +648,6 @@ impl Generator {
         let coord_map = self.coord_map.as_ref();
 
         let mut buffer: Vec<u32> = Vec::new();
-        let mut max_map_id = 1;
 
         // presize the vector for our final size
         buffer.resize(coord_map.len() * 3, 0);
@@ -653,9 +655,6 @@ impl Generator {
         //populate the image with colors
         for (i, (coord, map_id)) in self.coord_map.as_ref().iter().enumerate() {
             let b = map_id.0;
-            if max_map_id < b {
-                max_map_id = b;
-            }
 
             //record the color
             let ind = i * 3;
@@ -666,10 +665,12 @@ impl Generator {
             color[2] = b;
         }
 
+        let original_maps = self.input_dimensions.clone();
+
         CoordinateTransform {
             buffer,
-            dims: Dims::new(self.output_size.width, self.output_size.height),
-            max_map_id,
+            output_size: Dims::new(self.output_size.width, self.output_size.height),
+            original_maps,
         }
     }
 
@@ -689,7 +690,7 @@ impl Generator {
         }
     }
 
-    pub(crate) fn main_resolve_loop(
+    pub(crate) fn resolve(
         &mut self,
         params: &GeneratorParams,
         example_maps_pyramid: &[ImagePyramid],
@@ -708,6 +709,20 @@ impl Generator {
         let valid_non_ignored_samples: Vec<&SamplingMethod> = valid_samples[..]
             .iter()
             .filter(|s| !s.is_ignore())
+            .collect();
+
+        // Get the dimensions for each input example, this is only used when
+        // saving a coordinate transform, so that the transform can be repeated
+        // with different inputs that can be resized to avoid various problems
+        self.input_dimensions = example_maps_pyramid
+            .iter()
+            .map(|ip| {
+                let original = ip.bottom();
+                Dims {
+                    width: original.width(),
+                    height: original.height(),
+                }
+            })
             .collect();
 
         let stage_pixels_to_resolve = |p_stage: i32| {

@@ -75,6 +75,7 @@ pub use errors::Error;
 
 /// Simple dimensions struct
 #[derive(Copy, Clone)]
+#[cfg_attr(test, derive(Debug, PartialEq))]
 pub struct Dims {
     pub width: u32,
     pub height: u32,
@@ -97,8 +98,8 @@ impl Dims {
 /// a different output image.
 pub struct CoordinateTransform {
     buffer: Vec<u32>,
-    dims: Dims,
-    max_map_id: u32, // total number of maps required to perform transformation
+    pub output_size: Dims,
+    original_maps: Vec<Dims>,
 }
 
 const TRANSFORM_MAGIC: u32 = 0x1234_0001;
@@ -107,6 +108,10 @@ impl<'a> CoordinateTransform {
     /// Applies the coordinate transformation from new source images. This
     /// method will fail if the the provided source images aren't the same
     /// number of example images that generated the transform.
+    ///
+    /// The input images are automatically resized to the dimensions of the
+    /// original example images used in the generation of this coordinate
+    /// transform
     pub fn apply<E, I>(&self, source: I) -> Result<image::RgbaImage, Error>
     where
         I: IntoIterator<Item = E>,
@@ -114,19 +119,20 @@ impl<'a> CoordinateTransform {
     {
         let ref_maps: Vec<image::RgbaImage> = source
             .into_iter()
-            .map(|t| load_image(t.into(), None))
+            .zip(self.original_maps.iter())
+            .map(|(is, dims)| load_image(is.into(), Some(*dims)))
             .collect::<Result<Vec<_>, Error>>()?;
 
         // Ensure the number of inputs match the number in that generated this
         // transform, otherwise we would get weird results
-        if ref_maps.len() as u32 != self.max_map_id {
+        if ref_maps.len() != self.original_maps.len() {
             return Err(Error::MapsCountMismatch(
                 ref_maps.len() as u32,
-                self.max_map_id,
+                self.original_maps.len() as u32,
             ));
         }
 
-        let mut img = image::RgbaImage::new(self.dims.width, self.dims.height);
+        let mut img = image::RgbaImage::new(self.output_size.width, self.output_size.height);
 
         // Populate with pixels from ref maps
         for (i, pix) in img.pixels_mut().enumerate() {
@@ -146,7 +152,9 @@ impl<'a> CoordinateTransform {
 
         // Sanity check that that buffer length corresponds correctly with the
         // supposed dimensions
-        if self.buffer.len() != self.dims.width as usize * self.dims.height as usize * 3 {
+        if self.buffer.len()
+            != self.output_size.width as usize * self.output_size.height as usize * 3
+        {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 "buffer length doesn't match dimensions",
@@ -155,9 +163,9 @@ impl<'a> CoordinateTransform {
 
         let header = [
             TRANSFORM_MAGIC,
-            self.dims.width,
-            self.dims.height,
-            self.max_map_id,
+            self.output_size.width,
+            self.output_size.height,
+            self.original_maps.len() as u32,
         ];
 
         fn cast(ina: &[u32]) -> &[u8] {
@@ -171,6 +179,13 @@ impl<'a> CoordinateTransform {
 
         w.write_all(cast(&header))?;
         written += mem::size_of_val(&header);
+
+        for om in &self.original_maps {
+            let dims = [om.width, om.height];
+            w.write_all(cast(&dims))?;
+            written += mem::size_of_val(&dims);
+        }
+
         w.write_all(cast(&self.buffer))?;
         written += 4 * self.buffer.len();
 
@@ -202,24 +217,34 @@ impl<'a> CoordinateTransform {
             return Err(Error::new(ErrorKind::InvalidData, "invalid magic"));
         }
 
-        let (dims, num_maps) = match magic[0] & 0x0000_ffff {
+        let (output_size, original_maps) = match magic[0] & 0x0000_ffff {
             0x1 => {
                 let mut header = [0u32; 3];
                 do_read(r, &mut header)?;
+
+                let mut omaps = Vec::with_capacity(header[2] as usize);
+                for _ in 0..header[2] {
+                    let mut dims = [0u32; 2];
+                    do_read(r, &mut dims)?;
+                    omaps.push(Dims {
+                        width: dims[0],
+                        height: dims[1],
+                    });
+                }
 
                 (
                     Dims {
                         width: header[0],
                         height: header[1],
                     },
-                    header[2],
+                    omaps,
                 )
             }
             _ => return Err(Error::new(ErrorKind::InvalidData, "invalid version")),
         };
 
         let buffer = unsafe {
-            let len = dims.width as usize * dims.height as usize * 3;
+            let len = output_size.width as usize * output_size.height as usize * 3;
             let mut buffer = Vec::with_capacity(len);
             buffer.set_len(len);
 
@@ -228,8 +253,8 @@ impl<'a> CoordinateTransform {
         };
 
         Ok(Self {
-            dims,
-            max_map_id: num_maps,
+            output_size,
+            original_maps,
             buffer,
         })
     }
@@ -1065,7 +1090,7 @@ impl Session {
         }
 
         // run generator
-        self.generator.main_resolve_loop(
+        self.generator.resolve(
             &self.params.to_generator_params(),
             &self.examples,
             progress,
@@ -1122,11 +1147,20 @@ mod test {
 
         let input = CT {
             buffer: fake_buffer.clone(),
-            dims: super::Dims {
+            output_size: super::Dims {
                 width: 2,
                 height: 1,
             },
-            max_map_id: 1,
+            original_maps: vec![
+                super::Dims {
+                    width: 9001,
+                    height: 9002,
+                },
+                super::Dims {
+                    width: 20,
+                    height: 5,
+                },
+            ],
         };
 
         let mut buffer = Vec::new();
@@ -1136,8 +1170,22 @@ mod test {
         let deserialized = CT::read(&mut cursor).unwrap();
 
         assert_eq!(deserialized.buffer, fake_buffer);
-        assert_eq!(deserialized.max_map_id, 1);
-        assert_eq!(deserialized.dims.width, 2);
-        assert_eq!(deserialized.dims.height, 1);
+        assert_eq!(deserialized.output_size.width, 2);
+        assert_eq!(deserialized.output_size.height, 1);
+
+        assert_eq!(
+            super::Dims {
+                width: 9001,
+                height: 9002,
+            },
+            deserialized.original_maps[0]
+        );
+        assert_eq!(
+            super::Dims {
+                width: 20,
+                height: 5,
+            },
+            deserialized.original_maps[1]
+        );
     }
 }

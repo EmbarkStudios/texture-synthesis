@@ -5,9 +5,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- Added the [09_sample_masks](lib/examples/09_sample_masks.rs) example
+
 ### Fixed
 - [PR#69](https://github.com/EmbarkStudios/texture-synthesis/pull/69) Improved performance by 1x-2x, especially for smaller inputs. Thanks [@Mr4k](https://github.com/Mr4k)!
 - [PR#70](https://github.com/EmbarkStudios/texture-synthesis/pull/70) Improved performance by **another** 1x-2.7x, especially for larger numbers of threads. Thanks (again!) [@Mr4k](https://github.com/Mr4k)!
+- [PR#98](https://github.com/EmbarkStudios/texture-synthesis/pull/98) fixed [#85](https://github.com/EmbarkStudios/texture-synthesis/issues/85), sample masks could hang image generation. Thanks [@Mr4k](https://github.com/Mr4k)!
 
 ## [0.7.1] - 2019-11-19
 ### Fixed

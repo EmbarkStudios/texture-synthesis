@@ -101,6 +101,8 @@ pub struct CoordinateTransform {
     max_map_id: u32, // total number of maps required to perform transformation
 }
 
+const TRANSFORM_MAGIC: u32 = 0x1234_0001;
+
 impl<'a> CoordinateTransform {
     /// Applies the coordinate transformation from new source images. This
     /// method will fail if the the provided source images aren't the same
@@ -136,6 +138,100 @@ impl<'a> CoordinateTransform {
         }
 
         Ok(img)
+    }
+
+    pub fn write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<usize> {
+        use std::mem;
+        let mut written = 0;
+
+        // Sanity check that that buffer length corresponds correctly with the
+        // supposed dimensions
+        if self.buffer.len() != self.dims.width as usize * self.dims.height as usize * 3 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "buffer length doesn't match dimensions",
+            ));
+        }
+
+        let header = [
+            TRANSFORM_MAGIC,
+            self.dims.width,
+            self.dims.height,
+            self.max_map_id,
+        ];
+
+        fn cast(ina: &[u32]) -> &[u8] {
+            unsafe {
+                let p = ina.as_ptr();
+                let len = ina.len();
+
+                std::slice::from_raw_parts(p as *const u8, len * mem::size_of::<u32>())
+            }
+        }
+
+        w.write_all(cast(&header))?;
+        written += mem::size_of_val(&header);
+        w.write_all(cast(&self.buffer))?;
+        written += 4 * self.buffer.len();
+
+        Ok(written)
+    }
+
+    pub fn read<R: std::io::Read>(r: &mut R) -> std::io::Result<Self> {
+        use std::{
+            io::{Error, ErrorKind, Read},
+            mem,
+        };
+
+        fn do_read<R: Read>(r: &mut R, buf: &mut [u32]) -> std::io::Result<()> {
+            unsafe {
+                let p = buf.as_mut_ptr();
+                let len = buf.len();
+
+                let mut slice =
+                    std::slice::from_raw_parts_mut(p as *mut u8, len * mem::size_of::<u32>());
+
+                r.read(&mut slice).map(|_| ())
+            }
+        }
+
+        let mut magic = [0u32];
+        do_read(r, &mut magic)?;
+
+        if magic[0] >> 16 != 0x1234 {
+            return Err(Error::new(ErrorKind::InvalidData, "invalid magic"));
+        }
+
+        let (dims, num_maps) = match magic[0] & 0x0000_ffff {
+            0x1 => {
+                let mut header = [0u32; 3];
+                do_read(r, &mut header)?;
+
+                (
+                    Dims {
+                        width: header[0],
+                        height: header[1],
+                    },
+                    header[2],
+                )
+            }
+            _ => return Err(Error::new(ErrorKind::InvalidData, "invalid version")),
+        };
+
+        let buffer = unsafe {
+            let len = dims.width as usize * dims.height as usize * 3;
+            let mut buffer = Vec::with_capacity(len);
+            buffer.set_len(len);
+
+            do_read(r, &mut buffer)?;
+            buffer
+        };
+
+        Ok(Self {
+            dims,
+            max_map_id: num_maps,
+            buffer,
+        })
     }
 }
 
@@ -1013,5 +1109,35 @@ where
 {
     fn update(&mut self, info: ProgressUpdate<'_>) {
         self(info)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn coord_tx_serde() {
+        use super::CoordinateTransform as CT;
+
+        let fake_buffer = vec![1, 2, 3, 4, 5, 6];
+
+        let input = CT {
+            buffer: fake_buffer.clone(),
+            dims: super::Dims {
+                width: 2,
+                height: 1,
+            },
+            max_map_id: 1,
+        };
+
+        let mut buffer = Vec::new();
+        let serialized = input.write(&mut buffer).unwrap();
+
+        let mut cursor = std::io::Cursor::new(&buffer);
+        let deserialized = CT::read(&mut cursor).unwrap();
+
+        assert_eq!(deserialized.buffer, fake_buffer);
+        assert_eq!(deserialized.max_map_id, 1);
+        assert_eq!(deserialized.dims.width, 2);
+        assert_eq!(deserialized.dims.height, 1);
     }
 }

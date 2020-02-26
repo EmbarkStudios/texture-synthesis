@@ -1130,7 +1130,7 @@ mod test {
         };
 
         let mut buffer = Vec::new();
-        let serialized = input.write(&mut buffer).unwrap();
+        input.write(&mut buffer).unwrap();
 
         let mut cursor = std::io::Cursor::new(&buffer);
         let deserialized = CT::read(&mut cursor).unwrap();

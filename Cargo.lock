@@ -283,9 +283,9 @@ dependencies = [
 
 [[package]]
 name = "deflate"
-version = "0.7.20"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "707b6a7b384888a70c8d2e8650b3e60170dfc6a67bb4aa67b6dfca57af4bedb4"
+checksum = "050ef6de42a33903b30a7497b76b40d3d58691d4d3eec355348c122444a388f0"
 dependencies = [
  "adler32",
  "byteorder",
@@ -346,9 +346,9 @@ dependencies = [
 
 [[package]]
 name = "image"
-version = "0.23.0"
+version = "0.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef4e336ec01a678e7ab692914c641181528e8656451e6252f8f9e33728882eaf"
+checksum = "403f0c29211dc50a78eb53eeeae87945d44cb63071881834212f36677fccb2b4"
 dependencies = [
  "bytemuck",
  "byteorder",
@@ -615,9 +615,9 @@ dependencies = [
 
 [[package]]
 name = "png"
-version = "0.15.3"
+version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef859a23054bbfee7811284275ae522f0434a3c8e7f4b74bd4a35ae7e1c4a283"
+checksum = "46060468187c21c00ffa2a920690b29997d7fd543f5a4d400461e4a7d4fccde8"
 dependencies = [
  "bitflags",
  "crc32fast",

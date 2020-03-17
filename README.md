@@ -154,7 +154,7 @@ We can also specify sample masks, which allow us to choose which particular area
 
 `texture-synthesis --sample-masks smoke-mask-light.jpg -o smoke-light.png generate smoke.jpg`
 
-![smoke](./imgs/smoke/montage.png)
+![smoke](https://i.imgur.com/LVLkkmS.png)
 
 ### 4. Style Transfer
 

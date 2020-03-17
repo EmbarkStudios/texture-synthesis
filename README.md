@@ -103,7 +103,19 @@ You should get the following result with the images provided in this repo:
 
 <img src="https://i.imgur.com/tbz5d57.jpg" width="600" height="364">
 
-### 3. Guided Synthesis
+### 3a. Sample mask
+
+#### CLI
+
+`texture-synthesis --sample-masks smoke-mask-dark.jpg -o smoke-dark.png generate smoke.jpg`
+
+`texture-synthesis --sample-masks smoke-mask-light.jpg -o smoke-light.png generate smoke.jpg`
+
+![smoke](./imgs/smoke/montage.png)
+
+
+
+### 3b. Guided Synthesis
 
 ![Imgur](https://i.imgur.com/eAiNZBg.jpg)
 

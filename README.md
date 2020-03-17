@@ -103,25 +103,15 @@ You should get the following result with the images provided in this repo:
 
 <img src="https://i.imgur.com/tbz5d57.jpg" width="600" height="364">
 
-### 3a. Sample mask
+### 3. Guided Syntheis
 
-#### CLI
-
-`texture-synthesis --sample-masks smoke-mask-dark.jpg -o smoke-dark.png generate smoke.jpg`
-
-`texture-synthesis --sample-masks smoke-mask-light.jpg -o smoke-light.png generate smoke.jpg`
-
-![smoke](./imgs/smoke/montage.png)
-
-
-
-### 3b. Guided Synthesis
+#### 3a. Guided Synthesis
 
 ![Imgur](https://i.imgur.com/eAiNZBg.jpg)
 
 We can also guide the generation by providing a transformation "FROM"-"TO" in a form of guide maps
 
-#### API - [03_guided_synthesis](lib/examples/03_guided_synthesis.rs)
+##### API - [03_guided_synthesis](lib/examples/03_guided_synthesis.rs)
 
 ```rust
 use texture_synthesis as ts;
@@ -143,7 +133,7 @@ fn main() -> Result<(), ts::Error> {
 }
 ```
 
-#### CLI
+##### CLI
 
 `cargo run --release -- -o out/03.png generate --target-guide imgs/masks/2_target.jpg --guides imgs/masks/2_example.jpg -- imgs/2.jpg`
 
@@ -153,6 +143,18 @@ to the example will be used as another guide path and there won't be any example
 You should get the following result with the images provided in this repo:
 
 <img src="https://i.imgur.com/arTCi2f.jpg" width="600" height="364">
+
+#### 3b. Sample masks
+
+We can also specify sample masks, which allow us to choose which particular areas of the input images to obtain pixel information from, rather than the default of being able to use any pixel.
+
+##### CLI
+
+`texture-synthesis --sample-masks smoke-mask-dark.jpg -o smoke-dark.png generate smoke.jpg`
+
+`texture-synthesis --sample-masks smoke-mask-light.jpg -o smoke-light.png generate smoke.jpg`
+
+![smoke](./imgs/smoke/montage.png)
 
 ### 4. Style Transfer
 

@@ -277,6 +277,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "dlib"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77e51249a9d823a4cb79e3eca6dcd756153e8ed0157b6c04775d04bf1b13b76a"
+dependencies = [
+ "libloading",
+]
+
+[[package]]
 name = "downcast-rs"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -420,6 +429,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dea0c0405123bba743ee3f91f49b1c7cfb684eef0da0a50110f758ccf24cdff0"
 
 [[package]]
+name = "libloading"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f2b111a074963af1d37a139918ac6d49ad1d0d5e47f72fd55388619691a7d753"
+dependencies = [
+ "cc",
+ "winapi",
+]
+
+[[package]]
 name = "log"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -451,9 +470,9 @@ dependencies = [
 
 [[package]]
 name = "minifb"
-version = "0.15.3"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "128502f9d895b6d84db78114f87918a598894e9c4616ef2c1792bdbbdf8ee0cf"
+checksum = "b18d2987dac6afdd7f6d81101a3b422b7da3e6799d7f11863ad006d8ccd562b2"
 dependencies = [
  "cast",
  "cc",
@@ -462,16 +481,19 @@ dependencies = [
  "tempfile",
  "time",
  "wayland-client",
+ "wayland-cursor",
  "wayland-protocols",
  "winapi",
  "x11-dl",
+ "xkb",
+ "xkbcommon-sys",
 ]
 
 [[package]]
 name = "nix"
-version = "0.15.0"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b2e0b4f3320ed72aaedb9a5ac838690a8047c7b275da22711fddff4f8a14229"
+checksum = "50e4785f2c3b7589a0d0c1dd60285e1188adac4006e8abd6dd578e1567027363"
 dependencies = [
  "bitflags",
  "cc",
@@ -547,6 +569,12 @@ name = "number_prefix"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "17b02fc0ff9a9e4b35b3342880f48e896ebf69f2967921fe8646bf5b7125956a"
+
+[[package]]
+name = "once_cell"
+version = "1.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1c601810575c99596d4afc46f78a678c80105117c379eb3650cf99b8a21ce5b"
 
 [[package]]
 name = "oorandom"
@@ -928,6 +956,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "scoped-tls"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ea6a9290e3c9cf0f18145ef7ffa62d68ee0bf5fcd651017e586dc7fd5da448c2"
+
+[[package]]
 name = "scopeguard"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1002,18 +1036,9 @@ dependencies = [
 
 [[package]]
 name = "smallvec"
-version = "0.6.13"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7b0758c52e15a8b5e3691eae6cc559f08eee9406e548a4477ba4e67770a82b6"
-dependencies = [
- "maybe-uninit",
-]
-
-[[package]]
-name = "spin"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
+checksum = "5c2fb2ec9bcd216a5b0d0ccf31ab17b5ed1d627960edff65bbe95d3ce221cefc"
 
 [[package]]
 name = "strsim"
@@ -1254,14 +1279,15 @@ checksum = "fc9f36ad51f25b0219a3d4d13b90eb44cd075dff8b6280cca015775d7acaddd8"
 
 [[package]]
 name = "wayland-client"
-version = "0.24.1"
+version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9bcc929c26d59a655b0d2cd337299326acc1f6e3d4434c3ae2d6c78d32290ca4"
+checksum = "a42cb608953ec8e132c7f53fde722cca9bfbf8b2071d685dbbb8df2b567fee8b"
 dependencies = [
  "bitflags",
  "downcast-rs",
  "libc",
  "nix",
+ "scoped-tls",
  "wayland-commons",
  "wayland-scanner",
  "wayland-sys",
@@ -1269,21 +1295,31 @@ dependencies = [
 
 [[package]]
 name = "wayland-commons"
-version = "0.24.1"
+version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "539cdd0c296802332d763ff663739a7f83bdf67b3df58e99fe0215e96a495142"
+checksum = "8caa2f106138cf71358c6a9e84468e4406069cec93cbd6dbfce92225fc175932"
 dependencies = [
  "nix",
+ "once_cell",
  "smallvec",
- "spin",
+ "wayland-sys",
+]
+
+[[package]]
+name = "wayland-cursor"
+version = "0.25.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3d774f69a6a4a9eac6d1a29cea45a4750ee7f997520421b2068f099a11b4cbba"
+dependencies = [
+ "wayland-client",
  "wayland-sys",
 ]
 
 [[package]]
 name = "wayland-protocols"
-version = "0.24.1"
+version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79df44471a2e01b61c089472443858062fa64ea60dfd24267848efd7a8f161b6"
+checksum = "f784a990d5fa6d846fa93eb8d3bb744ff1e6ec60c7f785b0a0ee2f1a1f20bee9"
 dependencies = [
  "bitflags",
  "wayland-client",
@@ -1293,9 +1329,9 @@ dependencies = [
 
 [[package]]
 name = "wayland-scanner"
-version = "0.24.1"
+version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43ea5ea1a117137d72c0c197431d198d69783b5e8ca996b0583c98e10b44d426"
+checksum = "f45ddc08a8078f3efa96b5f413268cc9c53b30712891de081fbc1d5846fbc736"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1304,9 +1340,12 @@ dependencies = [
 
 [[package]]
 name = "wayland-sys"
-version = "0.24.1"
+version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "537500923d50be11d95a63c4cb538145e4c82edf61296b7debc1f94a1a6514ed"
+checksum = "80f9fc64f9045ad5ff491886a9460437655353e8be73c1b3f29f569342553319"
+dependencies = [
+ "dlib",
+]
 
 [[package]]
 name = "web-sys"
@@ -1358,6 +1397,27 @@ dependencies = [
  "lazy_static",
  "libc",
  "maybe-uninit",
+ "pkg-config",
+]
+
+[[package]]
+name = "xkb"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aec02bc5de902aa579f3d2f2c522edaf40fa42963cbaffe645b058ddcc68fdb2"
+dependencies = [
+ "bitflags",
+ "libc",
+ "xkbcommon-sys",
+]
+
+[[package]]
+name = "xkbcommon-sys"
+version = "0.7.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fa434980dca02ebf28795d71e570dbb78316d095a228707efd6117bf8246d78b"
+dependencies = [
+ "libc",
  "pkg-config",
 ]
 

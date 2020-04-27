@@ -7,10 +7,7 @@ targets = [
 
 [advisories]
 unmaintained = "deny"
-#yanked = "deny" action isn't updating :(
-ignore = [
-    "RUSTSEC-2019-0031",
-]
+ignore = []
 
 [bans]
 multiple-versions = "deny"
@@ -40,6 +37,9 @@ allow = [
 exceptions = [
     { allow = ["Zlib"], name = "adler32" },
     { allow = ["Zlib"], name = "bytemuck" },
+    { allow = ["WTFPL"], name = "xkb" },
+    { allow = ["WTFPL"], name = "xkbcommon-sys" },
+    { allow = ["ISC"], name = "libloading" },
 ]
 
 [sources]

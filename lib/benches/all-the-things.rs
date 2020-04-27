@@ -291,7 +291,7 @@ fn repeat(c: &mut Criterion) {
         .into_iter()
         .zip([DIM, 2 * DIM, 4 * DIM, 8 * DIM, 16 * DIM].iter())
     {
-        group.bench_with_input(BenchmarkId::from_parameter(dim), dim, |b, &dim| {
+        group.bench_with_input(BenchmarkId::from_parameter(dim), dim, |b, &_dim| {
             b.iter_custom(|iters| {
                 let mut total_elapsed = Duration::new(0, 0);
 

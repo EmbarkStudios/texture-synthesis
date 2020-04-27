@@ -41,7 +41,7 @@ jobs:
       - name: Install build deps
         if: matrix.os == 'ubuntu-latest'
         run: |
-          sudo apt-get install -y libxkbcommon-dev libwayland-client0
+          sudo apt-get install -y libxkbcommon-dev wayland
       - uses: actions/checkout@v1
       - uses: actions-rs/toolchain@v1
         with:

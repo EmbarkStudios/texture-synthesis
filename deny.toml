@@ -37,9 +37,6 @@ allow = [
 exceptions = [
     { allow = ["Zlib"], name = "adler32" },
     { allow = ["Zlib"], name = "bytemuck" },
-    { allow = ["WTFPL"], name = "xkb" },
-    { allow = ["WTFPL"], name = "xkbcommon-sys" },
-    { allow = ["ISC"], name = "libloading" },
 ]
 
 [sources]

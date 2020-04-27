@@ -181,7 +181,7 @@ jobs:
           toolchain: ${{ matrix.rust }}
           override: true
           target: ${{ matrix.target }}
-      - name: Install musl tools
+      - name: Install build deps
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get install -y musl-tools

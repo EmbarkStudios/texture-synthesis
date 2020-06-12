@@ -594,7 +594,7 @@ impl<'a> SessionBuilder<'a> {
 
     /// Adds an `Example` from which a generator will synthesize a new image.
     ///
-    /// See [`examples/01_single_example_synthesis`](https://github.com/EmbarkStudios/texture-synthesis/tree/master/lib/examples/01_single_example_synthesis.rs)
+    /// See [`examples/01_single_example_synthesis`](https://github.com/EmbarkStudios/texture-synthesis/tree/main/lib/examples/01_single_example_synthesis.rs)
     ///
     /// # Examples
     ///
@@ -610,7 +610,7 @@ impl<'a> SessionBuilder<'a> {
 
     /// Adds Examples from which a generator will synthesize a new image.
     ///
-    /// See [`examples/02_multi_example_synthesis`](https://github.com/EmbarkStudios/texture-synthesis/tree/master/lib/examples/02_multi_example_synthesis.rs)
+    /// See [`examples/02_multi_example_synthesis`](https://github.com/EmbarkStudios/texture-synthesis/tree/main/lib/examples/02_multi_example_synthesis.rs)
     ///
     /// # Examples
     ///
@@ -635,7 +635,7 @@ impl<'a> SessionBuilder<'a> {
     /// To prevent sampling from the example, you can specify
     /// `SamplingMethod::Ignore` with `Example::set_sample_method`.
     ///
-    /// See [`examples/05_inpaint`](https://github.com/EmbarkStudios/texture-synthesis/tree/master/lib/examples/05_inpaint.rs)
+    /// See [`examples/05_inpaint`](https://github.com/EmbarkStudios/texture-synthesis/tree/main/lib/examples/05_inpaint.rs)
     ///
     /// # Examples
     ///
@@ -703,8 +703,8 @@ impl<'a> SessionBuilder<'a> {
     /// transfer effect, where the Examples are styles and the target guide is
     /// content.
     ///
-    /// See [`examples/03_guided_synthesis`](https://github.com/EmbarkStudios/texture-synthesis/tree/master/lib/examples/03_guided_synthesis.rs),
-    /// or [`examples/04_style_transfer`](https://github.com/EmbarkStudios/texture-synthesis/tree/master/lib/examples/04_style_transfer.rs),
+    /// See [`examples/03_guided_synthesis`](https://github.com/EmbarkStudios/texture-synthesis/tree/main/lib/examples/03_guided_synthesis.rs),
+    /// or [`examples/04_style_transfer`](https://github.com/EmbarkStudios/texture-synthesis/tree/main/lib/examples/04_style_transfer.rs),
     pub fn load_target_guide<I: Into<ImageSource<'a>>>(mut self, guide: I) -> Self {
         self.target_guide = Some(guide.into());
         self

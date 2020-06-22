@@ -23,7 +23,7 @@ exclude = ["/imgs"]
 num_cpus = "1.12.0"
 rand = { version = "0.7.3", default-features = false } # avoid bringing in OS random gen that we don't use
 rand_pcg = "0.2.1"
-rstar = "0.7.1"
+rstar = "0.8.1"
 
 [dependencies.image]
 version = "0.23"

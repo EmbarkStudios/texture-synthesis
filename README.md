@@ -161,7 +161,7 @@ fn main() -> Result<(), ts::Error> {
         // with style transfer, we do not need to provide example guides
         // they will be auto-generated if none were provided
         .load_target_guide(&"imgs/tom.jpg")
-        .alpha(0.8)
+        .guide_alpha(0.8)
         .build()?;
 
     // generate an image that applies 'style' to "tom.jpg"

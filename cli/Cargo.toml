@@ -32,7 +32,7 @@ texture-synthesis = { version = "0.8.0", path = "../lib" }
 # the image output :(
 atty = "0.2.13"
 indicatif = "0.14.0"
-minifb = { version = "0.16.0", default-features = false, features = ["x11"], optional = true }
+minifb = { version = "0.19.0", default-features = false, features = ["x11"], optional = true }
 
 [features]
 default = []

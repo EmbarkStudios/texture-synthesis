@@ -31,7 +31,7 @@ default-features = false
 features = ["jpeg", "png", "bmp"]
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-crossbeam-utils = "0.7.0"
+crossbeam-utils = "0.8.0"
 
 [dev-dependencies]
 criterion = "0.3.1"

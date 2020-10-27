@@ -406,10 +406,7 @@ pub type SamplingMethod = GenericSampleMethod<image::RgbaImage>;
 impl<Img> GenericSampleMethod<Img> {
     #[inline]
     fn is_ignore(&self) -> bool {
-        match self {
-            Self::Ignore => true,
-            _ => false,
-        }
+        matches!(self, Self::Ignore)
     }
 }
 

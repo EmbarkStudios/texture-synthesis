@@ -1,10 +1,11 @@
 # 🎨 texture-synthesis
 
-[![Build Status](https://github.com/EmbarkStudios/texture-synthesis/workflows/CI/badge.svg)](https://github.com/EmbarkStudios/texture-synthesis/actions?workflow=CI)
+[![Embark](https://img.shields.io/badge/embark-open%20source-blueviolet.svg)](http://embark.games)
+[![Embark](https://img.shields.io/badge/discord-ark-%237289da.svg?logo=discord)](https://discord.gg/dAuKfZS)
 [![Crates.io](https://img.shields.io/crates/v/texture-synthesis.svg)](https://crates.io/crates/texture-synthesis)
 [![Docs](https://docs.rs/texture-synthesis/badge.svg)](https://docs.rs/texture-synthesis)
-[![Contributor Covenant](https://img.shields.io/badge/contributor%20covenant-v1.4%20adopted-ff69b4.svg)](CODE_OF_CONDUCT.md)
-[![Embark](https://img.shields.io/badge/embark-open%20source-blueviolet.svg)](http://embark.games)
+[![dependency status](https://deps.rs/repo/github/EmbarkStudios/texture-synthesis/status.svg)](https://deps.rs/repo/github/EmbarkStudios/texture-synthesis)
+[![Build Status](https://github.com/EmbarkStudios/texture-synthesis/workflows/CI/badge.svg)](https://github.com/EmbarkStudios/texture-synthesis/actions?workflow=CI)
 
 A light Rust API for _Multiresolution Stochastic Texture Synthesis_ [1], a non-parametric example-based algorithm for image generation.
 
@@ -443,6 +444,8 @@ Example: `cargo run --release -- -o out/output.png flip-and-rotate imgs/1.jpg`
 [7] All the test images in this repo are from [Unsplash](https://unsplash.com/)
 
 ## Contributing
+
+[![Contributor Covenant](https://img.shields.io/badge/contributor%20covenant-v1.4-ff69b4.svg)](../CODE_OF_CONDUCT.md)
 
 We welcome community contributions to this project.
 

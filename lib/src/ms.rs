@@ -5,7 +5,10 @@ use std::cmp::max;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, RwLock};
 
-use crate::{img_pyramid::*, unsync::*, CoordinateTransform, Dims, SamplingMethod};
+use crate::{
+    img_pyramid::*, unsync::*, CoordinateTransform, Dims, GeneratorProgress, ProgressStat,
+    SamplingMethod,
+};
 
 const TILING_BOUNDARY_PERCENTAGE: f32 = 0.05;
 
@@ -694,15 +697,11 @@ impl Generator {
         &mut self,
         params: &GeneratorParams,
         example_maps_pyramid: &[ImagePyramid],
-        mut progress: Option<Box<dyn crate::GeneratorProgress>>,
+        mut progress: Option<Box<dyn GeneratorProgress>>,
         guides_pyramid: &Option<GuidesPyramidStruct>,
         valid_samples: &[SamplingMethod],
     ) {
         let total_pixels_to_resolve = self.unresolved.lock().unwrap().len();
-
-        // Currently we do not give progress for wasm
-        #[cfg(not(target_arch = "wasm32"))]
-        let mut total_processed_pixels = 0;
 
         let mut pyramid_level = 0;
 
@@ -771,6 +770,11 @@ impl Generator {
             );
         }
 
+        let mut progress_notifier = progress.as_mut().map(|progress| {
+            let overall_total: usize = (0..=params.p_stages).map(stage_pixels_to_resolve).sum();
+            ProgressNotifier::new(progress, overall_total)
+        });
+
         for p_stage in (0..=params.p_stages).rev() {
             //get maps from current pyramid level (for now it will be p-stage dependant)
             let example_maps = get_single_example_level(
@@ -793,6 +797,10 @@ impl Generator {
 
             //how many pixels do we need to resolve in this stage
             let pixels_to_resolve = stage_pixels_to_resolve(p_stage);
+            if let Some(ref mut notifier) = progress_notifier {
+                notifier.start_stage(pixels_to_resolve);
+            };
+
             let redo_count = self.resolved.get_mut().unwrap().len() - self.locked_resolved;
 
             // Start with serial execution for the first few pixels, then go wide
@@ -850,7 +858,7 @@ impl Generator {
             pixels_resolved_this_stage.resize_with(n_workers, || Mutex::new(Vec::new()));
             let thread_counter = AtomicUsize::new(0);
 
-            let worker_fn = || {
+            let worker_fn = |mut progress_notifier: Option<&mut ProgressNotifier<'_>>| {
                 let mut candidates: Vec<CandidateStruct> = Vec::new();
                 let mut my_pattern: ColorPattern = ColorPattern::new();
                 let mut k_neighs: Vec<SignedCoord2D> =
@@ -874,6 +882,10 @@ impl Generator {
                     let i = processed_pixel_count.fetch_add(1, Ordering::Relaxed);
 
                     let update_resolved_list: bool;
+
+                    if let Some(notifier) = progress_notifier.as_mut() {
+                        notifier.update(i, &self.color_map);
+                    }
 
                     if i >= pixels_to_resolve {
                         // We've processed everything, so finish the worker
@@ -993,57 +1005,32 @@ impl Generator {
                 remaining_threads.fetch_sub(1, Ordering::Relaxed);
             };
 
-            // for WASM we do not have threads and crossbeam panics,
-            // so let's just run the worker function directly and don't give progress
+            // For WASM we do not have threads and crossbeam panics,
+            // so let's just run the worker function directly.
             #[cfg(target_arch = "wasm32")]
-            (worker_fn)();
+            (worker_fn)(progress_notifier.as_mut());
 
             #[cfg(not(target_arch = "wasm32"))]
             {
-                let actual_total_pixels_to_resolve: usize =
-                    (0..=params.p_stages).map(stage_pixels_to_resolve).sum();
-
                 crossbeam_utils::thread::scope(|scope| {
                     for _ in 0..n_workers {
-                        scope.spawn(|_| (worker_fn)());
+                        scope.spawn(|_| (worker_fn)(None));
                     }
-
-                    if let Some(ref mut progress) = progress {
-                        let mut last_pcnt = 0;
-
+                    if let Some(ref mut notifier) = progress_notifier {
                         loop {
-                            let stage_progress = processed_pixel_count.load(Ordering::Relaxed);
-
                             if remaining_threads.load(Ordering::Relaxed) == 0 {
                                 break;
                             }
-
-                            let pcnt = ((total_processed_pixels + stage_progress) as f32
-                                / actual_total_pixels_to_resolve as f32
-                                * 100f32)
-                                .round() as u32;
-
-                            if pcnt != last_pcnt {
-                                progress.update(crate::ProgressUpdate {
-                                    image: self.color_map.as_ref(),
-                                    total: crate::ProgressStat {
-                                        total: actual_total_pixels_to_resolve,
-                                        current: total_processed_pixels + stage_progress,
-                                    },
-                                    stage: crate::ProgressStat {
-                                        total: pixels_to_resolve,
-                                        current: stage_progress,
-                                    },
-                                });
-
-                                last_pcnt = pcnt;
-                            }
+                            let stage_current = processed_pixel_count.load(Ordering::Relaxed);
+                            notifier.update(stage_current, &self.color_map);
                         }
-
-                        total_processed_pixels += pixels_to_resolve;
                     }
                 })
                 .unwrap();
+            }
+
+            if let Some(ref mut notifier) = progress_notifier {
+                notifier.finish_stage(pixels_to_resolve);
             }
 
             {
@@ -1054,6 +1041,61 @@ impl Generator {
                 }
             }
         }
+    }
+}
+
+struct ProgressNotifier<'a> {
+    progress: &'a mut Box<dyn GeneratorProgress>,
+    /// The total of pixels to resolve for the current stage.
+    stage_total: usize,
+    /// The number of pixels currently resolved, across all stages.
+    overall_current: usize,
+    /// The overall total of pixels to resolve, across all stages.
+    overall_total: usize,
+    /// The current percentage value.
+    pcnt: u32,
+}
+
+impl<'a> ProgressNotifier<'a> {
+    fn new(progress: &'a mut Box<dyn GeneratorProgress>, overall_total: usize) -> Self {
+        Self {
+            progress,
+            stage_total: 0,
+            overall_current: 0,
+            overall_total,
+            pcnt: 0,
+        }
+    }
+
+    fn start_stage(&mut self, stage_total: usize) {
+        debug_assert_eq!(self.stage_total, 0);
+        self.stage_total = stage_total;
+    }
+
+    fn update(&mut self, stage_current: usize, color_map: &UnsyncRgbaImage) {
+        let pcnt = ((self.overall_current + stage_current) as f32 / self.overall_total as f32
+            * 100f32)
+            .round() as u32;
+
+        if pcnt != self.pcnt {
+            self.progress.update(crate::ProgressUpdate {
+                image: color_map.as_ref(),
+                total: ProgressStat {
+                    total: self.overall_total,
+                    current: self.overall_current + stage_current,
+                },
+                stage: ProgressStat {
+                    total: self.stage_total,
+                    current: stage_current,
+                },
+            });
+            self.pcnt = pcnt;
+        }
+    }
+
+    fn finish_stage(&mut self, total_pixels_stage: usize) {
+        self.overall_current += total_pixels_stage;
+        self.stage_total = 0;
     }
 }
 

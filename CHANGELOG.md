@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1] - 2020-11-17
+### Added
+- [PR#154](https://github.com/EmbarkStudios/texture-synthesis/pull/154) added progress notification is now supported when compiling for `wasm32`, thanks [@bnjbvr](https://github.com/bnjbvr)!
 ## [0.8.0] - 2020-02-26
 ### Added
 - Added the [09_sample_masks](lib/examples/09_sample_masks.rs) example

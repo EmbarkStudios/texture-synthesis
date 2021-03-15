@@ -9,7 +9,6 @@
     clippy::doc_markdown,
     clippy::empty_enum,
     clippy::enum_glob_use,
-    clippy::exit,
     clippy::explicit_into_iter_loop,
     clippy::filter_map_next,
     clippy::fn_params_excessive_bools,

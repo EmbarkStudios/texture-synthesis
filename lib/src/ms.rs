@@ -406,7 +406,7 @@ impl Generator {
 
         for coord in k_neighs_2d.iter() {
             let (x1, y1) = ((f64::from(coord.x)) / dimx, (f64::from(coord.y)) / dimy);
-            let dist = (x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2);
+            let dist = (x1 - x2).mul_add(x1 - x2, (y1 - y2) * (y1 - y2));
             // Duplicate the distance for each of our 4 channels
             k_neighs_dist.extend_from_slice(&[dist, dist, dist, dist]);
         }
@@ -741,10 +741,10 @@ impl Generator {
         {
             // now that we have all of the parameters we can setup our initial tree grid
             let tile_adjusted_width =
-                (self.output_size.width as f32 * (1.0 + TILING_BOUNDARY_PERCENTAGE * 2.0)) as u32
+                (self.output_size.width as f32 * TILING_BOUNDARY_PERCENTAGE.mul_add(2.0, 1.0)) as u32
                     + 1;
             let tile_adjusted_height =
-                (self.output_size.height as f32 * (1.0 + TILING_BOUNDARY_PERCENTAGE * 2.0)) as u32
+                (self.output_size.height as f32 * TILING_BOUNDARY_PERCENTAGE.mul_add(2.0, 1.0)) as u32
                     + 1;
             self.tree_grid = TreeGrid::new(
                 tile_adjusted_width,
@@ -808,11 +808,11 @@ impl Generator {
             if !has_fanned_out && n_workers > 1 {
                 has_fanned_out = true;
                 let tile_adjusted_width = (self.output_size.width as f32
-                    * (1.0 + TILING_BOUNDARY_PERCENTAGE * 2.0))
+                    * TILING_BOUNDARY_PERCENTAGE.mul_add(2.0, 1.0))
                     as u32
                     + 1;
                 let tile_adjusted_height = (self.output_size.height as f32
-                    * (1.0 + TILING_BOUNDARY_PERCENTAGE * 2.0))
+                    * TILING_BOUNDARY_PERCENTAGE.mul_add(2.0, 1.0))
                     as u32
                     + 1;
                 // heuristic: pick a cell size so that the expected number of resolved points in any cell is 4 * k
@@ -837,8 +837,7 @@ impl Generator {
             //calculate the guidance alpha
             let adaptive_alpha = if guides.is_some() && p_stage > 0 {
                 let total_resolved = self.resolved.read().unwrap().len() as f32;
-                (params.alpha * (1.0 - (total_resolved / (total_pixels_to_resolve as f32))))
-                    .powf(3.0)
+                (params.alpha * (1.0 - (total_resolved / (total_pixels_to_resolve as f32)))).powi(3)
             } else {
                 0.0 //only care for content, not guidance
             };
@@ -1103,7 +1102,7 @@ impl<'a> ProgressNotifier<'a> {
 fn metric_cauchy(a: u8, b: u8, sig2: f32) -> f32 {
     let mut x2 = (f32::from(a) - f32::from(b)) / 255.0; //normalize the colors to be between 0-1
     x2 = x2 * x2;
-    (1.0 + x2 / sig2).ln()
+    (x2 / sig2).ln_1p()
 }
 
 #[inline]

@@ -740,12 +740,14 @@ impl Generator {
 
         {
             // now that we have all of the parameters we can setup our initial tree grid
-            let tile_adjusted_width =
-                (self.output_size.width as f32 * TILING_BOUNDARY_PERCENTAGE.mul_add(2.0, 1.0)) as u32
-                    + 1;
-            let tile_adjusted_height =
-                (self.output_size.height as f32 * TILING_BOUNDARY_PERCENTAGE.mul_add(2.0, 1.0)) as u32
-                    + 1;
+            let tile_adjusted_width = (self.output_size.width as f32
+                * TILING_BOUNDARY_PERCENTAGE.mul_add(2.0, 1.0))
+                as u32
+                + 1;
+            let tile_adjusted_height = (self.output_size.height as f32
+                * TILING_BOUNDARY_PERCENTAGE.mul_add(2.0, 1.0))
+                as u32
+                + 1;
             self.tree_grid = TreeGrid::new(
                 tile_adjusted_width,
                 tile_adjusted_height,

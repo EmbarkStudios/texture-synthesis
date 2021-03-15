@@ -32,7 +32,7 @@
     clippy::pub_enum_variant_names,
     clippy::ref_option_ref,
     clippy::rest_pat_in_fully_bound_structs,
-    clippy::string_add_assign,    
+    clippy::string_add_assign,
     clippy::string_add,
     clippy::string_to_string,
     clippy::suboptimal_flops,

@@ -48,6 +48,9 @@
     rust_2018_idioms
 )]
 // END - Embark standard lints v0.3
+// crate-specific exceptions:
+#![allow(unsafe_code)]
+#![allow(clippy::exit)]
 
 //! `texture-synthesis` is a light API for Multiresolution Stochastic Texture Synthesis,
 //! a non-parametric example-based algorithm for image generation.

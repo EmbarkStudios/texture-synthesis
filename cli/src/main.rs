@@ -1,7 +1,6 @@
 // BEGIN - Embark standard lints v0.3
 // do not change or add/remove here, but one can add exceptions after this section
 // for more info see: <https://github.com/EmbarkStudios/rust-ecosystem/issues/59>
-#![deny(unsafe_code)]
 #![warn(
     clippy::all,
     clippy::await_holding_lock,
@@ -49,6 +48,8 @@
     rust_2018_idioms
 )]
 // END - Embark standard lints v0.3
+// crate-specific exceptions:
+#![allow(unsafe_code)]
 
 #[cfg(not(target_arch = "wasm32"))]
 mod progress_window;

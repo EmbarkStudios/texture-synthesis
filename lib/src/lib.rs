@@ -1,3 +1,6 @@
+// BEGIN - Embark standard lints v0.3
+// do not change or add/remove here, but one can add exceptions after this section
+// for more info see: <https://github.com/EmbarkStudios/rust-ecosystem/issues/59>
 #![warn(
     clippy::all,
     clippy::await_holding_lock,
@@ -45,6 +48,7 @@
     nonstandard_style,
     rust_2018_idioms
 )]
+// END - Embark standard lints v0.3
 
 //! `texture-synthesis` is a light API for Multiresolution Stochastic Texture Synthesis,
 //! a non-parametric example-based algorithm for image generation.

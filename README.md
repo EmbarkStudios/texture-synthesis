@@ -404,6 +404,8 @@ fn main() -> Result<(), ts::Error> {
 }
 ```
 
+#### CLI
+
 `cargo run --release -- --seed 211 --out-size 200 --sample-masks IGNORE ALL --out 09_sample_masks.png generate imgs/4.png imgs/5.png`
 
 You should get the following result with the images provided in this repo:

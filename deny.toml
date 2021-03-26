@@ -7,9 +7,7 @@ targets = [
 
 [advisories]
 unmaintained = "deny"
-ignore = [
-    "
-]
+ignore = []
 
 [bans]
 multiple-versions = "deny"

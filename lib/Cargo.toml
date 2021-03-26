@@ -21,12 +21,12 @@ exclude = ["/imgs"]
 
 [dependencies]
 num_cpus = "1.13"
-rand = { version = "0.7", default-features = false } # avoid bringing in OS random gen that we don't use
-rand_pcg = "0.2"
+rand = { version = "0.8", default-features = false } # avoid bringing in OS random gen that we don't use
+rand_pcg = "0.3"
 rstar = "0.7"
 
 [dependencies.image]
-version = "0.23"
+version = "=0.23.12" # Pinned to this version as there seems to be a change that affects output
 default-features = false
 features = ["jpeg", "png", "bmp"]
 

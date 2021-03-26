@@ -6,8 +6,10 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, RwLock};
 
 use crate::{
-    img_pyramid::*, unsync::*, CoordinateTransform, Dims, GeneratorProgress, ProgressStat,
-    SamplingMethod,
+    img_pyramid::*,
+    session::{GeneratorProgress, ProgressStat},
+    unsync::*,
+    CoordinateTransform, Dims, SamplingMethod,
 };
 
 const TILING_BOUNDARY_PERCENTAGE: f32 = 0.05;
@@ -1079,7 +1081,7 @@ impl<'a> ProgressNotifier<'a> {
             .round() as u32;
 
         if pcnt != self.pcnt {
-            self.progress.update(crate::ProgressUpdate {
+            self.progress.update(crate::session::ProgressUpdate {
                 image: color_map.as_ref(),
                 total: ProgressStat {
                     total: self.overall_total,

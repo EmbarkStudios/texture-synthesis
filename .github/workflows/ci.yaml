@@ -110,6 +110,11 @@ jobs:
             target: x86_64-apple-darwin
             bin: texture-synthesis
             features: --features=progress
+          - os: macOS-latest
+            rust: stable
+            target: aarch64-apple-darwin
+            bin: texture-synthesis
+            features: --features=progress
     runs-on: ${{ matrix.os }}
     steps:
       - name: Install stable toolchain
@@ -122,6 +127,12 @@ jobs:
         if: matrix.os == 'ubuntu-20.04'
         run: |
           sudo apt-get install -y musl-tools
+      - name: Workaround xcode shenanigans
+        if: matrix.target == 'aarch64-apple-darwin'
+        # https://github.com/actions/virtual-environments/issues/2557#issuecomment-769611326
+        run: |
+          sudo xcode-select -s "/Applications/Xcode_12.3.app"
+          sudo rm -Rf /Library/Developer/CommandLineTools/SDKs/*
       - name: Checkout
         uses: actions/checkout@v2
       - name: cargo fetch

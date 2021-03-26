@@ -377,7 +377,40 @@ imgs/multiexample/4.jpg imgs/multiexample/3.jpg`
 Also note that the normal parameters that are used with `generate` don't apply
 to the `repeat` subcommand and will be ignored.
 
-### 9. Combining texture synthesis 'verbs'
+### 9. Sample masks
+
+Sample masks allow you to specify how an example image is sampled during generation.
+
+#### API - [09_sample_masks](lib/examples/09_sample_masks.rs)
+
+```rust
+use texture_synthesis as ts;
+
+fn main() -> Result<(), ts::Error> {
+    let session = ts::Session::builder()
+        .add_example(
+            ts::Example::builder(&"imgs/4.png").set_sample_method(ts::SampleMethod::Ignore),
+        )
+        .add_example(ts::Example::builder(&"imgs/5.png").set_sample_method(ts::SampleMethod::All))
+        .seed(211)
+        .output_size(ts::Dims::square(200))
+        .build()?;
+
+    // generate an image
+    let generated = session.run(None);
+
+    // save the image to the disk
+    generated.save("out/09.png")
+}
+```
+
+`cargo run --release -- --seed 211 --out-size 200 --sample-masks IGNORE ALL --out 09_sample_masks.png generate imgs/4.png imgs/5.png`
+
+You should get the following result with the images provided in this repo:
+
+<img src="https://imgur.com/EqW3rkN.png" width="200" height="200">
+
+### 10. Combining texture synthesis 'verbs'
 
 We can also combine multiple modes together. For example, multi-example guided synthesis:
 

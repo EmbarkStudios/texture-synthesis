@@ -59,19 +59,19 @@ pub(crate) fn load_image(
     let img = load_dynamic_image(src)?;
 
     let img = match resize {
-        None => img.to_rgba(),
+        None => img.to_rgba8(),
         Some(ref size) => {
             use image::GenericImageView;
 
             if img.width() != size.width || img.height() != size.height {
                 image::imageops::resize(
-                    &img.to_rgba(),
+                    &img.to_rgba8(),
                     size.width,
                     size.height,
                     image::imageops::CatmullRom,
                 )
             } else {
-                img.to_rgba()
+                img.to_rgba8()
             }
         }
     };
@@ -112,7 +112,7 @@ pub(crate) fn transform_to_guide_map(
         }
     }
 
-    dyn_img.blur(blur_sigma).grayscale().to_rgba()
+    dyn_img.blur(blur_sigma).grayscale().to_rgba8()
 }
 
 pub(crate) fn get_histogram(img: &image::RgbaImage) -> Vec<u32> {

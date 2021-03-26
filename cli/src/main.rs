@@ -418,7 +418,7 @@ fn real_main() -> Result<(), Error> {
     let session = sb.build()?;
 
     #[cfg(not(target_arch = "wasm32"))]
-    let progress: Option<Box<dyn texture_synthesis::GeneratorProgress>> =
+    let progress: Option<Box<dyn texture_synthesis::session::GeneratorProgress>> =
         if !args.tweaks.no_progress {
             let progress = progress_window::ProgressWindow::new();
 

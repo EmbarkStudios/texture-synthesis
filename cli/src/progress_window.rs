@@ -75,8 +75,8 @@ impl Drop for ProgressWindow {
     }
 }
 
-impl texture_synthesis::GeneratorProgress for ProgressWindow {
-    fn update(&mut self, update: texture_synthesis::ProgressUpdate<'_>) {
+impl texture_synthesis::session::GeneratorProgress for ProgressWindow {
+    fn update(&mut self, update: texture_synthesis::session::ProgressUpdate<'_>) {
         if update.total.total != self.total_len {
             self.total_len = update.total.total;
             self.total_pb.set_length(self.total_len as u64);

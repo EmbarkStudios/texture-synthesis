@@ -22,7 +22,7 @@ path = "src/main.rs"
 bench = false
 
 [dependencies]
-structopt = "0.3.16"
+structopt = "0.3"
 texture-synthesis = { version = "0.8.0", path = "../lib" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
@@ -30,8 +30,8 @@ texture-synthesis = { version = "0.8.0", path = "../lib" }
 # because it only ever operates on stdout, even though we only ever print
 # to stderr. This is also why indicatif colors don't work if you pipe
 # the image output :(
-atty = "0.2.13"
-indicatif = "0.14.0"
+atty = "0.2"
+indicatif = "0.15"
 minifb = { version = "0.16.0", default-features = false, features = ["x11"], optional = true }
 
 [features]

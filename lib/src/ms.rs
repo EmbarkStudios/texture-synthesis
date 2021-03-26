@@ -6,8 +6,10 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, RwLock};
 
 use crate::{
-    img_pyramid::*, unsync::*, CoordinateTransform, Dims, GeneratorProgress, ProgressStat,
-    SamplingMethod,
+    img_pyramid::*,
+    session::{GeneratorProgress, ProgressStat},
+    unsync::*,
+    CoordinateTransform, Dims, SamplingMethod,
 };
 
 const TILING_BOUNDARY_PERCENTAGE: f32 = 0.05;
@@ -377,7 +379,7 @@ impl Generator {
         if unresolved.len() == 0 {
             None //return fail
         } else {
-            let rand_index = Pcg32::seed_from_u64(seed).gen_range(0, unresolved.len());
+            let rand_index = Pcg32::seed_from_u64(seed).gen_range(0..unresolved.len());
             Some(unresolved.swap_remove(rand_index)) //return success
         }
     }
@@ -445,11 +447,11 @@ impl Generator {
         example_maps: &[ImageBuffer<'_>],
         seed: u64,
     ) {
-        let rand_map: u32 = Pcg32::seed_from_u64(seed).gen_range(0, example_maps.len()) as u32;
+        let rand_map: u32 = Pcg32::seed_from_u64(seed).gen_range(0..example_maps.len()) as u32;
         let rand_x: u32 =
-            Pcg32::seed_from_u64(seed).gen_range(0, example_maps[rand_map as usize].width as u32);
+            Pcg32::seed_from_u64(seed).gen_range(0..example_maps[rand_map as usize].width as u32);
         let rand_y: u32 =
-            Pcg32::seed_from_u64(seed).gen_range(0, example_maps[rand_map as usize].height as u32);
+            Pcg32::seed_from_u64(seed).gen_range(0..example_maps[rand_map as usize].height as u32);
 
         self.update(
             my_resolved_list,
@@ -543,7 +545,7 @@ impl Generator {
         let mut rng = Pcg32::seed_from_u64(m_seed);
         //random candidates
         for _ in 0..m_rand {
-            let rand_map = (rng.gen_range(0, example_maps.len())) as u32;
+            let rand_map = (rng.gen_range(0..example_maps.len())) as u32;
             let dims = example_maps[rand_map as usize].dimensions();
             let dims = Dims {
                 width: dims.0,
@@ -554,8 +556,8 @@ impl Generator {
             let mut candidate_coord;
             //generate a random valid candidate
             loop {
-                rand_x = rng.gen_range(0, dims.width) as i32;
-                rand_y = rng.gen_range(0, dims.height) as i32;
+                rand_x = rng.gen_range(0..dims.width) as i32;
+                rand_y = rng.gen_range(0..dims.height) as i32;
                 candidate_coord = SignedCoord2D::from(rand_x, rand_y);
                 if check_coord_validity(
                     candidate_coord,
@@ -607,18 +609,18 @@ impl Generator {
             let coord = CoordFlat(i as u32).to_2d(self.output_size);
             //get random color based on id
             let color: image::Rgba<u8> = image::Rgba([
-                Pcg32::seed_from_u64(u64::from(patch_id.0)).gen_range(0, 255),
-                Pcg32::seed_from_u64(u64::from((patch_id.0) * 5 + 21)).gen_range(0, 255),
-                Pcg32::seed_from_u64(u64::from((patch_id.0) / 4 + 12)).gen_range(0, 255),
+                Pcg32::seed_from_u64(u64::from(patch_id.0)).gen_range(0..255),
+                Pcg32::seed_from_u64(u64::from((patch_id.0) * 5 + 21)).gen_range(0..255),
+                Pcg32::seed_from_u64(u64::from((patch_id.0) / 4 + 12)).gen_range(0..255),
                 255,
             ]);
             //write image
             patch_id_map.put_pixel(coord.x, coord.y, color);
             //get random color based on id
             let color: image::Rgba<u8> = image::Rgba([
-                Pcg32::seed_from_u64(u64::from(map_id.0) * 200).gen_range(0, 255),
-                Pcg32::seed_from_u64(u64::from((map_id.0) * 5 + 341)).gen_range(0, 255),
-                Pcg32::seed_from_u64(u64::from((map_id.0) * 1200 - 35412)).gen_range(0, 255),
+                Pcg32::seed_from_u64(u64::from(map_id.0) * 200).gen_range(0..255),
+                Pcg32::seed_from_u64(u64::from((map_id.0) * 5 + 341)).gen_range(0..255),
+                Pcg32::seed_from_u64(u64::from((map_id.0) * 1200 - 35412)).gen_range(0..255),
                 255,
             ]);
             map_id_map.put_pixel(coord.x, coord.y, color);
@@ -1079,7 +1081,7 @@ impl<'a> ProgressNotifier<'a> {
             .round() as u32;
 
         if pcnt != self.pcnt {
-            self.progress.update(crate::ProgressUpdate {
+            self.progress.update(crate::session::ProgressUpdate {
                 image: color_map.as_ref(),
                 total: ProgressStat {
                     total: self.overall_total,

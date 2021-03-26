@@ -7,7 +7,9 @@ targets = [
 
 [advisories]
 unmaintained = "deny"
-ignore = []
+ignore = [
+    "
+]
 
 [bans]
 multiple-versions = "deny"
@@ -24,6 +26,10 @@ deny = [
 
     # term is not fully maintained, and termcolor is replacing it
     { name = "term" },
+]
+skip = [
+    # criterion depends on both 0.10 and 0.9 :p
+    { name = "itertools", version = "=0.9.0" },
 ]
 
 [licenses]

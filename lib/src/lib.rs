@@ -49,9 +49,6 @@
 )]
 // END - Embark standard lints v0.3
 
-// crate-specific exceptions:
-#![allow(unsafe_code, clippy::exit)]
-
 //! `texture-synthesis` is a light API for Multiresolution Stochastic Texture Synthesis,
 //! a non-parametric example-based algorithm for image generation.
 //!
@@ -492,16 +489,6 @@ impl<'a> ExampleBuilder<'a> {
     }
 }
 
-impl<'a> Into<Example<'a>> for ExampleBuilder<'a> {
-    fn into(self) -> Example<'a> {
-        Example {
-            img: self.img,
-            guide: self.guide,
-            sample_method: self.sample_method,
-        }
-    }
-}
-
 /// An example to be used in texture generation
 pub struct Example<'a> {
     img: ImageSource<'a>,
@@ -586,6 +573,16 @@ impl<'a> Example<'a> {
             guide,
             method,
         })
+    }
+}
+
+impl<'a> From<ExampleBuilder<'a>> for Example<'a> {
+    fn from(eb: ExampleBuilder<'a>) -> Self {
+        Self {
+            img: eb.img,
+            guide: eb.guide,
+            sample_method: eb.sample_method,
+        }
     }
 }
 

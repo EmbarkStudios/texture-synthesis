@@ -41,6 +41,10 @@ jobs:
         with:
           toolchain: stable
           override: true
+      - name: Install build deps
+        if: matrix.os == 'ubuntu-20.04'
+        run: |
+          sudo apt-get install -y libxkbcommon-x11-dev
       - run: cargo fetch
       - name: cargo test build
         run: cargo build --tests --release --all-features
@@ -77,6 +81,9 @@ jobs:
         with:
           toolchain: stable
           override: true
+      - name: Install build deps
+        run: |
+          sudo apt-get install -y libxkbcommon-x11-dev
       - run: cargo fetch
       - name: copy README
         shell: bash
@@ -126,7 +133,7 @@ jobs:
       - name: Install build deps
         if: matrix.os == 'ubuntu-20.04'
         run: |
-          sudo apt-get install -y musl-tools
+          sudo apt-get install -y musl-tools libxkbcommon-x11-dev
       - name: Workaround xcode shenanigans
         if: matrix.target == 'aarch64-apple-darwin'
         # https://github.com/actions/virtual-environments/issues/2557#issuecomment-769611326

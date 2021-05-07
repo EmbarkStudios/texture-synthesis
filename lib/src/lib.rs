@@ -288,9 +288,9 @@ impl<'a> CoordinateTransform {
         };
 
         Ok(Self {
+            buffer,
             output_size,
             original_maps,
-            buffer,
         })
     }
 }

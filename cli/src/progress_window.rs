@@ -86,7 +86,7 @@ impl texture_synthesis::session::GeneratorProgress for ProgressWindow {
             self.stage_len = update.stage.total;
             self.stage_pb.set_length(self.stage_len as u64);
             self.stage_num += 1;
-            self.stage_pb.set_message(&self.stage_num.to_string());
+            self.stage_pb.set_message(self.stage_num.to_string());
         }
 
         self.total_pb.set_position(update.total.current as u64);

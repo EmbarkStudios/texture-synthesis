@@ -462,6 +462,10 @@ Example: `cargo run --release -- -o out/output.png flip-and-rotate imgs/1.jpg`
 * Cannot infer new information from existing information (only operates on what’s already there)
 * Designed for single exemplars or very small datasets (unlike Deep Learning based approaches)
 
+## Additional Dependencies
+
+If you're compiling for Linux, you'll need to have `libxkbcommon` development libraries installed. For ubuntu this is `libxkbcommon-x11-dev`.
+
 ## Links/references
 
 [1] [Opara & Stachowiak] ["More Like This, Please! Texture Synthesis and Remixing from a Single Example"](https://youtu.be/fMbK7PYQux4)

@@ -31,8 +31,8 @@ texture-synthesis = { version = "0.8.1", path = "../lib" }
 # to stderr. This is also why indicatif colors don't work if you pipe
 # the image output :(
 atty = "0.2"
-indicatif = "0.15"
-minifb = { version = "0.16.0", default-features = false, features = ["x11"], optional = true }
+indicatif = "0.16"
+minifb = { version = "0.19", default-features = false, features = ["x11"], optional = true }
 
 [features]
 default = []

@@ -39,8 +39,12 @@ allow = [
     "MIT",
 ]
 exceptions = [
+    { allow = ["BSD-3-Clause"], name = "bindgen" },
+    { allow = ["ISC"], name = "libloading" },
     { allow = ["Zlib"], name = "adler32" },
     { allow = ["Zlib"], name = "bytemuck" },
+    { allow = ["WTFPL"], name = "xkbcommon-sys" },
+    { allow = ["WTFPL"], name = "xkb" },
 ]
 
 [sources]

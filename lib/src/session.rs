@@ -553,6 +553,6 @@ where
     G: FnMut(ProgressUpdate<'_>) + Send,
 {
     fn update(&mut self, info: ProgressUpdate<'_>) {
-        self(info)
+        self(info);
     }
 }

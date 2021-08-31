@@ -180,7 +180,11 @@ impl<'a> ImageBuffer<'a> {
     #[inline]
     fn get_pixel(&self, x: u32, y: u32) -> &'a image::Rgba<u8> {
         let ind = (y as usize * self.width + x as usize) * 4;
-        unsafe { &*((&self.buffer[ind..ind + 4]).as_ptr() as *const image::Rgba<u8>) }
+        unsafe {
+            &*((&self.buffer[ind..ind + 4])
+                .as_ptr()
+                .cast::<image::Rgba<u8>>())
+        }
     }
 
     #[inline]
@@ -533,7 +537,7 @@ impl Generator {
                         candidate_coord.y + shift.1,
                     );
 
-                    *output = (n2_coord, n_map_id)
+                    *output = (n2_coord, n_map_id);
                 }
                 //record the candidate info
                 candidates_vec[candidate_count].coord = (candidate_coord, n_map_id);
@@ -585,7 +589,7 @@ impl Generator {
                 let n2_coord =
                     SignedCoord2D::from(candidate_coord.x + shift.0, candidate_coord.y + shift.1);
 
-                *output = (n2_coord, map_id)
+                *output = (n2_coord, map_id);
             }
 
             //record the candidate info

@@ -118,7 +118,7 @@ impl texture_synthesis::session::GeneratorProgress for ProgressWindow {
                 let pixels: &[u32] = unsafe {
                     let raw_pixels: &[u8] = pixels;
                     #[allow(clippy::cast_ptr_alignment)]
-                    std::mem::transmute(&*(raw_pixels as *const [u8] as *const [u32]))
+                    &*(raw_pixels as *const [u8] as *const [u32])
                 };
 
                 // We don't particularly care if this fails

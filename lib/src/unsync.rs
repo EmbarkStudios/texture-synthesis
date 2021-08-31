@@ -35,7 +35,7 @@ impl UnsyncRgbaImage {
     pub fn put_pixel(&self, x: u32, y: u32, pixel: image::Rgba<u8>) {
         unsafe { self.0.get().as_mut() }
             .unwrap()
-            .put_pixel(x, y, pixel)
+            .put_pixel(x, y, pixel);
     }
 }
 

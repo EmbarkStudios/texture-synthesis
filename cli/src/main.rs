@@ -305,6 +305,7 @@ struct Opt {
 fn main() {
     if let Err(e) = real_main() {
         eprintln!("error: {}", e);
+        #[allow(clippy::exit)]
         std::process::exit(1);
     }
 }

@@ -1,4 +1,6 @@
-# 🎨 texture-synthesis
+<div align="center">
+
+# `🎨 texture-synthesis`
 
 [![Embark](https://img.shields.io/badge/embark-open%20source-blueviolet.svg)](http://embark.games)
 [![Embark](https://img.shields.io/badge/discord-ark-%237289da.svg?logo=discord)](https://discord.gg/dAuKfZS)
@@ -14,6 +16,12 @@ The repo also includes multiple code examples to get you started (along with tes
 Also see our talk [_More Like This, Please! Texture Synthesis and Remixing from a Single Example_](https://youtu.be/fMbK7PYQux4) which explains this technique and the background more in-depth:
 
 [![Video thumbnail](imgs/docs/video-thumbnail.jpg)](https://www.youtube.com/watch?v=fMbK7PYQux4&t=6m57s)
+
+</div>
+
+## Maintenance note
+
+We at Embark are not actively using or developing these crates and would be open to transferring them to a maintainer or maintainers that would be more active. See [#166](https://github.com/EmbarkStudios/texture-synthesis/issues/166).
 
 ## Features and examples
 
@@ -494,8 +502,8 @@ Please read our [Contributor Guide](CONTRIBUTING.md) for more information on how
 
 Licensed under either of
 
-* Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
-* MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+* Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or <http://www.apache.org/licenses/LICENSE-2.0>)
+* MIT license ([LICENSE-MIT](LICENSE-MIT) or <http://opensource.org/licenses/MIT>)
 
 at your option.
 

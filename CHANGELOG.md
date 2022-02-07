@@ -1,3 +1,5 @@
+<!-- markdownlint-disable blanks-around-headings blanks-around-lists no-duplicate-heading -->
+
 # Changelog
 All notable changes to this project will be documented in this file.
 
@@ -5,6 +7,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- Both the lib and CLI have been marked as `looking-for-maintainer` as we have not been actively maintaining these crates for a while, and would be open to transferring this repo to someone else.
+
 ## [0.8.2] - 2021-03-26
 ### Changed
 - Updated dependencies
@@ -22,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - [PR#69](https://github.com/EmbarkStudios/texture-synthesis/pull/69) Improved performance by 1x-2x, especially for smaller inputs. Thanks [@Mr4k](https://github.com/Mr4k)!
 - [PR#70](https://github.com/EmbarkStudios/texture-synthesis/pull/70) Improved performance by **another** 1x-2.7x, especially for larger numbers of threads. Thanks (again!) [@Mr4k](https://github.com/Mr4k)!
-- CLI: [PR#71](https://github.com/EmbarkStudios/texture-synthesis/pull/71) The prebuilt binary for Windows is now packaged in a zip file isntead of a gzipped tarball to improve end user experience. Thanks [@moppius](https://github.com/moppius)!
+- CLI: [PR#71](https://github.com/EmbarkStudios/texture-synthesis/pull/71) The prebuilt binary for Windows is now packaged in a zip file instead of a gzipped tarball to improve end user experience. Thanks [@moppius](https://github.com/moppius)!
 - [PR#98](https://github.com/EmbarkStudios/texture-synthesis/pull/98) fixed [#85](https://github.com/EmbarkStudios/texture-synthesis/issues/85), sample masks could hang image generation. Thanks [@Mr4k](https://github.com/Mr4k)!
 
 ## [0.7.1] - 2019-11-19

@@ -16,6 +16,9 @@ homepage = "https://github.com/EmbarkStudios/texture-synthesis"
 categories = ["multimedia::images"]
 keywords = ["texture", "synthesis", "procedural", "cli"]
 
+[badges.maintenance]
+status = "looking-for-maintainer"
+
 [[bin]]
 name = "texture-synthesis"
 path = "src/main.rs"
@@ -32,7 +35,9 @@ texture-synthesis = { version = "0.8.1", path = "../lib" }
 # the image output :(
 atty = "0.2"
 indicatif = "0.16"
-minifb = { version = "0.19", default-features = false, features = ["x11"], optional = true }
+minifb = { version = "0.19", default-features = false, features = [
+    "x11",
+], optional = true }
 
 [features]
 default = []

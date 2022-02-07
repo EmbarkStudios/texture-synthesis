@@ -19,6 +19,9 @@ keywords = ["texture", "synthesis", "procedural"]
 # We don't want the example images in the publish crate
 exclude = ["/imgs"]
 
+[badges.maintenance]
+status = "looking-for-maintainer"
+
 [dependencies]
 num_cpus = "1.13"
 # avoid bringing in OS random gen that we don't use

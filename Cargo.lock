@@ -1072,7 +1072,7 @@ dependencies = [
 
 [[package]]
 name = "texture-synthesis-cli"
-version = "0.8.2"
+version = "0.8.3"
 dependencies = [
  "atty",
  "indicatif",

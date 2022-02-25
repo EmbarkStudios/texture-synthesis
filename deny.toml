@@ -7,10 +7,13 @@ targets = [
 
 [advisories]
 unmaintained = "deny"
-ignore = []
+ignore = [
+    "RUSTSEC-2022-0004",
+    "RUSTSEC-2021-0127",
+]
 
 [bans]
-multiple-versions = "deny"
+multiple-versions = "allow"
 deny = [
     # color-backtrace is nice but brings in too many dependencies and that are often outdated, so not worth it for us.
     { name = "color-backtrace" },

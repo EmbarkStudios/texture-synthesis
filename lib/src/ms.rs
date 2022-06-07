@@ -477,7 +477,7 @@ impl Generator {
     #[allow(clippy::too_many_arguments)]
     fn find_candidates<'a>(
         &self,
-        candidates_vec: &'a mut Vec<CandidateStruct>,
+        candidates_vec: &'a mut [CandidateStruct],
         unresolved_coord: Coord2D,
         k_neighs: &[SignedCoord2D],
         example_maps: &[ImageBuffer<'_>],

@@ -117,7 +117,7 @@ impl texture_synthesis::session::GeneratorProgress for ProgressWindow {
                 // are still apparent
                 let pixels: &[u32] = unsafe {
                     let raw_pixels: &[u8] = pixels;
-                    #[allow(clippy::cast_ptr_alignment)]
+                    #[allow(clippy::cast_ptr_alignment, clippy::cast_slice_different_sizes)]
                     &*(raw_pixels as *const [u8] as *const [u32])
                 };
 
